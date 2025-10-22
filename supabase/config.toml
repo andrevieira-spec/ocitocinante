@@ -1,1 +1,7 @@
 project_id = "xppgoccktxwfpqqvcqug"
+
+[functions.chat]
+verify_jwt = true
+
+[functions.generate-campaign]
+verify_jwt = true

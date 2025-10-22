@@ -14,7 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      campaigns: {
+        Row: {
+          content: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          performance_metrics: Json | null
+          status: string | null
+          target_audience: Json | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          performance_metrics?: Json | null
+          status?: string | null
+          target_audience?: Json | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          performance_metrics?: Json | null
+          status?: string | null
+          target_audience?: Json | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      learning_patterns: {
+        Row: {
+          confidence_score: number | null
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          pattern_data: Json
+          pattern_type: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          pattern_data: Json
+          pattern_type: string
+        }
+        Update: {
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          pattern_data?: Json
+          pattern_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_patterns_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_insights: {
+        Row: {
+          created_at: string | null
+          data: Json
+          id: string
+          insight_type: string
+          relevance_score: number | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          id?: string
+          insight_type: string
+          relevance_score?: number | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          id?: string
+          insight_type?: string
+          relevance_score?: number | null
+          source?: string | null
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -4,6 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const authSchema = z.object({
+  email: z.string()
+    .trim()
+    .email('Email inválido')
+    .max(255, 'Email muito longo'),
+  password: z.string()
+    .min(8, 'Senha deve ter no mínimo 8 caracteres')
+    .max(72, 'Senha muito longa')
+});
 
 export const AuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,17 +28,41 @@ export const AuthForm = () => {
     setLoading(true);
 
     try {
+      // Validate inputs
+      const validationResult = authSchema.safeParse({ email, password });
+      if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        toast({ 
+          title: 'Erro de validação', 
+          description: firstError.message, 
+          variant: 'destructive' 
+        });
+        setLoading(false);
+        return;
+      }
+
+      const { email: validEmail, password: validPassword } = validationResult.data;
+
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email: validEmail, 
+          password: validPassword 
+        });
         if (error) throw error;
         toast({ title: 'Login realizado com sucesso!' });
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ 
+          email: validEmail, 
+          password: validPassword 
+        });
         if (error) throw error;
         toast({ title: 'Conta criada! Faça login para continuar.' });
       }
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      const userMessage = error.message === 'Invalid login credentials'
+        ? 'Email ou senha incorretos'
+        : 'Ocorreu um erro. Tente novamente.';
+      toast({ title: 'Erro', description: userMessage, variant: 'destructive' });
     } finally {
       setLoading(false);
     }

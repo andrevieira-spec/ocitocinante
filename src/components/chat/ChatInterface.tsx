@@ -1,10 +1,18 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Send, Bot, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const messageSchema = z.object({
+  message: z.string()
+    .trim()
+    .min(1, 'Mensagem não pode estar vazia')
+    .max(2000, 'Mensagem muito longa (máximo 2000 caracteres)')
+});
 
 interface Message {
   role: 'user' | 'assistant';
@@ -25,10 +33,22 @@ export const ChatInterface = () => {
 
   useEffect(scrollToBottom, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  const sendMessage = useCallback(async () => {
+    if (loading) return;
 
-    const userMessage = input.trim();
+    // Validate input
+    const validationResult = messageSchema.safeParse({ message: input });
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
+      toast({
+        title: 'Erro de validação',
+        description: firstError.message,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const userMessage = validationResult.data.message;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
@@ -43,15 +63,18 @@ export const ChatInterface = () => {
       setConversationId(data.conversationId);
       setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
     } catch (error: any) {
+      const userMessage = error.message?.includes('auth')
+        ? 'Sua sessão expirou. Faça login novamente.'
+        : 'Erro ao enviar mensagem. Tente novamente.';
       toast({
-        title: 'Erro ao enviar mensagem',
-        description: error.message,
+        title: 'Erro',
+        description: userMessage,
         variant: 'destructive'
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [input, loading, conversationId, toast]);
 
   return (
     <div className="flex flex-col h-full">

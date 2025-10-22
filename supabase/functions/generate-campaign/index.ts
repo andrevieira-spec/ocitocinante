@@ -134,9 +134,21 @@ Formato JSON:
 
   } catch (error) {
     console.error('Erro ao gerar campanha:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    
+    // Return user-friendly error message while keeping detailed logs server-side
+    let userMessage = 'Ocorreu um erro ao gerar a campanha. Por favor, tente novamente.';
+    
+    if (error instanceof Error) {
+      // Map specific errors to user-friendly messages
+      if (error.message.includes('auth') || error.message.includes('Não autenticado')) {
+        userMessage = 'Sua sessão expirou. Faça login novamente.';
+      } else if (error.message.includes('conversationId') || error.message.includes('campaignType')) {
+        userMessage = 'Dados inválidos. Verifique e tente novamente.';
+      }
+    }
+    
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: userMessage }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

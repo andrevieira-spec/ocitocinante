@@ -26,7 +26,24 @@ Deno.serve(async (req) => {
       throw new Error('Não autenticado');
     }
 
-    const { conversationId, campaignType, targetAudience } = await req.json();
+    const body = await req.json();
+    
+    // Input validation
+    if (!body.conversationId || typeof body.conversationId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'ID de conversa inválido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    const conversationId = body.conversationId;
+    const campaignType = body.campaignType && typeof body.campaignType === 'string' 
+      ? body.campaignType.trim().substring(0, 100) 
+      : 'marketing geral';
+    const targetAudience = body.targetAudience && typeof body.targetAudience === 'string'
+      ? body.targetAudience.trim().substring(0, 200)
+      : 'baseado no contexto';
+    
     console.log('Gerando campanha:', { conversationId, campaignType });
 
     // Buscar padrões de aprendizado

@@ -31,8 +31,33 @@ Deno.serve(async (req) => {
       throw new Error('Não autenticado');
     }
 
-    const { conversationId, message } = await req.json();
-    console.log('Recebida mensagem:', { conversationId, message, userId: user.id });
+    const body = await req.json();
+    
+    // Input validation
+    if (!body.message || typeof body.message !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Mensagem inválida' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    const message = body.message.trim();
+    if (message.length === 0 || message.length > 2000) {
+      return new Response(
+        JSON.stringify({ error: 'Mensagem deve ter entre 1 e 2000 caracteres' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    const conversationId = body.conversationId;
+    if (conversationId && typeof conversationId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'ID de conversa inválido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    console.log('Recebida mensagem:', { conversationId, message: message.substring(0, 50), userId: user.id });
 
     // Criar ou obter conversa
     let conversation;

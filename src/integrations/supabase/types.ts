@@ -80,6 +80,66 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          campaign_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          interest_level: string | null
+          interested_products: string[] | null
+          name: string | null
+          phone: string | null
+          source: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          interest_level?: string | null
+          interested_products?: string[] | null
+          name?: string | null
+          phone?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          interest_level?: string | null
+          interested_products?: string[] | null
+          name?: string | null
+          phone?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "public_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_patterns: {
         Row: {
           confidence_score: number | null
@@ -176,6 +236,158 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      products: {
+        Row: {
+          availability: boolean | null
+          category: string | null
+          created_at: string | null
+          description: string | null
+          discount_percentage: number | null
+          external_id: string | null
+          id: string
+          image_url: string | null
+          metadata: Json | null
+          name: string
+          original_price: number | null
+          price: number | null
+          scraped_at: string | null
+          url: string
+        }
+        Insert: {
+          availability?: boolean | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          discount_percentage?: number | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          metadata?: Json | null
+          name: string
+          original_price?: number | null
+          price?: number | null
+          scraped_at?: string | null
+          url: string
+        }
+        Update: {
+          availability?: boolean | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          discount_percentage?: number | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          metadata?: Json | null
+          name?: string
+          original_price?: number | null
+          price?: number | null
+          scraped_at?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
+      public_conversations: {
+        Row: {
+          client_email: string | null
+          client_name: string | null
+          client_phone: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          session_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          session_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          session_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      public_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "public_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scraping_logs: {
+        Row: {
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          products_found: number | null
+          products_updated: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          products_found?: number | null
+          products_updated?: number | null
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          products_found?: number | null
+          products_updated?: number | null
+          status?: string
+        }
+        Relationships: []
       }
     }
     Views: {

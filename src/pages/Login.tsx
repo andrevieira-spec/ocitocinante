@@ -48,7 +48,7 @@ export default function Login() {
 
       toast({
         title: 'Login realizado',
-        description: 'Bem-vindo ao CBOS Admin',
+        description: 'Bem-vindo ao CBOS Ocitocina',
       });
 
       navigate('/admin');
@@ -129,7 +129,7 @@ export default function Login() {
               <Lock className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">CBOS Admin</CardTitle>
+          <CardTitle className="text-2xl font-bold">CBOS Ocitocina</CardTitle>
           <CardDescription>
             Sistema interno da Ocitocina Viagens & Sonhos
           </CardDescription>

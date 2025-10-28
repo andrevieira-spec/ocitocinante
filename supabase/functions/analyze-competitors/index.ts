@@ -18,9 +18,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY')?.trim();
     if (!perplexityApiKey) {
-      throw new Error('Perplexity API key not configured');
+      throw new Error('Perplexity API key not configured.');
     }
 
     // Get all active competitors
@@ -159,7 +159,8 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
+    const errText = await response.text();
+    throw new Error(`Perplexity API error: ${response.status} - ${errText.slice(0, 200)}`);
   }
 
   const data = await response.json();

@@ -26,6 +26,7 @@ async function retryWithBackoff<T>(
   throw new Error('Max retries reached');
 }
 
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

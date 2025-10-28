@@ -20,9 +20,11 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
+    const emailNormalized = email.trim().toLowerCase();
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailNormalized,
         password,
       });
 
@@ -53,11 +55,35 @@ export default function Login() {
 
       navigate('/admin');
     } catch (error: any) {
+      const msg: string = error?.message || '';
+      const friendly = msg.includes('Invalid login credentials')
+        ? 'Email ou senha incorretos'
+        : msg;
       toast({
         title: 'Erro no login',
-        description: error.message || 'Credenciais inválidas',
+        description: friendly || 'Credenciais inválidas',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    const emailNormalized = email.trim().toLowerCase();
+    if (!emailNormalized) {
+      toast({ title: 'Informe seu email', description: 'Preencha o campo de email para receber o link.' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(emailNormalized, {
+        redirectTo: `${window.location.origin}/reset`,
+      });
+      if (error) throw error;
+      toast({ title: 'Verifique seu email', description: 'Enviamos um link para redefinir sua senha.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao enviar link', description: error?.message || 'Tente novamente', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -88,7 +114,7 @@ export default function Login() {
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/admin`,
@@ -179,6 +205,11 @@ export default function Login() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </Button>
+                <div className="mt-2 text-center">
+                  <Button type="button" variant="link" onClick={handleResetPassword} disabled={loading}>
+                    Esqueci minha senha
+                  </Button>
+                </div>
               </form>
             </TabsContent>
 

@@ -64,34 +64,35 @@ export const MarketInsights = () => {
 
   const runAnalysis = async () => {
     setAnalyzing(true);
+    // Start polling immediately to catch results even if the invoke call fails due to network/CORS
+    const start = Date.now();
+    const interval: ReturnType<typeof setInterval> = setInterval(() => {
+      loadData();
+      if (Date.now() - start > 30000) {
+        clearInterval(interval);
+        setAnalyzing(false);
+      }
+    }, 5000);
+
     try {
       const { error } = await supabase.functions.invoke('analyze-competitors', {
-        body: { 
-          scheduled: false, 
-          include_trends: true, 
-          include_paa: true 
-        }
+        body: {
+          scheduled: false,
+          include_trends: true,
+          include_paa: true,
+        },
       });
-      
+
       if (error) throw error;
 
-      toast({ title: 'Análise iniciada! Aguarde alguns minutos...' });
-      // Poll for up to 30s while background task runs
-      const start = Date.now();
-      const interval = setInterval(() => {
-        loadData();
-        if (Date.now() - start > 30000) {
-          clearInterval(interval);
-          setAnalyzing(false);
-        }
-      }, 5000);
+      toast({ title: 'Análise iniciada! Atualizando automaticamente por 30s...' });
     } catch (error: any) {
+      // Keep polling regardless, as the function may still have run server-side
       toast({
-        title: 'Erro ao executar análise',
-        description: error.message,
-        variant: 'destructive'
+        title: 'Não foi possível confirmar o início da análise',
+        description: error?.message || 'Continuaremos atualizando por 30s para capturar resultados.',
+        variant: 'destructive',
       });
-      setAnalyzing(false);
     }
   };
 

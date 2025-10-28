@@ -26,65 +26,6 @@ async function retryWithBackoff<T>(
   throw new Error('Max retries reached');
 }
 
-// Perplexity API helper
-async function callPerplexity(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [
-        { role: 'system', content: 'Seja preciso, conciso e traga dados atuais quando possível.' },
-        { role: 'user', content: prompt }
-      ],
-      max_tokens: 1200,
-      temperature: 0.2,
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Perplexity error ${res.status}: ${t.slice(0,200)}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
-}
-
-async function fetchCvcPackages(perplexityKey: string, brand: string) {
-  const prompt = `Acesse o site e perfis oficiais da ${brand} (CVC) e identifique pacotes REALMENTE anunciados HOJE e os com maior interação nas últimas 48h. 
-Retorne EXCLUSIVAMENTE um JSON com este formato:
-{
-  "packages": [
-    {
-      "nome": "...",
-      "preco": "...",
-      "destino": "...",
-      "datas_saida": ["..."],
-      "hoteis": [{"nome":"...","categoria":"..."}],
-      "companhia_aerea": "...",
-      "voos": "...",
-      "traslado_incluso": true,
-      "passeios_inclusos": ["..."],
-      "condicoes_pagamento": "...",
-      "promocoes_ativas": ["..."]
-    }
-  ],
-  "observacoes": "Resumo curto de padrões de preço/estratégia"
-}
-Se algum campo não existir no post, preencha com a string exata: "informação não disponível no post".`;
-  const txt = await callPerplexity(perplexityKey, prompt);
-  try {
-    const jsonStart = txt.indexOf('{');
-    const jsonEnd = txt.lastIndexOf('}');
-    const json = JSON.parse(txt.slice(jsonStart, jsonEnd + 1));
-    return { json, raw: txt };
-  } catch {
-    return { json: { packages: [] as any[], observacoes: '' }, raw: txt };
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

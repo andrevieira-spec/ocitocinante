@@ -39,9 +39,9 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      throw new Error('Lovable AI key not configured.');
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!googleApiKey) {
+      throw new Error('Google AI API key not configured.');
     }
 
     console.log('Request flags:', { scheduled, include_trends, include_paa });
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
         
         console.log('🔍 Starting strategic analysis...');
         const strategyAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, strategyPrompt)
+          analyzeWithGemini(googleApiKey, strategyPrompt)
         );
         console.log('✅ Strategic analysis completed');
         
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
         Seja direto e visual. PRIORIZE as últimas 2 horas para capturar o momento.`;
         console.log('🔍 Starting Google Trends analysis (MANUAL: 2h focus)...');
         const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
+          analyzeWithGemini(googleApiKey, trendsPrompt)
         );
         console.log('✅ Google Trends analysis completed');
         
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         Seja direto.`;
         console.log('🔍 Starting PAA analysis...');
         const paaAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, paaPrompt)
+          analyzeWithGemini(googleApiKey, paaPrompt)
         );
         console.log('✅ PAA analysis completed');
         
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
         
         console.log('🔍 Starting Trends Summary...');
         const trendsSummaryAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsSummaryPrompt)
+          analyzeWithGemini(googleApiKey, trendsSummaryPrompt)
         );
         console.log('✅ Trends Summary completed');
         
@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
 
       console.log('Starting pricing analysis...');
       const pricingAnalysis = await retryWithBackoff(() => 
-        analyzeWithPerplexity(lovableApiKey, pricingPrompt)
+        analyzeWithGemini(googleApiKey, pricingPrompt)
       );
       const { error: pricingError } = await supabase.from('market_analysis').insert({
         competitor_id: competitor.id,
@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
 
         try {
           const socialAnalysis = await retryWithBackoff(() => 
-            analyzeWithPerplexity(lovableApiKey, socialPrompt)
+            analyzeWithGemini(googleApiKey, socialPrompt)
           );
           const { error: socialError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
 
       try {
         const strategyAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, strategyPrompt)
+          analyzeWithGemini(googleApiKey, strategyPrompt)
         );
         const { error: strategyError } = await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
       console.log('🔍 Starting Google Trends analysis (SCHEDULED: 24h focus)...');
       try {
         const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
+          analyzeWithGemini(googleApiKey, trendsPrompt)
         );
         await supabase.from('market_analysis').insert({
           analysis_type: 'google_trends',
@@ -403,7 +403,7 @@ Deno.serve(async (req) => {
       Identifique: dúvidas comuns, preocupações dos viajantes, tópicos de interesse, oportunidades de conteúdo.`;
       try {
         const paaAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, paaPrompt)
+          analyzeWithGemini(googleApiKey, paaPrompt)
         );
         await supabase.from('market_analysis').insert({
           analysis_type: 'people_also_ask',
@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
       
       try {
         const trendsSummaryAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsSummaryPrompt)
+          analyzeWithGemini(googleApiKey, trendsSummaryPrompt)
         );
         await supabase.from('market_analysis').insert({
           analysis_type: 'trends',
@@ -476,49 +476,50 @@ Deno.serve(async (req) => {
   }
 });
 
-async function analyzeWithPerplexity(apiKey: string, prompt: string): Promise<any> {
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+async function analyzeWithGemini(apiKey: string, prompt: string): Promise<any> {
+  const systemPrompt = 'Você é um analista estratégico sênior de mercado de turismo. Forneça análises COMPLETAS, DIDÁTICAS e CONCISAS baseadas em dados reais da web. USE ESTES CABEÇALHOS OBRIGATÓRIOS: "Insights Principais:" seguido de 5-7 pontos detalhados e "Recomendações Estratégicas:" seguido de 5-7 ações específicas e práticas. Seja executivo, use dados concretos, e mantenha tom profissional mas acessível.';
+  
+  const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+  
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: 'Você é um analista estratégico sênior de mercado de turismo. Forneça análises COMPLETAS, DIDÁTICAS e CONCISAS baseadas em dados reais da web. USE ESTES CABEÇALHOS OBRIGATÓRIOS: "Insights Principais:" seguido de 5-7 pontos detalhados e "Recomendações Estratégicas:" seguido de 5-7 ações específicas e práticas. Seja executivo, use dados concretos, e mantenha tom profissional mas acessível.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
+      contents: [{
+        parts: [{
+          text: fullPrompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      }
     }),
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    console.error(`AI Gateway Error ${response.status}:`, errText);
+    console.error(`Google AI Error ${response.status}:`, errText);
     
-    if (response.status === 402) {
-      throw new Error('Créditos insuficientes no Lovable AI. Adicione créditos em Settings → Workspace → Usage para continuar as análises.');
-    }
     if (response.status === 429) {
-      throw new Error('Limite de requisições excedido. Aguarde alguns minutos antes de tentar novamente.');
+      throw new Error('Limite de requisições excedido na API do Google. Aguarde alguns minutos antes de tentar novamente.');
+    }
+    if (response.status === 400) {
+      throw new Error('API key do Google AI inválida ou erro na requisição. Verifique sua configuração.');
     }
     
-    throw new Error(`AI gateway error: ${response.status} - ${errText.slice(0, 200)}`);
+    throw new Error(`Google AI API error: ${response.status} - ${errText.slice(0, 200)}`);
   }
 
   const data = await response.json();
-  const fullText = data.choices[0].message.content;
-  console.log(`✅ AI response received (${fullText.length} chars)`);
+  const fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  console.log(`✅ Google AI response received (${fullText.length} chars)`);
   
   // Log token usage if available
-  if (data.usage) {
-    console.log(`📊 Tokens: ${data.usage.prompt_tokens} prompt + ${data.usage.completion_tokens} completion = ${data.usage.total_tokens} total`);
+  if (data.usageMetadata) {
+    console.log(`📊 Tokens: ${data.usageMetadata.promptTokenCount} prompt + ${data.usageMetadata.candidatesTokenCount} completion = ${data.usageMetadata.totalTokenCount} total`);
   }
   
   // Parse insights and recommendations from response

@@ -156,17 +156,24 @@ Deno.serve(async (req) => {
         console.log('Quick strategic analysis inserted');
       }
 
-      // 2) Quick Google Trends (optional)
+      // 2) Quick Google Trends (optional) - MANUAL: últimas 2h
       if (include_trends) {
-        const trendsPrompt = `Resumo rápido das tendências do Google Trends para turismo no Brasil nos últimos 30 dias.
+        const trendsPrompt = `Analise as tendências do Google Trends para turismo no Brasil em TRÊS PERÍODOS + TOP ASSUNTOS (FOCO: ÚLTIMAS 2 HORAS):
         
-        FORMATO:
-        📈 3-4 destinos/temas em alta
-        🎯 2-3 palavras-chave emergentes
-        💡 1-2 implicações práticas
+        📈 ANÁLISE 30 DIAS:
+        [3-4 destinos/temas em alta, palavras-chave emergentes]
         
-        Seja direto e visual.`;
-        console.log('🔍 Starting Google Trends analysis...');
+        ⚡ ANÁLISE ÚLTIMAS 2 HORAS (PRIORIDADE):
+        - Tendências de busca nas últimas 2 horas
+        - Picos de interesse AGORA
+        - Temas emergentes nas últimas 2h
+        
+        🔥 TOP 10 ASSUNTOS BRASIL (ÚLTIMAS 2H):
+        - Liste os 10 assuntos GERAIS mais pesquisados no Google Brasil nas últimas 2 horas
+        - Identifique quais podem ser aproveitados para campanhas de turismo (humor, oportunismo criativo)
+        
+        Seja direto e visual. PRIORIZE as últimas 2 horas para capturar o momento.`;
+        console.log('🔍 Starting Google Trends analysis (MANUAL: 2h focus)...');
         const trendsAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, trendsPrompt)
         );
@@ -410,9 +417,9 @@ Deno.serve(async (req) => {
       console.log(`Completed analysis for ${competitor.name}`);
     }
 
-    // Global Google Trends (30 dias + 24 horas + Top 10 assuntos)
+    // Global Google Trends (30 dias + 24 horas + Top 10 assuntos) - AUTOMÁTICO: 24h
     if (include_trends) {
-      const trendsPrompt = `Analise as tendências do Google Trends para turismo no Brasil em DOIS PERÍODOS + TOP ASSUNTOS:
+      const trendsPrompt = `Analise as tendências do Google Trends para turismo no Brasil em DOIS PERÍODOS + TOP ASSUNTOS (AUTOMÁTICO: 6h da manhã):
       
       📈 ANÁLISE 30 DIAS:
       - Destinos em alta
@@ -420,7 +427,7 @@ Deno.serve(async (req) => {
       - Palavras-chave emergentes
       - Sazonalidade identificada
       
-      ⚡ ANÁLISE 24 HORAS:
+      ⚡ ANÁLISE ÚLTIMAS 24 HORAS:
       - Tendências de busca do último dia
       - Picos de interesse recentes
       - Temas emergentes nas últimas 24h
@@ -431,6 +438,7 @@ Deno.serve(async (req) => {
       - Marque claramente os assuntos que têm potencial de conexão com turismo
       
       Foco: turismo geral, dados práticos para campanhas de marketing.`;
+      console.log('🔍 Starting Google Trends analysis (SCHEDULED: 24h focus)...');
       try {
         const trendsAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, trendsPrompt)
@@ -481,8 +489,9 @@ Deno.serve(async (req) => {
       ⚡ TENDÊNCIAS 24 HORAS:
       [3-4 bullet points sobre picos recentes, temas emergentes do último dia]
       
-      🔥 TOP 10 ASSUNTOS BRASIL (24H):
-      [liste os 10 assuntos mais pesquisados no Google Brasil nas últimas 24h]
+      🔥 TOP 10 ASSUNTOS BRASIL:
+      [AUTOMÁTICO (6h): últimas 24h | MANUAL: últimas 2h]
+      [liste os 10 assuntos mais pesquisados no Google Brasil no período]
       [marque os 3-5 assuntos com maior potencial para campanhas de turismo com humor/criatividade]
       
       ❓ PERGUNTAS FREQUENTES (PAA):

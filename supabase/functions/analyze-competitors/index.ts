@@ -41,9 +41,11 @@ serve(async (req) => {
       Foque em: pacotes atuais, promoções, faixas de preço, sazonalidade, e comparação com mercado.
       Entregue insights práticos e recomendações estratégicas para competir.`;
 
+      console.log('Starting pricing analysis...');
       const pricingAnalysis = await analyzeWithPerplexity(lovableApiKey, pricingPrompt);
+      console.log('Pricing analysis completed');
       
-      await supabase.from('market_analysis').insert({
+      const { error: pricingError } = await supabase.from('market_analysis').insert({
         competitor_id: competitor.id,
         analysis_type: 'pricing',
         data: { raw_response: pricingAnalysis.data },
@@ -51,6 +53,10 @@ serve(async (req) => {
         recommendations: pricingAnalysis.recommendations,
         confidence_score: 0.85
       });
+      if (pricingError) {
+        console.error('Error inserting pricing analysis:', pricingError);
+        throw pricingError;
+      }
 
       // 2. Analyze Social Media Trends
       const socialUrls = [
@@ -156,10 +162,12 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string) {
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`AI Gateway Error ${response.status}:`, errText);
     throw new Error(`AI gateway error: ${response.status} - ${errText.slice(0, 200)}`);
   }
 
   const data = await response.json();
+  console.log('AI response received, parsing...');
   const fullText = data.choices[0].message.content;
   
   // Parse insights and recommendations from response

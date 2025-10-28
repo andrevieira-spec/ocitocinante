@@ -135,7 +135,12 @@ export const MarketInsights = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Insights de Mercado</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Insights de Mercado</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Total de {analyses.length} análises realizadas
+          </p>
+        </div>
         <Button onClick={runAnalysis} disabled={analyzing}>
           {analyzing ? 'Analisando...' : 'Executar Nova Análise'}
         </Button>
@@ -191,7 +196,11 @@ export const MarketInsights = () => {
                               : getTypeLabel(analysis.analysis_type)}
                           </CardTitle>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(analysis.analyzed_at).toLocaleDateString('pt-BR')}
+                            {new Date(analysis.analyzed_at).toLocaleDateString('pt-BR')} às{' '}
+                            {new Date(analysis.analyzed_at).toLocaleTimeString('pt-BR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
                           </p>
                         </div>
                       </div>

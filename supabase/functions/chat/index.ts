@@ -113,20 +113,50 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(5);
 
+    // Buscar análises de mercado recentes
+    const { data: marketAnalyses } = await supabaseClient
+      .from('market_analysis')
+      .select('analysis_type, insights, recommendations, analyzed_at, confidence_score')
+      .order('analyzed_at', { ascending: false })
+      .limit(20);
+
+    // Organizar análises por tipo
+    const analysesContext = marketAnalyses?.reduce((acc, a) => {
+      if (!acc[a.analysis_type]) acc[a.analysis_type] = [];
+      acc[a.analysis_type].push({
+        insights: a.insights.substring(0, 300),
+        recommendations: a.recommendations.substring(0, 200),
+        date: new Date(a.analyzed_at).toLocaleDateString('pt-BR'),
+        confidence: Math.round(a.confidence_score * 100)
+      });
+      return acc;
+    }, {} as Record<string, any[]>) || {};
+
     // Preparar contexto
     const systemPrompt = `Você é o CBOS (Chatbot de Organização de Serviços), um assistente de marketing inteligente especializado em:
 - Análise de conversas para identificar padrões de comportamento
 - Geração de insights sobre preferências e necessidades
 - Criação automática de campanhas personalizadas
 - Recomendações baseadas em dados coletados
+- Análise e consulta de pesquisas de mercado realizadas
+
+ANÁLISES DE MERCADO DISPONÍVEIS:
+${Object.entries(analysesContext).map(([type, analyses]) => `
+${type.toUpperCase()}:
+${analyses.slice(0, 2).map((a: any) => `- [${a.date}] ${a.insights.substring(0, 150)}...`).join('\n')}
+`).join('\n')}
 
 Padrões identificados anteriormente: ${patterns?.map(p => JSON.stringify(p.pattern_data)).join(', ') || 'Nenhum'}
+
+IMPORTANTE: Quando o usuário perguntar sobre análises, tendências, concorrentes ou pesquisas de mercado, 
+use as informações acima para responder com dados concretos. Cite sempre a data e o tipo da análise.
 
 Você deve:
 1. Conversar naturalmente com o usuário
 2. Identificar necessidades e preferências
-3. Sugerir campanhas quando apropriado
-4. Ser proativo em oferecer soluções`;
+3. Responder perguntas sobre análises de mercado com dados das pesquisas realizadas
+4. Sugerir campanhas quando apropriado
+5. Ser proativo em oferecer soluções baseadas nos insights de mercado`;
 
     const messages: Message[] = [
       { role: 'system', content: systemPrompt },

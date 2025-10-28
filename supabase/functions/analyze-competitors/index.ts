@@ -7,12 +7,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Retry logic for API calls
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  initialDelay = 1000
+): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      const delay = initialDelay * Math.pow(2, i);
+      console.log(`Retry ${i + 1}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error('Max retries reached');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const { scheduled = false, include_trends = false, include_paa = false } = body;
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -42,7 +63,9 @@ serve(async (req) => {
       Entregue insights práticos e recomendações estratégicas para competir.`;
 
       console.log('Starting pricing analysis...');
-      const pricingAnalysis = await analyzeWithPerplexity(lovableApiKey, pricingPrompt);
+      const pricingAnalysis = await retryWithBackoff(() => 
+        analyzeWithPerplexity(lovableApiKey, pricingPrompt)
+      );
       console.log('Pricing analysis completed');
       
       const { error: pricingError } = await supabase.from('market_analysis').insert({
@@ -74,7 +97,9 @@ serve(async (req) => {
 
         console.log('Starting social analysis...');
         try {
-          const socialAnalysis = await analyzeWithPerplexity(lovableApiKey, socialPrompt);
+          const socialAnalysis = await retryWithBackoff(() => 
+            analyzeWithPerplexity(lovableApiKey, socialPrompt)
+          );
           const { error: socialError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
             analysis_type: 'social_media',
@@ -98,7 +123,9 @@ serve(async (req) => {
 
       console.log('Starting trends analysis...');
       try {
-        const trendsAnalysis = await analyzeWithPerplexity(lovableApiKey, trendsPrompt);
+        const trendsAnalysis = await retryWithBackoff(() => 
+          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
+        );
         const { error: trendsError } = await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'trends',
@@ -120,7 +147,9 @@ serve(async (req) => {
 
       console.log('Starting strategic analysis...');
       try {
-        const strategyAnalysis = await analyzeWithPerplexity(lovableApiKey, strategyPrompt);
+        const strategyAnalysis = await retryWithBackoff(() => 
+          analyzeWithPerplexity(lovableApiKey, strategyPrompt)
+        );
         const { error: strategyError } = await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'strategic_insights',
@@ -138,11 +167,70 @@ serve(async (req) => {
       console.log(`Completed analysis for ${competitor.name}`);
     }
 
+    // Google Trends Analysis
+    if (include_trends) {
+      console.log('Starting Google Trends analysis...');
+      try {
+        const trendsPrompt = `Analise as principais tendências do Google Trends para o setor de turismo no Brasil nos últimos 30 dias.
+        Identifique: destinos em alta, tipos de viagem mais procurados, palavras-chave emergentes, sazonalidade.
+        Foco: turismo geral (não luxo), dados práticos para campanhas de marketing.
+        Forneça insights acionáveis sobre o que as pessoas estão buscando agora.`;
+        
+        const trendsAnalysis = await retryWithBackoff(() => 
+          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
+        );
+        
+        const { error: trendsInsertError } = await supabase.from('market_analysis').insert({
+          analysis_type: 'google_trends',
+          data: { raw_response: trendsAnalysis.data },
+          insights: trendsAnalysis.insights,
+          recommendations: trendsAnalysis.recommendations,
+          confidence_score: 0.85
+        });
+        if (trendsInsertError) console.error('Error inserting Google Trends:', trendsInsertError);
+        console.log('Google Trends analysis completed');
+      } catch (e) {
+        console.error('Google Trends analysis failed:', e);
+      }
+    }
+
+    // People Also Ask Analysis
+    if (include_paa) {
+      console.log('Starting People Also Ask analysis...');
+      try {
+        const paaPrompt = `Analise as principais perguntas que as pessoas fazem no Google (People Also Ask) sobre turismo no Brasil.
+        Identifique: dúvidas comuns, preocupações dos viajantes, tópicos de interesse, oportunidades de conteúdo.
+        Foco: turismo geral, criar conteúdo que responda essas perguntas.
+        Forneça insights sobre como usar essas perguntas para criar campanhas e conteúdo relevante.`;
+        
+        const paaAnalysis = await retryWithBackoff(() => 
+          analyzeWithPerplexity(lovableApiKey, paaPrompt)
+        );
+        
+        const { error: paaInsertError } = await supabase.from('market_analysis').insert({
+          analysis_type: 'people_also_ask',
+          data: { raw_response: paaAnalysis.data },
+          insights: paaAnalysis.insights,
+          recommendations: paaAnalysis.recommendations,
+          confidence_score: 0.85
+        });
+        if (paaInsertError) console.error('Error inserting PAA:', paaInsertError);
+        console.log('People Also Ask analysis completed');
+      } catch (e) {
+        console.error('People Also Ask analysis failed:', e);
+      }
+    }
+
+    const message = scheduled 
+      ? 'Análise diária automática concluída com sucesso' 
+      : 'Análise de concorrentes concluída com sucesso';
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         analyzed: competitors?.length || 0,
-        message: 'Análise de concorrentes concluída' 
+        message,
+        timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -156,7 +244,7 @@ serve(async (req) => {
   }
 });
 
-async function analyzeWithPerplexity(apiKey: string, prompt: string) {
+async function analyzeWithPerplexity(apiKey: string, prompt: string): Promise<any> {
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {

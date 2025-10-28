@@ -65,7 +65,13 @@ export const MarketInsights = () => {
   const runAnalysis = async () => {
     setAnalyzing(true);
     try {
-      const { error } = await supabase.functions.invoke('analyze-competitors');
+      const { error } = await supabase.functions.invoke('analyze-competitors', {
+        body: { 
+          scheduled: false, 
+          include_trends: true, 
+          include_paa: true 
+        }
+      });
       
       if (error) throw error;
 
@@ -95,6 +101,8 @@ export const MarketInsights = () => {
       case 'social_media': return <Users className="w-5 h-5" />;
       case 'trends': return <TrendingUp className="w-5 h-5" />;
       case 'strategic_insights': return <Lightbulb className="w-5 h-5" />;
+      case 'google_trends': return <TrendingUp className="w-5 h-5" />;
+      case 'people_also_ask': return <Users className="w-5 h-5" />;
       default: return <TrendingUp className="w-5 h-5" />;
     }
   };
@@ -104,7 +112,9 @@ export const MarketInsights = () => {
       pricing: 'Preços',
       social_media: 'Redes Sociais',
       trends: 'Tendências',
-      strategic_insights: 'Insights Estratégicos'
+      strategic_insights: 'Insights Estratégicos',
+      google_trends: 'Google Trends',
+      people_also_ask: 'People Also Ask'
     };
     return labels[type] || type;
   };
@@ -134,7 +144,7 @@ export const MarketInsights = () => {
         </Card>
       ) : (
         <Tabs defaultValue="strategic_insights" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="strategic_insights">
               <Lightbulb className="w-4 h-4 mr-2" />
               Estratégia
@@ -151,9 +161,17 @@ export const MarketInsights = () => {
               <Users className="w-4 h-4 mr-2" />
               Redes Sociais
             </TabsTrigger>
+            <TabsTrigger value="google_trends">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Google Trends
+            </TabsTrigger>
+            <TabsTrigger value="people_also_ask">
+              <Users className="w-4 h-4 mr-2" />
+              PAA
+            </TabsTrigger>
           </TabsList>
 
-          {['strategic_insights', 'pricing', 'trends', 'social_media'].map(type => (
+          {['strategic_insights', 'pricing', 'trends', 'social_media', 'google_trends', 'people_also_ask'].map(type => (
             <TabsContent key={type} value={type} className="space-y-4">
               {filterAnalysesByType(type).map((analysis) => (
                 <Card key={analysis.id}>
@@ -163,7 +181,9 @@ export const MarketInsights = () => {
                         {getIcon(analysis.analysis_type)}
                         <div>
                           <CardTitle className="text-lg">
-                            {getCompetitorName(analysis.competitor_id)}
+                            {analysis.competitor_id 
+                              ? getCompetitorName(analysis.competitor_id) 
+                              : getTypeLabel(analysis.analysis_type)}
                           </CardTitle>
                           <p className="text-sm text-muted-foreground">
                             {new Date(analysis.analyzed_at).toLocaleDateString('pt-BR')}

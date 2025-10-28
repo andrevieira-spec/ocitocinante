@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.perplexity-chat]
 verify_jwt = true
+
+[functions.analyze-competitors]
+verify_jwt = false

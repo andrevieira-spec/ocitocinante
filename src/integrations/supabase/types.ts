@@ -53,6 +53,48 @@ export type Database = {
         }
         Relationships: []
       }
+      competitors: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          instagram_url: string | null
+          is_active: boolean | null
+          name: string
+          tiktok_url: string | null
+          updated_at: string
+          website_url: string
+          x_url: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          instagram_url?: string | null
+          is_active?: boolean | null
+          name: string
+          tiktok_url?: string | null
+          updated_at?: string
+          website_url: string
+          x_url?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          instagram_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          tiktok_url?: string | null
+          updated_at?: string
+          website_url?: string
+          x_url?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string | null
@@ -171,6 +213,50 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_analysis: {
+        Row: {
+          analysis_type: string
+          analyzed_at: string
+          competitor_id: string | null
+          confidence_score: number | null
+          created_at: string
+          data: Json
+          id: string
+          insights: string
+          recommendations: string | null
+        }
+        Insert: {
+          analysis_type: string
+          analyzed_at?: string
+          competitor_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          data: Json
+          id?: string
+          insights: string
+          recommendations?: string | null
+        }
+        Update: {
+          analysis_type?: string
+          analyzed_at?: string
+          competitor_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          data?: Json
+          id?: string
+          insights?: string
+          recommendations?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_analysis_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
             referencedColumns: ["id"]
           },
         ]

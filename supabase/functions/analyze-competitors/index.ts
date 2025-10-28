@@ -18,9 +18,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY')?.trim();
-    if (!perplexityApiKey) {
-      throw new Error('Perplexity API key not configured.');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('Lovable AI key not configured.');
     }
 
     // Get all active competitors
@@ -41,7 +41,7 @@ serve(async (req) => {
       Foque em: pacotes atuais, promoções, faixas de preço, sazonalidade, e comparação com mercado.
       Entregue insights práticos e recomendações estratégicas para competir.`;
 
-      const pricingAnalysis = await analyzeWithPerplexity(perplexityApiKey, pricingPrompt);
+      const pricingAnalysis = await analyzeWithPerplexity(lovableApiKey, pricingPrompt);
       
       await supabase.from('market_analysis').insert({
         competitor_id: competitor.id,
@@ -66,7 +66,7 @@ serve(async (req) => {
         Turismo geral (não luxo, exceto se for tendência em volume).
         Entregue insights acionáveis para nossa estratégia de conteúdo.`;
 
-        const socialAnalysis = await analyzeWithPerplexity(perplexityApiKey, socialPrompt);
+        const socialAnalysis = await analyzeWithPerplexity(lovableApiKey, socialPrompt);
         
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
@@ -84,7 +84,7 @@ serve(async (req) => {
       Turismo de luxo só se for tendência em volume significativo.
       Entregue insights sobre oportunidades de mercado e ameaças competitivas.`;
 
-      const trendsAnalysis = await analyzeWithPerplexity(perplexityApiKey, trendsPrompt);
+      const trendsAnalysis = await analyzeWithPerplexity(lovableApiKey, trendsPrompt);
       
       await supabase.from('market_analysis').insert({
         competitor_id: competitor.id,
@@ -100,7 +100,7 @@ serve(async (req) => {
       Considere: pontos fortes e fracos do concorrente, gaps de mercado, oportunidades de diferenciação, ações prioritárias.
       Foco: turismo geral, dados práticos para tomada de decisão.`;
 
-      const strategyAnalysis = await analyzeWithPerplexity(perplexityApiKey, strategyPrompt);
+      const strategyAnalysis = await analyzeWithPerplexity(lovableApiKey, strategyPrompt);
       
       await supabase.from('market_analysis').insert({
         competitor_id: competitor.id,
@@ -133,14 +133,14 @@ serve(async (req) => {
 });
 
 async function analyzeWithPerplexity(apiKey: string, prompt: string) {
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.1-sonar-large-128k-online',
+      model: 'openai/gpt-5-mini',
       messages: [
         {
           role: 'system',
@@ -150,17 +150,13 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string) {
           role: 'user',
           content: prompt
         }
-      ],
-      temperature: 0.2,
-      top_p: 0.9,
-      max_tokens: 2500,
-      search_recency_filter: 'month'
+      ]
     }),
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Perplexity API error: ${response.status} - ${errText.slice(0, 200)}`);
+    throw new Error(`AI gateway error: ${response.status} - ${errText.slice(0, 200)}`);
   }
 
   const data = await response.json();

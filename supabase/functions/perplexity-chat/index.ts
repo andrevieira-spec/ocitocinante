@@ -40,9 +40,9 @@ serve(async (req) => {
       });
     }
 
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
-    if (!perplexityApiKey) {
-      return new Response(JSON.stringify({ error: 'Perplexity API key not configured' }), {
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      return new Response(JSON.stringify({ error: 'Lovable AI key not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,15 +75,15 @@ serve(async (req) => {
       .eq('conversation_id', currentConversationId)
       .order('created_at', { ascending: true });
 
-    // Call Perplexity API
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    // Call Lovable AI Gateway with GPT
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-large-128k-online',
+        model: 'openai/gpt-5-mini',
         messages: [
           {
             role: 'system',
@@ -93,13 +93,7 @@ serve(async (req) => {
             role: m.role,
             content: m.content
           }))
-        ],
-        temperature: 0.2,
-        top_p: 0.9,
-        max_tokens: 2000,
-        return_images: false,
-        return_related_questions: true,
-        search_recency_filter: 'month',
+        ]
       }),
     });
 
@@ -111,7 +105,7 @@ serve(async (req) => {
 
     const data = await response.json();
     const assistantMessage = data.choices[0].message.content;
-    const relatedQuestions = data.related_questions || [];
+    const relatedQuestions: string[] = [];
 
     // Save assistant message
     await supabase.from('perplexity_messages').insert({

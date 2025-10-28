@@ -76,10 +76,14 @@ export const MarketInsights = () => {
       if (error) throw error;
 
       toast({ title: 'Análise iniciada! Aguarde alguns minutos...' });
-      
-      setTimeout(() => {
+      // Poll for up to 30s while background task runs
+      const start = Date.now();
+      const interval = setInterval(() => {
         loadData();
-        setAnalyzing(false);
+        if (Date.now() - start > 30000) {
+          clearInterval(interval);
+          setAnalyzing(false);
+        }
       }, 5000);
     } catch (error: any) {
       toast({

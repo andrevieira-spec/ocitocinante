@@ -45,195 +45,196 @@ serve(async (req) => {
       throw new Error('Lovable AI key not configured.');
     }
 
-    // Get all active competitors
-    const { data: competitors, error: competitorsError } = await supabase
-      .from('competitors')
-      .select('*')
-      .eq('is_active', true);
+    // Run heavy analysis in background to avoid client timeouts
+    setTimeout(async () => {
+      try {
+        // Get all active competitors
+        const { data: competitors, error: competitorsError } = await supabase
+          .from('competitors')
+          .select('*')
+          .eq('is_active', true);
 
-    if (competitorsError) throw competitorsError;
+        if (competitorsError) throw competitorsError;
 
-    console.log(`Analyzing ${competitors?.length || 0} competitors`);
+        console.log(`Analyzing ${competitors?.length || 0} competitors`);
 
-    for (const competitor of competitors || []) {
-      console.log(`Analyzing competitor: ${competitor.name}`);
+        for (const competitor of competitors || []) {
+          console.log(`Analyzing competitor: ${competitor.name}`);
 
-      // 1. Analyze Pricing Strategy
-      const pricingPrompt = `Analise a estratégia de preços e ofertas da empresa ${competitor.name} (${competitor.website_url}) no setor de turismo geral. 
-      Foque em: pacotes atuais, promoções, faixas de preço, sazonalidade, e comparação com mercado.
-      Entregue insights práticos e recomendações estratégicas para competir.`;
+          // 1. Analyze Pricing Strategy
+          const pricingPrompt = `Analise a estratégia de preços e ofertas da empresa ${competitor.name} (${competitor.website_url}) no setor de turismo geral. 
+          Foque em: pacotes atuais, promoções, faixas de preço, sazonalidade, e comparação com mercado.
+          Entregue insights práticos e recomendações estratégicas para competir.`;
 
-      console.log('Starting pricing analysis...');
-      const pricingAnalysis = await retryWithBackoff(() => 
-        analyzeWithPerplexity(lovableApiKey, pricingPrompt)
-      );
-      console.log('Pricing analysis completed');
-      
-      const { error: pricingError } = await supabase.from('market_analysis').insert({
-        competitor_id: competitor.id,
-        analysis_type: 'pricing',
-        data: { raw_response: pricingAnalysis.data },
-        insights: pricingAnalysis.insights,
-        recommendations: pricingAnalysis.recommendations,
-        confidence_score: 0.85
-      });
-      if (pricingError) {
-        console.error('Error inserting pricing analysis:', pricingError);
-      }
-      console.log('Pricing analysis completed');
-
-      // 2. Analyze Social Media Trends
-      const socialUrls = [
-        competitor.instagram_url,
-        competitor.youtube_url,
-        competitor.tiktok_url,
-        competitor.x_url
-      ].filter(Boolean).join(', ');
-
-      if (socialUrls) {
-        const socialPrompt = `Analise a presença nas redes sociais de ${competitor.name}: ${socialUrls}.
-        Foque em: tipo de conteúdo, frequência de posts, engajamento, estratégias que funcionam, tendências.
-        Turismo geral (não luxo, exceto se for tendência em volume).
-        Entregue insights acionáveis para nossa estratégia de conteúdo.`;
-
-        console.log('Starting social analysis...');
-        try {
-          const socialAnalysis = await retryWithBackoff(() => 
-            analyzeWithPerplexity(lovableApiKey, socialPrompt)
+          console.log('Starting pricing analysis...');
+          const pricingAnalysis = await retryWithBackoff(() => 
+            analyzeWithPerplexity(lovableApiKey, pricingPrompt)
           );
-          const { error: socialError } = await supabase.from('market_analysis').insert({
+          console.log('Pricing analysis completed');
+          
+          const { error: pricingError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
-            analysis_type: 'social_media',
-            data: { raw_response: socialAnalysis.data },
-            insights: socialAnalysis.insights,
-            recommendations: socialAnalysis.recommendations,
-            confidence_score: 0.80
+            analysis_type: 'pricing',
+            data: { raw_response: pricingAnalysis.data },
+            insights: pricingAnalysis.insights,
+            recommendations: pricingAnalysis.recommendations,
+            confidence_score: 0.85
           });
-          if (socialError) console.error('Error inserting social analysis:', socialError);
-          console.log('Social analysis completed');
-        } catch (e) {
-          console.error('Social analysis failed:', e);
+          if (pricingError) {
+            console.error('Error inserting pricing analysis:', pricingError);
+          }
+
+          // 2. Analyze Social Media Trends
+          const socialUrls = [
+            competitor.instagram_url,
+            competitor.youtube_url,
+            competitor.tiktok_url,
+            competitor.x_url
+          ].filter(Boolean).join(', ');
+
+          if (socialUrls) {
+            const socialPrompt = `Analise a presença nas redes sociais de ${competitor.name}: ${socialUrls}.
+            Foque em: tipo de conteúdo, frequência de posts, engajamento, estratégias que funcionam, tendências.
+            Turismo geral (não luxo, exceto se for tendência em volume).
+            Entregue insights acionáveis para nossa estratégia de conteúdo.`;
+
+            console.log('Starting social analysis...');
+            try {
+              const socialAnalysis = await retryWithBackoff(() => 
+                analyzeWithPerplexity(lovableApiKey, socialPrompt)
+              );
+              const { error: socialError } = await supabase.from('market_analysis').insert({
+                competitor_id: competitor.id,
+                analysis_type: 'social_media',
+                data: { raw_response: socialAnalysis.data },
+                insights: socialAnalysis.insights,
+                recommendations: socialAnalysis.recommendations,
+                confidence_score: 0.80
+              });
+              if (socialError) console.error('Error inserting social analysis:', socialError);
+              console.log('Social analysis completed');
+            } catch (e) {
+              console.error('Social analysis failed:', e);
+            }
+          }
+
+          // 3. Market Trends Analysis
+          const trendsPrompt = `Analise tendências atuais do mercado de turismo geral que ${competitor.name} está explorando.
+          Foque em: destinos populares, tipos de viagem, comportamento do consumidor, inovações, volume de vendas.
+          Turismo de luxo só se for tendência em volume significativo.
+          Entregue insights sobre oportunidades de mercado e ameaças competitivas.`;
+
+          console.log('Starting trends analysis...');
+          try {
+            const trendsAnalysis = await retryWithBackoff(() => 
+              analyzeWithPerplexity(lovableApiKey, trendsPrompt)
+            );
+            const { error: trendsError } = await supabase.from('market_analysis').insert({
+              competitor_id: competitor.id,
+              analysis_type: 'trends',
+              data: { raw_response: trendsAnalysis.data },
+              insights: trendsAnalysis.insights,
+              recommendations: trendsAnalysis.recommendations,
+              confidence_score: 0.88
+            });
+            if (trendsError) console.error('Error inserting trends analysis:', trendsError);
+            console.log('Trends analysis completed');
+          } catch (e) {
+            console.error('Trends analysis failed:', e);
+          }
+
+          // 4. Strategic Insights
+          const strategyPrompt = `Baseado em todas as informações sobre ${competitor.name}, forneça insights estratégicos para competir efetivamente.
+          Considere: pontos fortes e fracos do concorrente, gaps de mercado, oportunidades de diferenciação, ações prioritárias.
+          Foco: turismo geral, dados práticos para tomada de decisão.`;
+
+          console.log('Starting strategic analysis...');
+          try {
+            const strategyAnalysis = await retryWithBackoff(() => 
+              analyzeWithPerplexity(lovableApiKey, strategyPrompt)
+            );
+            const { error: strategyError } = await supabase.from('market_analysis').insert({
+              competitor_id: competitor.id,
+              analysis_type: 'strategic_insights',
+              data: { raw_response: strategyAnalysis.data },
+              insights: strategyAnalysis.insights,
+              recommendations: strategyAnalysis.recommendations,
+              confidence_score: 0.90
+            });
+            if (strategyError) console.error('Error inserting strategic analysis:', strategyError);
+            console.log('Strategic analysis completed');
+          } catch (e) {
+            console.error('Strategic analysis failed:', e);
+          }
+
+          console.log(`Completed analysis for ${competitor.name}`);
         }
-      }
 
-      // 3. Market Trends Analysis
-      const trendsPrompt = `Analise tendências atuais do mercado de turismo geral que ${competitor.name} está explorando.
-      Foque em: destinos populares, tipos de viagem, comportamento do consumidor, inovações, volume de vendas.
-      Turismo de luxo só se for tendência em volume significativo.
-      Entregue insights sobre oportunidades de mercado e ameaças competitivas.`;
+        // Google Trends Analysis
+        if (include_trends) {
+          console.log('Starting Google Trends analysis...');
+          try {
+            const trendsPrompt = `Analise as principais tendências do Google Trends para o setor de turismo no Brasil nos últimos 30 dias.
+            Identifique: destinos em alta, tipos de viagem mais procurados, palavras-chave emergentes, sazonalidade.
+            Foco: turismo geral (não luxo), dados práticos para campanhas de marketing.
+            Forneça insights acionáveis sobre o que as pessoas estão buscando agora.`;
+            
+            const trendsAnalysis = await retryWithBackoff(() => 
+              analyzeWithPerplexity(lovableApiKey, trendsPrompt)
+            );
+            
+            const { error: trendsInsertError } = await supabase.from('market_analysis').insert({
+              analysis_type: 'google_trends',
+              data: { raw_response: trendsAnalysis.data },
+              insights: trendsAnalysis.insights,
+              recommendations: trendsAnalysis.recommendations,
+              confidence_score: 0.85
+            });
+            if (trendsInsertError) console.error('Error inserting Google Trends:', trendsInsertError);
+            console.log('Google Trends analysis completed');
+          } catch (e) {
+            console.error('Google Trends analysis failed:', e);
+          }
+        }
 
-      console.log('Starting trends analysis...');
-      try {
-        const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
-        );
-        const { error: trendsError } = await supabase.from('market_analysis').insert({
-          competitor_id: competitor.id,
-          analysis_type: 'trends',
-          data: { raw_response: trendsAnalysis.data },
-          insights: trendsAnalysis.insights,
-          recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.88
-        });
-        if (trendsError) console.error('Error inserting trends analysis:', trendsError);
-        console.log('Trends analysis completed');
+        // People Also Ask Analysis
+        if (include_paa) {
+          console.log('Starting People Also Ask analysis...');
+          try {
+            const paaPrompt = `Analise as principais perguntas que as pessoas fazem no Google (People Also Ask) sobre turismo no Brasil.
+            Identifique: dúvidas comuns, preocupações dos viajantes, tópicos de interesse, oportunidades de conteúdo.
+            Foco: turismo geral, criar conteúdo que responda essas perguntas.
+            Forneça insights sobre como usar essas perguntas para criar campanhas e conteúdo relevante.`;
+            
+            const paaAnalysis = await retryWithBackoff(() => 
+              analyzeWithPerplexity(lovableApiKey, paaPrompt)
+            );
+            
+            const { error: paaInsertError } = await supabase.from('market_analysis').insert({
+              analysis_type: 'people_also_ask',
+              data: { raw_response: paaAnalysis.data },
+              insights: paaAnalysis.insights,
+              recommendations: paaAnalysis.recommendations,
+              confidence_score: 0.85
+            });
+            if (paaInsertError) console.error('Error inserting PAA:', paaInsertError);
+            console.log('People Also Ask analysis completed');
+          } catch (e) {
+            console.error('People Also Ask analysis failed:', e);
+          }
+        }
       } catch (e) {
-        console.error('Trends analysis failed:', e);
+        console.error('Background analysis failed:', e);
       }
-
-      // 4. Strategic Insights
-      const strategyPrompt = `Baseado em todas as informações sobre ${competitor.name}, forneça insights estratégicos para competir efetivamente.
-      Considere: pontos fortes e fracos do concorrente, gaps de mercado, oportunidades de diferenciação, ações prioritárias.
-      Foco: turismo geral, dados práticos para tomada de decisão.`;
-
-      console.log('Starting strategic analysis...');
-      try {
-        const strategyAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, strategyPrompt)
-        );
-        const { error: strategyError } = await supabase.from('market_analysis').insert({
-          competitor_id: competitor.id,
-          analysis_type: 'strategic_insights',
-          data: { raw_response: strategyAnalysis.data },
-          insights: strategyAnalysis.insights,
-          recommendations: strategyAnalysis.recommendations,
-          confidence_score: 0.90
-        });
-        if (strategyError) console.error('Error inserting strategic analysis:', strategyError);
-        console.log('Strategic analysis completed');
-      } catch (e) {
-        console.error('Strategic analysis failed:', e);
-      }
-
-      console.log(`Completed analysis for ${competitor.name}`);
-    }
-
-    // Google Trends Analysis
-    if (include_trends) {
-      console.log('Starting Google Trends analysis...');
-      try {
-        const trendsPrompt = `Analise as principais tendências do Google Trends para o setor de turismo no Brasil nos últimos 30 dias.
-        Identifique: destinos em alta, tipos de viagem mais procurados, palavras-chave emergentes, sazonalidade.
-        Foco: turismo geral (não luxo), dados práticos para campanhas de marketing.
-        Forneça insights acionáveis sobre o que as pessoas estão buscando agora.`;
-        
-        const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
-        );
-        
-        const { error: trendsInsertError } = await supabase.from('market_analysis').insert({
-          analysis_type: 'google_trends',
-          data: { raw_response: trendsAnalysis.data },
-          insights: trendsAnalysis.insights,
-          recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.85
-        });
-        if (trendsInsertError) console.error('Error inserting Google Trends:', trendsInsertError);
-        console.log('Google Trends analysis completed');
-      } catch (e) {
-        console.error('Google Trends analysis failed:', e);
-      }
-    }
-
-    // People Also Ask Analysis
-    if (include_paa) {
-      console.log('Starting People Also Ask analysis...');
-      try {
-        const paaPrompt = `Analise as principais perguntas que as pessoas fazem no Google (People Also Ask) sobre turismo no Brasil.
-        Identifique: dúvidas comuns, preocupações dos viajantes, tópicos de interesse, oportunidades de conteúdo.
-        Foco: turismo geral, criar conteúdo que responda essas perguntas.
-        Forneça insights sobre como usar essas perguntas para criar campanhas e conteúdo relevante.`;
-        
-        const paaAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, paaPrompt)
-        );
-        
-        const { error: paaInsertError } = await supabase.from('market_analysis').insert({
-          analysis_type: 'people_also_ask',
-          data: { raw_response: paaAnalysis.data },
-          insights: paaAnalysis.insights,
-          recommendations: paaAnalysis.recommendations,
-          confidence_score: 0.85
-        });
-        if (paaInsertError) console.error('Error inserting PAA:', paaInsertError);
-        console.log('People Also Ask analysis completed');
-      } catch (e) {
-        console.error('People Also Ask analysis failed:', e);
-      }
-    }
+    }, 0);
 
     const message = scheduled 
-      ? 'Análise diária automática concluída com sucesso' 
-      : 'Análise de concorrentes concluída com sucesso';
+      ? 'Análise diária automática iniciada' 
+      : 'Análise iniciada';
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        analyzed: competitors?.length || 0,
-        message,
-        timestamp: new Date().toISOString()
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ started: true, message, timestamp: new Date().toISOString() }),
+      { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {

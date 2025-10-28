@@ -1,4 +1,4 @@
-import { load } from "https://deno.land/x/cheerio@1.0.7/mod.ts";
+import * as cheerio from "https://esm.sh/cheerio@1.1.2";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -15,11 +15,11 @@ async function scrapeProducts(baseUrl: string) {
     // Raspar página inicial
     const homeResponse = await fetch(baseUrl);
     const homeHtml = await homeResponse.text();
-    const $home = load(homeHtml);
+    const $home = cheerio.load(homeHtml);
     
     // Encontrar links de produtos
     const productLinks: string[] = [];
-    $home('a[href*="/produto/"], a[href*="/pacote/"], a.product-link, .product-item a, .item-product a').each((i, el) => {
+    $home('a[href*="/produto/"], a[href*="/pacote/"], a.product-link, .product-item a, .item-product a').each((_i: number, el: any) => {
       const href = $home(el).attr('href');
       if (href && !productLinks.includes(href)) {
         const fullUrl = href.startsWith('http') ? href : `${baseUrl}${href.startsWith('/') ? '' : '/'}${href}`;
@@ -34,7 +34,7 @@ async function scrapeProducts(baseUrl: string) {
       try {
         const response = await fetch(url);
         const html = await response.text();
-        const $ = load(html);
+        const $ = cheerio.load(html);
         
         // Extrair informações do produto
         const name = $('h1.product-title, .product-name, h1, .titulo-produto').first().text().trim();

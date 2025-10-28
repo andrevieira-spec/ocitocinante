@@ -4,8 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, DollarSign, Users, Lightbulb } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { ArchiveModal } from './ArchiveModal';
 
 interface Analysis {
   id: string;
@@ -15,6 +17,7 @@ interface Analysis {
   confidence_score: number;
   analyzed_at: string;
   competitor_id: string;
+  is_automated: boolean;
 }
 
 interface Competitor {
@@ -28,6 +31,7 @@ export const MarketInsights = () => {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -39,6 +43,7 @@ export const MarketInsights = () => {
         supabase
           .from('market_analysis')
           .select('*')
+          .is('archived_at', null)
           .order('analyzed_at', { ascending: false })
           .limit(50),
         supabase
@@ -80,6 +85,7 @@ export const MarketInsights = () => {
           scheduled: false,
           include_trends: true,
           include_paa: true,
+          is_automated: false
         },
       });
 
@@ -132,19 +138,34 @@ export const MarketInsights = () => {
     return <div className="text-center py-8">Carregando insights...</div>;
   }
 
+  const latestAutomated = analyses.find(a => a.is_automated);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Insights de Mercado</h2>
+          <h2 className="text-3xl font-bold">Mercado</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Total de {analyses.length} análises realizadas
+            {analyses.length} análises | {latestAutomated && (
+              <span className="inline-flex items-center gap-1 text-primary">
+                <Sparkles className="w-3 h-3" />
+                Última automática: {new Date(latestAutomated.analyzed_at).toLocaleString('pt-BR')}
+              </span>
+            )}
           </p>
         </div>
-        <Button onClick={runAnalysis} disabled={analyzing}>
-          {analyzing ? 'Analisando...' : 'Executar Nova Análise'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowArchive(true)}>
+            <Archive className="w-4 h-4 mr-2" />
+            Arquivos
+          </Button>
+          <Button onClick={runAnalysis} disabled={analyzing}>
+            {analyzing ? 'Analisando...' : 'Executar Nova Análise'}
+          </Button>
+        </div>
       </div>
+
+      <ArchiveModal open={showArchive} onClose={() => setShowArchive(false)} />
 
       {analyses.length === 0 ? (
         <Card>
@@ -154,29 +175,32 @@ export const MarketInsights = () => {
         </Card>
       ) : (
         <Tabs defaultValue="strategic_insights" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="strategic_insights">
-              <Lightbulb className="w-4 h-4 mr-2" />
-              Estratégia
+          <TabsList className="inline-flex h-12 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-full overflow-x-auto">
+            <TabsTrigger value="strategic_insights" className="gap-2">
+              <Lightbulb className="w-4 h-4" />
+              Estratégias
             </TabsTrigger>
-            <TabsTrigger value="pricing">
-              <DollarSign className="w-4 h-4 mr-2" />
+            <TabsTrigger value="pricing" className="gap-2">
+              <DollarSign className="w-4 h-4" />
               Preços
             </TabsTrigger>
-            <TabsTrigger value="trends">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Tendências
-            </TabsTrigger>
-            <TabsTrigger value="social_media">
-              <Users className="w-4 h-4 mr-2" />
+            <TabsTrigger value="social_media" className="gap-2">
+              <Users className="w-4 h-4" />
               Redes Sociais
             </TabsTrigger>
-            <TabsTrigger value="google_trends">
-              <TrendingUp className="w-4 h-4 mr-2" />
+            
+            <Separator orientation="vertical" className="h-8 mx-2" />
+            
+            <TabsTrigger value="trends" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Tendências
+            </TabsTrigger>
+            <TabsTrigger value="google_trends" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
               Google Trends
             </TabsTrigger>
-            <TabsTrigger value="people_also_ask">
-              <Users className="w-4 h-4 mr-2" />
+            <TabsTrigger value="people_also_ask" className="gap-2">
+              <Users className="w-4 h-4" />
               PAA
             </TabsTrigger>
           </TabsList>
@@ -187,15 +211,21 @@ export const MarketInsights = () => {
                 <Card key={analysis.id}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         {getIcon(analysis.analysis_type)}
                         <div>
-                          <CardTitle className="text-lg">
+                          <CardTitle className="text-xl flex items-center gap-2">
                             {analysis.competitor_id 
                               ? getCompetitorName(analysis.competitor_id) 
                               : getTypeLabel(analysis.analysis_type)}
+                            {analysis.is_automated && (
+                              <Badge variant="outline" className="gap-1">
+                                <Sparkles className="w-3 h-3" />
+                                Automática
+                              </Badge>
+                            )}
                           </CardTitle>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground mt-1">
                             {new Date(analysis.analyzed_at).toLocaleDateString('pt-BR')} às{' '}
                             {new Date(analysis.analyzed_at).toLocaleTimeString('pt-BR', { 
                               hour: '2-digit', 
@@ -204,19 +234,27 @@ export const MarketInsights = () => {
                           </p>
                         </div>
                       </div>
-                      <Badge variant="secondary">
+                      <Badge variant="secondary" className="text-base px-3 py-1">
                         Confiança: {Math.round(analysis.confidence_score * 100)}%
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold mb-2">📊 Insights:</h4>
-                      <p className="text-sm whitespace-pre-line">{analysis.insights}</p>
+                  <CardContent className="space-y-6">
+                    <div className="rounded-lg bg-muted/50 p-4">
+                      <h4 className="text-lg font-bold mb-3 flex items-center gap-2">
+                        📊 Insights Principais
+                      </h4>
+                      <div className="text-base leading-relaxed whitespace-pre-line">
+                        {analysis.insights}
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-semibold mb-2">💡 Recomendações:</h4>
-                      <p className="text-sm whitespace-pre-line">{analysis.recommendations}</p>
+                    <div className="rounded-lg bg-primary/5 p-4 border-l-4 border-primary">
+                      <h4 className="text-lg font-bold mb-3 flex items-center gap-2">
+                        💡 Recomendações Estratégicas
+                      </h4>
+                      <div className="text-base leading-relaxed whitespace-pre-line">
+                        {analysis.recommendations}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

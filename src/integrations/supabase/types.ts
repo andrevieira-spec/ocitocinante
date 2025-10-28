@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      archived_analyses: {
+        Row: {
+          analyses: Json
+          analysis_date: string
+          archived_at: string | null
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          analyses: Json
+          analysis_date: string
+          archived_at?: string | null
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          analyses?: Json
+          analysis_date?: string
+          archived_at?: string | null
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           content: Json
@@ -221,34 +245,40 @@ export type Database = {
         Row: {
           analysis_type: string
           analyzed_at: string
+          archived_at: string | null
           competitor_id: string | null
           confidence_score: number | null
           created_at: string
           data: Json
           id: string
           insights: string
+          is_automated: boolean | null
           recommendations: string | null
         }
         Insert: {
           analysis_type: string
           analyzed_at?: string
+          archived_at?: string | null
           competitor_id?: string | null
           confidence_score?: number | null
           created_at?: string
           data: Json
           id?: string
           insights: string
+          is_automated?: boolean | null
           recommendations?: string | null
         }
         Update: {
           analysis_type?: string
           analyzed_at?: string
+          archived_at?: string | null
           competitor_id?: string | null
           confidence_score?: number | null
           created_at?: string
           data?: Json
           id?: string
           insights?: string
+          is_automated?: boolean | null
           recommendations?: string | null
         }
         Relationships: [
@@ -557,6 +587,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_old_manual_analyses: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

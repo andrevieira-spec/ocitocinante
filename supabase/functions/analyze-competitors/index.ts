@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { scheduled = false, include_trends = false, include_paa = false } = body;
+    const { scheduled = false, include_trends = false, include_paa = false, is_automated = false } = body;
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -89,7 +89,8 @@ Deno.serve(async (req) => {
           data: { raw_response: strategyAnalysis.data },
           insights: strategyAnalysis.insights,
           recommendations: strategyAnalysis.recommendations,
-          confidence_score: 0.90
+          confidence_score: 0.90,
+          is_automated
         });
         console.log('Quick strategic analysis inserted');
       }
@@ -112,7 +113,8 @@ Deno.serve(async (req) => {
           data: { raw_response: trendsAnalysis.data },
           insights: trendsAnalysis.insights,
           recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.85
+          confidence_score: 0.85,
+          is_automated
         });
         console.log('Quick Google Trends inserted');
       }
@@ -134,7 +136,8 @@ Deno.serve(async (req) => {
           data: { raw_response: paaAnalysis.data },
           insights: paaAnalysis.insights,
           recommendations: paaAnalysis.recommendations,
-          confidence_score: 0.85
+          confidence_score: 0.85,
+          is_automated
         });
         console.log('Quick PAA inserted');
       }
@@ -157,7 +160,8 @@ Deno.serve(async (req) => {
           data: { raw_response: trendsSummaryAnalysis.data },
           insights: trendsSummaryAnalysis.insights,
           recommendations: trendsSummaryAnalysis.recommendations,
-          confidence_score: 0.88
+          confidence_score: 0.88,
+          is_automated
         });
         console.log('Quick Trends Summary inserted');
       }
@@ -184,24 +188,30 @@ Deno.serve(async (req) => {
     for (const competitor of competitors || []) {
       console.log(`Analyzing competitor: ${competitor.name}`);
 
-      // 1. Analyze Pricing Strategy (DETAILED)
-      const pricingPrompt = `Analise a estratégia de preços e produtos anunciados por ${competitor.name} (${competitor.website_url}) no setor de turismo.
+      // 1. Analyze Pricing Strategy (ULTRA DETAILED)
+      const pricingPrompt = `Analise DETALHADAMENTE os pacotes e preços anunciados por ${competitor.name} (${competitor.website_url}) no setor de turismo HOJE.
       
-      RETORNE INFORMAÇÕES ESTRUTURADAS SOBRE OS PRODUTOS ANUNCIADOS:
-      Para cada produto/pacote identificado, forneça:
-      - Nome exato do produto/pacote
-      - Preço anunciado
-      - Destino
-      - Datas de saída disponíveis
-      - Hotéis incluídos (nome e categoria)
-      - Companhia aérea e voos (se especificado)
-      - Inclui traslado? (sim/não)
-      - Passeios incluídos (liste)
-      - Condições de pagamento e parcelamento
-      - Promoções ativas
+      🎯 FOCO PRINCIPAL: PACOTES ANUNCIADOS HOJE E PRODUTOS COM MAIS INTERAÇÕES NAS ÚLTIMAS 48H
       
-      Liste pelo menos 3-5 produtos/pacotes concretos com todos os detalhes acima.
-      Depois, analise: faixas de preço, estratégia de precificação, sazonalidade observada.`;
+      ESTRUTURA OBRIGATÓRIA POR PRODUTO/PACOTE:
+      
+      📦 NOME DO PACOTE: [nome exato e completo]
+      💰 PREÇO: [valor anunciado com clareza]
+      📍 DESTINO: [cidade/região específica]
+      📅 DATAS DE SAÍDA: [liste todas as datas disponíveis ou período]
+      🏨 HOTÉIS: [nome completo + categoria (3★, 4★, 5★, etc)]
+      ✈️ COMPANHIA AÉREA: [nome da cia + número do voo se disponível] | "Informação não disponível no post" se não houver
+      🚗 TRASLADO: [SIM/NÃO + detalhes se houver]
+      🎫 PASSEIOS INCLUSOS: [liste todos ou "Informação não disponível no post"]
+      💳 PAGAMENTO: [condições de parcelamento, entrada, descontos à vista]
+      🎁 PROMOÇÕES: [cupons, cashback, criança grátis, etc ou "Nenhuma promoção ativa"]
+      
+      Liste NO MÍNIMO:
+      - 3-5 pacotes anunciados HOJE
+      - Os 5 pacotes com MAIOR NÚMERO DE INTERAÇÕES nas últimas 48 horas (curtidas, comentários, compartilhamentos)
+      
+      Após listar os produtos, adicione:
+      📊 ANÁLISE GERAL: faixas de preço dominantes, estratégia de precificação observada, sazonalidade.`;
 
       console.log('Starting pricing analysis...');
       const pricingAnalysis = await retryWithBackoff(() => 
@@ -213,7 +223,8 @@ Deno.serve(async (req) => {
         data: { raw_response: pricingAnalysis.data },
         insights: pricingAnalysis.insights,
         recommendations: pricingAnalysis.recommendations,
-        confidence_score: 0.85
+        confidence_score: 0.85,
+        is_automated
       });
       if (pricingError) console.error('Error inserting pricing analysis:', pricingError);
 
@@ -226,10 +237,31 @@ Deno.serve(async (req) => {
       ].filter(Boolean).join(', ');
 
       if (socialUrls) {
-        const socialPrompt = `Analise a presença nas redes sociais de ${competitor.name}: ${socialUrls}.
-        Foque em: tipo de conteúdo, frequência de posts, engajamento, estratégias que funcionam, tendências.
-        Turismo geral (não luxo, exceto se for tendência em volume).
-        Entregue insights acionáveis para nossa estratégia de conteúdo.`;
+        const socialPrompt = `Analise PROFUNDAMENTE a postura e voz da marca ${competitor.name} nas redes sociais: ${socialUrls}.
+        
+        🎯 FOCO: POSICIONAMENTO, VOZ E ESTRATÉGIA MERCADOLÓGICA (não apenas o que posta)
+        
+        📱 VOZ DA MARCA:
+        - Tom de comunicação (formal/informal, divertido/sério, emocional/racional)
+        - Personalidade percebida
+        - Valores comunicados
+        
+        🎨 FORMATOS DE MARKETING:
+        - Quais formatos de post geram MAIS ENGAJAMENTO? (carrossel, vídeo, reels, stories)
+        - Quais TIPOS DE CONTEÚDO têm mais visualizações? (bastidores, dicas, promoções, UGC)
+        - Elementos visuais recorrentes (cores, filtros, tipografia)
+        
+        💬 POSICIONAMENTO NO MERCADO:
+        - Como a marca se diferencia dos concorrentes?
+        - Qual público-alvo é evidente na comunicação?
+        - Gatilhos mentais utilizados (escassez, prova social, urgência)
+        
+        📊 ANÁLISE DE ENGAJAMENTO:
+        - Tipos de post com mais curtidas/comentários/compartilhamentos
+        - Horários de publicação mais efetivos
+        - Frequência de postagem
+        
+        Entregue insights ACIONÁVEIS para replicar ou superar essas estratégias.`;
 
         try {
           const socialAnalysis = await retryWithBackoff(() => 
@@ -241,7 +273,8 @@ Deno.serve(async (req) => {
             data: { raw_response: socialAnalysis.data },
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: 0.80
+            confidence_score: 0.80,
+            is_automated
           });
           if (socialError) console.error('Error inserting social analysis:', socialError);
         } catch (e) {
@@ -290,7 +323,8 @@ Deno.serve(async (req) => {
           data: { raw_response: strategyAnalysis.data },
           insights: strategyAnalysis.insights,
           recommendations: strategyAnalysis.recommendations,
-          confidence_score: 0.90
+          confidence_score: 0.90,
+          is_automated
         });
         if (strategyError) console.error('Error inserting strategic analysis:', strategyError);
       } catch (e) {
@@ -314,7 +348,8 @@ Deno.serve(async (req) => {
           data: { raw_response: trendsAnalysis.data },
           insights: trendsAnalysis.insights,
           recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.85
+          confidence_score: 0.85,
+          is_automated
         });
       } catch (e) {
         console.error('Google Trends analysis failed:', e);
@@ -334,7 +369,8 @@ Deno.serve(async (req) => {
           data: { raw_response: paaAnalysis.data },
           insights: paaAnalysis.insights,
           recommendations: paaAnalysis.recommendations,
-          confidence_score: 0.85
+          confidence_score: 0.85,
+          is_automated
         });
       } catch (e) {
         console.error('People Also Ask analysis failed:', e);
@@ -367,7 +403,8 @@ Deno.serve(async (req) => {
           data: { raw_response: trendsSummaryAnalysis.data },
           insights: trendsSummaryAnalysis.insights,
           recommendations: trendsSummaryAnalysis.recommendations,
-          confidence_score: 0.88
+          confidence_score: 0.88,
+          is_automated
         });
         console.log('Trends summary inserted');
       } catch (e) {

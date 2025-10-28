@@ -59,9 +59,17 @@ export const AuthForm = () => {
         toast({ title: 'Conta criada! Faça login para continuar.' });
       }
     } catch (error: any) {
-      const userMessage = error.message === 'Invalid login credentials'
-        ? 'Email ou senha incorretos'
-        : 'Ocorreu um erro. Tente novamente.';
+      let userMessage = 'Ocorreu um erro. Tente novamente.';
+      
+      if (error.message === 'Invalid login credentials') {
+        userMessage = 'Email ou senha incorretos';
+      } else if (error.message?.includes('User already registered') || error.message?.includes('already registered')) {
+        userMessage = 'Este email já está cadastrado. Faça login ou use outro email.';
+        setIsLogin(true); // Switch to login form
+      } else if (error.message?.includes('Email')) {
+        userMessage = error.message;
+      }
+      
       toast({ title: 'Erro', description: userMessage, variant: 'destructive' });
     } finally {
       setLoading(false);

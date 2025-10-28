@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { ChatInterface } from '@/components/chat/ChatInterface';
+import { PerplexityChatInterface } from '@/components/perplexity/PerplexityChatInterface';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
@@ -84,6 +85,10 @@ export default function Admin() {
               <MessageSquare className="w-4 h-4" />
               Chat Interno
             </TabsTrigger>
+            <TabsTrigger value="perplexity" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Inteligência AI
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="dashboard" className="flex-1 m-0 overflow-y-auto">
@@ -91,6 +96,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="chat" className="flex-1 m-0">
           <ChatInterface />
+        </TabsContent>
+        <TabsContent value="perplexity" className="flex-1 m-0 p-4">
+          <PerplexityChatInterface />
         </TabsContent>
       </Tabs>
     </div>

@@ -55,8 +55,8 @@ serve(async (req) => {
       });
       if (pricingError) {
         console.error('Error inserting pricing analysis:', pricingError);
-        throw pricingError;
       }
+      console.log('Pricing analysis completed');
 
       // 2. Analyze Social Media Trends
       const socialUrls = [
@@ -72,16 +72,22 @@ serve(async (req) => {
         Turismo geral (não luxo, exceto se for tendência em volume).
         Entregue insights acionáveis para nossa estratégia de conteúdo.`;
 
-        const socialAnalysis = await analyzeWithPerplexity(lovableApiKey, socialPrompt);
-        
-        await supabase.from('market_analysis').insert({
-          competitor_id: competitor.id,
-          analysis_type: 'social_media',
-          data: { raw_response: socialAnalysis.data },
-          insights: socialAnalysis.insights,
-          recommendations: socialAnalysis.recommendations,
-          confidence_score: 0.80
-        });
+        console.log('Starting social analysis...');
+        try {
+          const socialAnalysis = await analyzeWithPerplexity(lovableApiKey, socialPrompt);
+          const { error: socialError } = await supabase.from('market_analysis').insert({
+            competitor_id: competitor.id,
+            analysis_type: 'social_media',
+            data: { raw_response: socialAnalysis.data },
+            insights: socialAnalysis.insights,
+            recommendations: socialAnalysis.recommendations,
+            confidence_score: 0.80
+          });
+          if (socialError) console.error('Error inserting social analysis:', socialError);
+          console.log('Social analysis completed');
+        } catch (e) {
+          console.error('Social analysis failed:', e);
+        }
       }
 
       // 3. Market Trends Analysis
@@ -90,32 +96,44 @@ serve(async (req) => {
       Turismo de luxo só se for tendência em volume significativo.
       Entregue insights sobre oportunidades de mercado e ameaças competitivas.`;
 
-      const trendsAnalysis = await analyzeWithPerplexity(lovableApiKey, trendsPrompt);
-      
-      await supabase.from('market_analysis').insert({
-        competitor_id: competitor.id,
-        analysis_type: 'trends',
-        data: { raw_response: trendsAnalysis.data },
-        insights: trendsAnalysis.insights,
-        recommendations: trendsAnalysis.recommendations,
-        confidence_score: 0.88
-      });
+      console.log('Starting trends analysis...');
+      try {
+        const trendsAnalysis = await analyzeWithPerplexity(lovableApiKey, trendsPrompt);
+        const { error: trendsError } = await supabase.from('market_analysis').insert({
+          competitor_id: competitor.id,
+          analysis_type: 'trends',
+          data: { raw_response: trendsAnalysis.data },
+          insights: trendsAnalysis.insights,
+          recommendations: trendsAnalysis.recommendations,
+          confidence_score: 0.88
+        });
+        if (trendsError) console.error('Error inserting trends analysis:', trendsError);
+        console.log('Trends analysis completed');
+      } catch (e) {
+        console.error('Trends analysis failed:', e);
+      }
 
       // 4. Strategic Insights
       const strategyPrompt = `Baseado em todas as informações sobre ${competitor.name}, forneça insights estratégicos para competir efetivamente.
       Considere: pontos fortes e fracos do concorrente, gaps de mercado, oportunidades de diferenciação, ações prioritárias.
       Foco: turismo geral, dados práticos para tomada de decisão.`;
 
-      const strategyAnalysis = await analyzeWithPerplexity(lovableApiKey, strategyPrompt);
-      
-      await supabase.from('market_analysis').insert({
-        competitor_id: competitor.id,
-        analysis_type: 'strategic_insights',
-        data: { raw_response: strategyAnalysis.data },
-        insights: strategyAnalysis.insights,
-        recommendations: strategyAnalysis.recommendations,
-        confidence_score: 0.90
-      });
+      console.log('Starting strategic analysis...');
+      try {
+        const strategyAnalysis = await analyzeWithPerplexity(lovableApiKey, strategyPrompt);
+        const { error: strategyError } = await supabase.from('market_analysis').insert({
+          competitor_id: competitor.id,
+          analysis_type: 'strategic_insights',
+          data: { raw_response: strategyAnalysis.data },
+          insights: strategyAnalysis.insights,
+          recommendations: strategyAnalysis.recommendations,
+          confidence_score: 0.90
+        });
+        if (strategyError) console.error('Error inserting strategic analysis:', strategyError);
+        console.log('Strategic analysis completed');
+      } catch (e) {
+        console.error('Strategic analysis failed:', e);
+      }
 
       console.log(`Completed analysis for ${competitor.name}`);
     }

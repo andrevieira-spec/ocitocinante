@@ -60,10 +60,26 @@ Deno.serve(async (req) => {
 
       const competitor = competitors?.[0];
 
-      // 1) Strategic insights only (faster)
+      // 1) Strategic Summary (faster, synthesizes all)
       if (competitor) {
-        const strategyPrompt = `Baseado nas informações públicas de ${competitor.name} (${competitor.website_url}), gere insights estratégicos práticos para competir.
-        Foque em 3-5 insights e 3-5 ações. Turismo geral (não luxo).`;
+        const strategyPrompt = `Crie um RESUMO ESTRATÉGICO EXECUTIVO rápido sobre ${competitor.name} (${competitor.website_url}) e o mercado de turismo.
+        
+        FORMATO (use emojis e seja conciso):
+        
+        📊 PREÇOS & PRODUTOS:
+        [2-3 pontos sobre principais preços e pacotes]
+        
+        📱 REDES SOCIAIS:
+        [2-3 pontos sobre estratégias de conteúdo]
+        
+        📈 MERCADO:
+        [2-3 pontos sobre tendências observadas]
+        
+        💡 AÇÃO IMEDIATA:
+        [1-2 recomendações práticas]
+        
+        Seja direto, visual e prático.`;
+        
         const strategyAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, strategyPrompt)
         );
@@ -80,7 +96,14 @@ Deno.serve(async (req) => {
 
       // 2) Quick Google Trends (optional)
       if (include_trends) {
-        const trendsPrompt = `Resumo rápido das tendências do Google Trends para turismo no Brasil nos últimos 30 dias: 3-5 tópicos com implicações práticas.`;
+        const trendsPrompt = `Resumo rápido das tendências do Google Trends para turismo no Brasil nos últimos 30 dias.
+        
+        FORMATO:
+        📈 3-4 destinos/temas em alta
+        🎯 2-3 palavras-chave emergentes
+        💡 1-2 implicações práticas
+        
+        Seja direto e visual.`;
         const trendsAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, trendsPrompt)
         );
@@ -94,9 +117,15 @@ Deno.serve(async (req) => {
         console.log('Quick Google Trends inserted');
       }
 
-      // 3) Quick People Also Ask (optional)
+      // 3) Quick People Also Ask + Trends Summary (optional)
       if (include_paa) {
-        const paaPrompt = `Liste as principais perguntas (People Also Ask) sobre turismo no Brasil e como responder em campanhas: 3-5 perguntas com ações.`;
+        const paaPrompt = `Liste as principais perguntas (People Also Ask) sobre turismo no Brasil.
+        
+        FORMATO:
+        ❓ 3-4 perguntas mais comuns
+        💡 1-2 oportunidades de conteúdo
+        
+        Seja direto.`;
         const paaAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, paaPrompt)
         );
@@ -108,6 +137,29 @@ Deno.serve(async (req) => {
           confidence_score: 0.85
         });
         console.log('Quick PAA inserted');
+      }
+
+      // Quick Trends Summary (if both trends and PAA requested)
+      if (include_trends && include_paa) {
+        const trendsSummaryPrompt = `Crie um RESUMO RÁPIDO DE TENDÊNCIAS combinando Google Trends e PAA sobre turismo no Brasil.
+        
+        📈 TENDÊNCIAS: [2-3 pontos]
+        ❓ DÚVIDAS COMUNS: [2-3 perguntas]
+        🎯 OPORTUNIDADE: [1 ação concreta]
+        
+        Seja direto e visual.`;
+        
+        const trendsSummaryAnalysis = await retryWithBackoff(() => 
+          analyzeWithPerplexity(lovableApiKey, trendsSummaryPrompt)
+        );
+        await supabase.from('market_analysis').insert({
+          analysis_type: 'trends',
+          data: { raw_response: trendsSummaryAnalysis.data },
+          insights: trendsSummaryAnalysis.insights,
+          recommendations: trendsSummaryAnalysis.recommendations,
+          confidence_score: 0.88
+        });
+        console.log('Quick Trends Summary inserted');
       }
 
       return new Response(
@@ -132,10 +184,24 @@ Deno.serve(async (req) => {
     for (const competitor of competitors || []) {
       console.log(`Analyzing competitor: ${competitor.name}`);
 
-      // 1. Analyze Pricing Strategy
-      const pricingPrompt = `Analise a estratégia de preços e ofertas da empresa ${competitor.name} (${competitor.website_url}) no setor de turismo geral. 
-      Foque em: pacotes atuais, promoções, faixas de preço, sazonalidade, e comparação com mercado.
-      Entregue insights práticos e recomendações estratégicas para competir.`;
+      // 1. Analyze Pricing Strategy (DETAILED)
+      const pricingPrompt = `Analise a estratégia de preços e produtos anunciados por ${competitor.name} (${competitor.website_url}) no setor de turismo.
+      
+      RETORNE INFORMAÇÕES ESTRUTURADAS SOBRE OS PRODUTOS ANUNCIADOS:
+      Para cada produto/pacote identificado, forneça:
+      - Nome exato do produto/pacote
+      - Preço anunciado
+      - Destino
+      - Datas de saída disponíveis
+      - Hotéis incluídos (nome e categoria)
+      - Companhia aérea e voos (se especificado)
+      - Inclui traslado? (sim/não)
+      - Passeios incluídos (liste)
+      - Condições de pagamento e parcelamento
+      - Promoções ativas
+      
+      Liste pelo menos 3-5 produtos/pacotes concretos com todos os detalhes acima.
+      Depois, analise: faixas de preço, estratégia de precificação, sazonalidade observada.`;
 
       console.log('Starting pricing analysis...');
       const pricingAnalysis = await retryWithBackoff(() => 
@@ -183,33 +249,36 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 3. Market Trends Analysis
-      const trendsPrompt = `Analise tendências atuais do mercado de turismo geral que ${competitor.name} está explorando.
-      Foque em: destinos populares, tipos de viagem, comportamento do consumidor, inovações, volume de vendas.
-      Turismo de luxo só se for tendência em volume significativo.
-      Entregue insights sobre oportunidades de mercado e ameaças competitivas.`;
+      // 3. Market Trends Analysis (removed - will be replaced by trends summary)
+      // Individual competitor trends analysis is now synthesized in the global summary
 
-      try {
-        const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithPerplexity(lovableApiKey, trendsPrompt)
-        );
-        const { error: trendsError } = await supabase.from('market_analysis').insert({
-          competitor_id: competitor.id,
-          analysis_type: 'trends',
-          data: { raw_response: trendsAnalysis.data },
-          insights: trendsAnalysis.insights,
-          recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.88
-        });
-        if (trendsError) console.error('Error inserting trends analysis:', trendsError);
-      } catch (e) {
-        console.error('Trends analysis failed:', e);
-      }
-
-      // 4. Strategic Insights
-      const strategyPrompt = `Baseado em todas as informações sobre ${competitor.name}, forneça insights estratégicos para competir efetivamente.
-      Considere: pontos fortes e fracos do concorrente, gaps de mercado, oportunidades de diferenciação, ações prioritárias.
-      Foco: turismo geral, dados práticos para tomada de decisão.`;
+      // 4. Strategic Summary (combines all insights)
+      const strategyPrompt = `Você está criando um RESUMO ESTRATÉGICO EXECUTIVO sobre ${competitor.name} e o mercado de turismo.
+      
+      Este resumo deve sintetizar de forma DIDÁTICA, VISUAL e PRÁTICA:
+      - Principais preços e produtos anunciados pela concorrência
+      - Estratégias de redes sociais que estão funcionando
+      - Tendências do Google Trends identificadas
+      - Perguntas que as pessoas estão fazendo (PAA)
+      
+      FORMATO DO RESUMO (use emojis e estruturação clara):
+      
+      📊 PREÇOS & PRODUTOS:
+      [3-4 bullet points resumindo faixas de preço, principais pacotes, estratégia de precificação]
+      
+      📱 REDES SOCIAIS:
+      [3-4 bullet points sobre tipo de conteúdo, engajamento, estratégias observadas]
+      
+      📈 TENDÊNCIAS DE BUSCA:
+      [3-4 bullet points sobre o que está em alta, palavras-chave, comportamento]
+      
+      ❓ O QUE AS PESSOAS PERGUNTAM:
+      [3-4 dúvidas/perguntas mais comuns identificadas]
+      
+      💡 SÍNTESE ESTRATÉGICA:
+      [2-3 insights-chave mesclando todas as informações acima]
+      
+      IMPORTANTE: Seja conciso, use dados concretos, evite textos longos. Foco em informação gerencial rápida e confiável.`;
 
       try {
         const strategyAnalysis = await retryWithBackoff(() => 
@@ -269,6 +338,40 @@ Deno.serve(async (req) => {
         });
       } catch (e) {
         console.error('People Also Ask analysis failed:', e);
+      }
+    }
+
+    // Trends Summary (synthesizes Google Trends + PAA)
+    if (include_trends && include_paa) {
+      const trendsSummaryPrompt = `Crie um RESUMO DE TENDÊNCIAS DE MERCADO combinando dados do Google Trends e People Also Ask sobre turismo no Brasil.
+      
+      FORMATO DO RESUMO (use emojis e estruturação clara):
+      
+      📈 TENDÊNCIAS GOOGLE TRENDS:
+      [3-4 bullet points sobre destinos, tipos de viagem, palavras-chave em alta]
+      
+      ❓ PERGUNTAS FREQUENTES (PAA):
+      [3-4 dúvidas/questões mais comuns das pessoas sobre turismo]
+      
+      🎯 OPORTUNIDADES IDENTIFICADAS:
+      [2-3 oportunidades concretas baseadas nas tendências e perguntas]
+      
+      IMPORTANTE: Seja direto, use dados concretos, mantenha formato visual e fácil de ler. Evite textos longos.`;
+      
+      try {
+        const trendsSummaryAnalysis = await retryWithBackoff(() => 
+          analyzeWithPerplexity(lovableApiKey, trendsSummaryPrompt)
+        );
+        await supabase.from('market_analysis').insert({
+          analysis_type: 'trends',
+          data: { raw_response: trendsSummaryAnalysis.data },
+          insights: trendsSummaryAnalysis.insights,
+          recommendations: trendsSummaryAnalysis.recommendations,
+          confidence_score: 0.88
+        });
+        console.log('Trends summary inserted');
+      } catch (e) {
+        console.error('Trends summary analysis failed:', e);
       }
     }
 

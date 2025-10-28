@@ -39,10 +39,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
-    if (!googleApiKey) {
-      throw new Error('Google AI API key not configured.');
-    }
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY') || '';
+
 
     console.log('Request flags:', { scheduled, include_trends, include_paa });
     // Manual (rápido) vs Agendado (completo)
@@ -481,54 +479,89 @@ async function analyzeWithGemini(apiKey: string, prompt: string): Promise<any> {
   
   const fullPrompt = `${systemPrompt}\n\n${prompt}`;
   
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: fullPrompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
+  // Tentar Google AI primeiro (se apiKey existir), com fallback automático para Lovable AI
+  const tryGoogle = async () => {
+    if (!apiKey) throw new Error('GOOGLE_API_KEY ausente, pulando Google AI');
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`Google AI Error ${response.status}:`, errText);
+      if (response.status === 429) {
+        throw new Error('Limite de requisições excedido na API do Google. Aguarde alguns minutos antes de tentar novamente.');
       }
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error(`Google AI Error ${response.status}:`, errText);
-    
-    if (response.status === 429) {
-      throw new Error('Limite de requisições excedido na API do Google. Aguarde alguns minutos antes de tentar novamente.');
+      if (response.status === 400 || response.status === 401 || response.status === 403) {
+        throw new Error(`Google AI indisponível (${response.status}).`);
+      }
+      throw new Error(`Google AI API error: ${response.status} - ${errText.slice(0, 200)}`);
     }
-    if (response.status === 400) {
-      throw new Error('API key do Google AI inválida ou erro na requisição. Verifique sua configuração.');
-    }
-    
-    throw new Error(`Google AI API error: ${response.status} - ${errText.slice(0, 200)}`);
-  }
 
-  const data = await response.json();
-  const fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  console.log(`✅ Google AI response received (${fullText.length} chars)`);
-  
-  // Log token usage if available
-  if (data.usageMetadata) {
-    console.log(`📊 Tokens: ${data.usageMetadata.promptTokenCount} prompt + ${data.usageMetadata.candidatesTokenCount} completion = ${data.usageMetadata.totalTokenCount} total`);
-  }
-  
-  // Parse insights and recommendations from response
-  const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);
-  const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
-  
-  return {
-    data: fullText,
-    insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
-    recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
+    const data = await response.json();
+    const fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log(`✅ Google AI response received (${fullText.length} chars)`);
+    if (data.usageMetadata) {
+      console.log(`📊 Tokens: ${data.usageMetadata.promptTokenCount} prompt + ${data.usageMetadata.candidatesTokenCount} completion = ${data.usageMetadata.totalTokenCount} total`);
+    }
+    const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);
+    const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
+    return {
+      data: fullText,
+      insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
+      recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
+    };
   };
+
+  const tryLovable = async () => {
+    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableKey) {
+      throw new Error('Fallback AI indisponível: LOVABLE_API_KEY não configurada.');
+    }
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('AI Fallback Error:', response.status, errText);
+      throw new Error(`AI fallback error: ${response.status} - ${errText.slice(0, 200)}`);
+    }
+
+    const data = await response.json();
+    const fullText = data.choices?.[0]?.message?.content || '';
+    console.log(`✅ Lovable AI fallback response received (${fullText.length} chars)`);
+    const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);
+    const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
+    return {
+      data: fullText,
+      insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
+      recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
+    };
+  };
+
+  try {
+    return await tryGoogle();
+  } catch (err) {
+    console.warn('Google AI indisponível, usando fallback Lovable AI:', err instanceof Error ? err.message : String(err));
+    return await tryLovable();
+  }
 }

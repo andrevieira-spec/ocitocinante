@@ -93,10 +93,24 @@ export const MarketInsights = () => {
 
       toast({ title: 'Análise iniciada! Atualizando automaticamente por 30s...' });
     } catch (error: any) {
-      // Keep polling regardless, as the function may still have run server-side
+      const errorMsg = error?.message || 'Erro desconhecido';
+      
+      // Check if it's a credits error
+      if (errorMsg.includes('Créditos insuficientes') || errorMsg.includes('402') || errorMsg.includes('payment_required')) {
+        clearInterval(interval);
+        setAnalyzing(false);
+        toast({
+          title: '❌ Créditos insuficientes',
+          description: 'Adicione créditos em Settings → Workspace → Usage para continuar as análises.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // For other errors, keep polling
       toast({
         title: 'Não foi possível confirmar o início da análise',
-        description: error?.message || 'Continuaremos atualizando por 30s para capturar resultados.',
+        description: errorMsg.slice(0, 100) + '... Continuaremos atualizando por 30s.',
         variant: 'destructive',
       });
     }

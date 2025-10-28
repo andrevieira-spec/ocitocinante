@@ -246,30 +246,32 @@ Deno.serve(async (req) => {
     for (const competitor of competitors || []) {
       console.log(`Analyzing competitor: ${competitor.name}`);
 
-      // 1. Analyze Pricing Strategy (ULTRA DETAILED)
-      const pricingPrompt = `Analise DETALHADAMENTE os pacotes e preços anunciados por ${competitor.name} (${competitor.website_url}) no setor de turismo HOJE.
+      // 1. Analyze Pricing Strategy with REAL PACKAGES from CVC
+      const pricingPrompt = `Acesse DIRETAMENTE o site ${competitor.website_url} e perfis oficiais da ${competitor.name} e colete pacotes REAIS anunciados HOJE e os 5 pacotes com MAIOR INTERAÇÃO nas últimas 48 horas (curtidas, comentários, compartilhamentos).
       
-      🎯 FOCO PRINCIPAL: PACOTES ANUNCIADOS HOJE E PRODUTOS COM MAIS INTERAÇÕES NAS ÚLTIMAS 48H
+      🎯 OBRIGATÓRIO: MÍNIMO 3-5 PACOTES DO DIA + TOP 5 PACOTES DE INTERAÇÃO (48H)
       
-      ESTRUTURA OBRIGATÓRIA POR PRODUTO/PACOTE:
+      ESTRUTURA OBRIGATÓRIA POR PACOTE (preencha TODOS os campos):
       
-      📦 NOME DO PACOTE: [nome exato e completo]
-      💰 PREÇO: [valor anunciado com clareza]
-      📍 DESTINO: [cidade/região específica]
-      📅 DATAS DE SAÍDA: [liste todas as datas disponíveis ou período]
-      🏨 HOTÉIS: [nome completo + categoria (3★, 4★, 5★, etc)]
-      ✈️ COMPANHIA AÉREA: [nome da cia + número do voo se disponível] | "Informação não disponível no post" se não houver
-      🚗 TRASLADO: [SIM/NÃO + detalhes se houver]
-      🎫 PASSEIOS INCLUSOS: [liste todos ou "Informação não disponível no post"]
-      💳 PAGAMENTO: [condições de parcelamento, entrada, descontos à vista]
-      🎁 PROMOÇÕES: [cupons, cashback, criança grátis, etc ou "Nenhuma promoção ativa"]
+      📦 NOME DO PACOTE: [nome exato]
+      💰 PREÇO: [valor exato] ou "informação não disponível no post"
+      📍 DESTINO: [cidade/região] ou "informação não disponível no post"
+      📅 DATAS DE SAÍDA: [todas as datas ou período] ou "informação não disponível no post"
+      🏨 HOTÉIS: [nome + categoria (3★, 4★, 5★)] ou "informação não disponível no post"
+      ✈️ COMPANHIA AÉREA: [nome + voo] ou "informação não disponível no post"
+      ✈️ VOOS: [detalhes do voo] ou "informação não disponível no post"
+      🚗 TRASLADO INCLUSO: [SIM/NÃO + detalhes] ou "informação não disponível no post"
+      🎫 PASSEIOS INCLUSOS: [lista completa] ou "informação não disponível no post"
+      💳 CONDIÇÕES DE PAGAMENTO: [parcelamento, entrada, à vista] ou "informação não disponível no post"
+      🎁 PROMOÇÕES ATIVAS: [cupons, cashback, etc] ou "Nenhuma promoção ativa"
       
-      Liste NO MÍNIMO:
-      - 3-5 pacotes anunciados HOJE
-      - Os 5 pacotes com MAIOR NÚMERO DE INTERAÇÕES nas últimas 48 horas (curtidas, comentários, compartilhamentos)
+      IMPORTANTE:
+      - Se um campo não tiver informação no post/site, escreva EXATAMENTE: "informação não disponível no post"
+      - Liste MÍNIMO 3-5 pacotes anunciados HOJE
+      - Liste os TOP 5 pacotes com mais interação (curtidas/comentários/compartilhamentos) nas últimas 48h
       
-      Após listar os produtos, adicione:
-      📊 ANÁLISE GERAL: faixas de preço dominantes, estratégia de precificação observada, sazonalidade.`;
+      Ao final, adicione:
+      📊 ANÁLISE GERAL: faixas de preço, estratégia de precificação, sazonalidade identificada.`;
 
       console.log('Starting pricing analysis...');
       const pricingAnalysis = await retryWithBackoff(() => 
@@ -343,33 +345,37 @@ Deno.serve(async (req) => {
       // 3. Market Trends Analysis (removed - will be replaced by trends summary)
       // Individual competitor trends analysis is now synthesized in the global summary
 
-      // 4. Strategic Summary (combines all insights)
-      const strategyPrompt = `Você está criando um RESUMO ESTRATÉGICO EXECUTIVO sobre ${competitor.name} e o mercado de turismo.
+      // 4. Strategic Summary (combines all insights) - COMPLETO, DIDÁTICO E CONCISO
+      const strategyPrompt = `Você está criando um RESUMO ESTRATÉGICO EXECUTIVO COMPLETO sobre ${competitor.name} e o mercado de turismo.
       
-      Este resumo deve sintetizar de forma DIDÁTICA, VISUAL e PRÁTICA:
-      - Principais preços e produtos anunciados pela concorrência
-      - Estratégias de redes sociais que estão funcionando
-      - Tendências do Google Trends identificadas
+      Este resumo deve ser COMPLETO, DIDÁTICO e CONCISO, sintetizando:
+      - Preços, produtos e estratégia de precificação da concorrência
+      - Estratégias de redes sociais, engajamento e formatos que funcionam
+      - Tendências do Google Trends (30 dias + 24h)
+      - Top 10 assuntos mais pesquisados no Google Brasil (24h)
       - Perguntas que as pessoas estão fazendo (PAA)
       
-      FORMATO DO RESUMO (use emojis e estruturação clara):
+      FORMATO OBRIGATÓRIO (use emojis, dados concretos e estruturação visual):
       
-      📊 PREÇOS & PRODUTOS:
-      [3-4 bullet points resumindo faixas de preço, principais pacotes, estratégia de precificação]
+      📊 PREÇOS & PRODUTOS (5-7 pontos detalhados):
+      [faixas de preço específicas, principais pacotes e valores, estratégia de precificação (entrada/parcelamento), destinos populares, comparação com mercado]
       
-      📱 REDES SOCIAIS:
-      [3-4 bullet points sobre tipo de conteúdo, engajamento, estratégias observadas]
+      📱 REDES SOCIAIS (5-7 pontos detalhados):
+      [formatos de post mais efetivos (carrossel/reel/stories), horários de maior engajamento, tom de voz e posicionamento, gatilhos mentais utilizados, frequência de postagem, tipos de conteúdo com mais interação]
       
-      📈 TENDÊNCIAS DE BUSCA:
-      [3-4 bullet points sobre o que está em alta, palavras-chave, comportamento]
+      📈 TENDÊNCIAS DE MERCADO (5-7 pontos detalhados):
+      [destinos em alta (30 dias + 24h), palavras-chave emergentes, comportamento do consumidor, sazonalidade identificada, oportunidades de nicho]
       
-      ❓ O QUE AS PESSOAS PERGUNTAM:
-      [3-4 dúvidas/perguntas mais comuns identificadas]
+      🔥 TOP 10 ASSUNTOS BRASIL (24H):
+      [liste os 10 assuntos mais pesquisados no Google Brasil nas últimas 24h, identificando quais podem ser aproveitados para campanhas de turismo com humor/criatividade]
       
-      💡 SÍNTESE ESTRATÉGICA:
-      [2-3 insights-chave mesclando todas as informações acima]
+      ❓ DÚVIDAS COMUNS DO PÚBLICO (5 principais):
+      [perguntas e preocupações dos viajantes, oportunidades de conteúdo]
       
-      IMPORTANTE: Seja conciso, use dados concretos, evite textos longos. Foco em informação gerencial rápida e confiável.`;
+      💡 SÍNTESE ESTRATÉGICA & AÇÕES IMEDIATAS (3-5 insights-chave):
+      [insights acionáveis mesclando todas as informações acima, recomendações de campanhas considerando os top assuntos sociais do momento]
+      
+      IMPORTANTE: Use dados concretos, seja executivo mas didático, mantenha formato visual e fácil de ler.`;
 
       try {
         const strategyAnalysis = await retryWithBackoff(() => 
@@ -392,11 +398,27 @@ Deno.serve(async (req) => {
       console.log(`Completed analysis for ${competitor.name}`);
     }
 
-    // Global Google Trends (once per run)
+    // Global Google Trends (30 dias + 24 horas + Top 10 assuntos)
     if (include_trends) {
-      const trendsPrompt = `Analise as principais tendências do Google Trends para o setor de turismo no Brasil nos últimos 30 dias.
-      Identifique: destinos em alta, tipos de viagem mais procurados, palavras-chave emergentes, sazonalidade.
-      Foco: turismo geral (não luxo), dados práticos para campanhas de marketing.`;
+      const trendsPrompt = `Analise as tendências do Google Trends para turismo no Brasil em DOIS PERÍODOS + TOP ASSUNTOS:
+      
+      📈 ANÁLISE 30 DIAS:
+      - Destinos em alta
+      - Tipos de viagem mais procurados
+      - Palavras-chave emergentes
+      - Sazonalidade identificada
+      
+      ⚡ ANÁLISE 24 HORAS:
+      - Tendências de busca do último dia
+      - Picos de interesse recentes
+      - Temas emergentes nas últimas 24h
+      
+      🔥 TOP 10 ASSUNTOS BRASIL (24H):
+      - Liste os 10 assuntos GERAIS mais pesquisados no Google Brasil nas últimas 24 horas
+      - Identifique quais assuntos podem ser aproveitados para campanhas de turismo (humor, oportunismo criativo)
+      - Marque claramente os assuntos que têm potencial de conexão com turismo
+      
+      Foco: turismo geral, dados práticos para campanhas de marketing.`;
       try {
         const trendsAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, trendsPrompt)
@@ -435,22 +457,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Trends Summary (synthesizes Google Trends + PAA)
+    // Trends Summary (synthesizes Google Trends 30d + 24h + PAA + Top 10)
     if (include_trends && include_paa) {
-      const trendsSummaryPrompt = `Crie um RESUMO DE TENDÊNCIAS DE MERCADO combinando dados do Google Trends e People Also Ask sobre turismo no Brasil.
+      const trendsSummaryPrompt = `Crie um RESUMO COMPLETO DE TENDÊNCIAS combinando Google Trends (30 dias + 24h), Top Assuntos Brasil e PAA sobre turismo.
       
-      FORMATO DO RESUMO (use emojis e estruturação clara):
+      FORMATO OBRIGATÓRIO (use emojis, dados concretos e estruturação visual):
       
-      📈 TENDÊNCIAS GOOGLE TRENDS:
-      [3-4 bullet points sobre destinos, tipos de viagem, palavras-chave em alta]
+      📈 TENDÊNCIAS 30 DIAS:
+      [5-6 bullet points sobre destinos em alta, tipos de viagem, palavras-chave emergentes, sazonalidade]
+      
+      ⚡ TENDÊNCIAS 24 HORAS:
+      [3-4 bullet points sobre picos recentes, temas emergentes do último dia]
+      
+      🔥 TOP 10 ASSUNTOS BRASIL (24H):
+      [liste os 10 assuntos mais pesquisados no Google Brasil nas últimas 24h]
+      [marque os 3-5 assuntos com maior potencial para campanhas de turismo com humor/criatividade]
       
       ❓ PERGUNTAS FREQUENTES (PAA):
-      [3-4 dúvidas/questões mais comuns das pessoas sobre turismo]
+      [5-6 dúvidas/questões mais comuns sobre turismo, oportunidades de conteúdo]
       
-      🎯 OPORTUNIDADES IDENTIFICADAS:
-      [2-3 oportunidades concretas baseadas nas tendências e perguntas]
+      🎯 OPORTUNIDADES ESTRATÉGICAS:
+      [4-5 oportunidades concretas baseadas em tendências, perguntas e assuntos sociais]
+      [inclua sugestões de campanhas aproveitando os top assuntos do momento]
       
-      IMPORTANTE: Seja direto, use dados concretos, mantenha formato visual e fácil de ler. Evite textos longos.`;
+      IMPORTANTE: Seja completo, didático e conciso. Use dados concretos, mantenha formato visual.`;
       
       try {
         const trendsSummaryAnalysis = await retryWithBackoff(() => 
@@ -496,7 +526,7 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string): Promise<an
       messages: [
         {
           role: 'system',
-          content: 'Você é um analista estratégico de mercado de turismo. Forneça análises profundas, práticas e baseadas em dados reais da web. USE ESTES CABEÇALHOS EXATOS: "Insights Principais:" e "Recomendações Estratégicas:". Mantenha linguagem didática, objetiva e executiva.'
+          content: 'Você é um analista estratégico sênior de mercado de turismo. Forneça análises COMPLETAS, DIDÁTICAS e CONCISAS baseadas em dados reais da web. USE ESTES CABEÇALHOS OBRIGATÓRIOS: "Insights Principais:" seguido de 5-7 pontos detalhados e "Recomendações Estratégicas:" seguido de 5-7 ações específicas e práticas. Seja executivo, use dados concretos, e mantenha tom profissional mas acessível.'
         },
         {
           role: 'user',
@@ -509,6 +539,14 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string): Promise<an
   if (!response.ok) {
     const errText = await response.text();
     console.error(`AI Gateway Error ${response.status}:`, errText);
+    
+    if (response.status === 402) {
+      throw new Error('Créditos insuficientes no Lovable AI. Adicione créditos em Settings → Workspace → Usage para continuar as análises.');
+    }
+    if (response.status === 429) {
+      throw new Error('Limite de requisições excedido. Aguarde alguns minutos antes de tentar novamente.');
+    }
+    
     throw new Error(`AI gateway error: ${response.status} - ${errText.slice(0, 200)}`);
   }
 

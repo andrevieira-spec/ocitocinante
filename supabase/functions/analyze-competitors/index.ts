@@ -138,9 +138,12 @@ Deno.serve(async (req) => {
         
         Seja direto, visual e prático.`;
         
+        console.log('🔍 Starting strategic analysis...');
         const strategyAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, strategyPrompt)
         );
+        console.log('✅ Strategic analysis completed');
+        
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'strategic_insights',
@@ -163,9 +166,12 @@ Deno.serve(async (req) => {
         💡 1-2 implicações práticas
         
         Seja direto e visual.`;
+        console.log('🔍 Starting Google Trends analysis...');
         const trendsAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, trendsPrompt)
         );
+        console.log('✅ Google Trends analysis completed');
+        
         await supabase.from('market_analysis').insert({
           analysis_type: 'google_trends',
           data: { raw_response: trendsAnalysis.data },
@@ -186,9 +192,12 @@ Deno.serve(async (req) => {
         💡 1-2 oportunidades de conteúdo
         
         Seja direto.`;
+        console.log('🔍 Starting PAA analysis...');
         const paaAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, paaPrompt)
         );
+        console.log('✅ PAA analysis completed');
+        
         await supabase.from('market_analysis').insert({
           analysis_type: 'people_also_ask',
           data: { raw_response: paaAnalysis.data },
@@ -210,9 +219,12 @@ Deno.serve(async (req) => {
         
         Seja direto e visual.`;
         
+        console.log('🔍 Starting Trends Summary...');
         const trendsSummaryAnalysis = await retryWithBackoff(() => 
           analyzeWithPerplexity(lovableApiKey, trendsSummaryPrompt)
         );
+        console.log('✅ Trends Summary completed');
+        
         await supabase.from('market_analysis').insert({
           analysis_type: 'trends',
           data: { raw_response: trendsSummaryAnalysis.data },
@@ -522,7 +534,7 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string): Promise<an
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-5',
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'system',
@@ -551,8 +563,13 @@ async function analyzeWithPerplexity(apiKey: string, prompt: string): Promise<an
   }
 
   const data = await response.json();
-  console.log('AI response received, parsing...');
   const fullText = data.choices[0].message.content;
+  console.log(`✅ AI response received (${fullText.length} chars)`);
+  
+  // Log token usage if available
+  if (data.usage) {
+    console.log(`📊 Tokens: ${data.usage.prompt_tokens} prompt + ${data.usage.completion_tokens} completion = ${data.usage.total_tokens} total`);
+  }
   
   // Parse insights and recommendations from response
   const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);

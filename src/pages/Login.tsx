@@ -12,6 +12,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -64,6 +65,27 @@ export default function Login() {
         description: friendly || 'Credenciais inválidas',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    const emailNormalized = email.trim().toLowerCase();
+    if (!emailNormalized) {
+      toast({ title: 'Informe seu email', description: 'Preencha o campo de email para receber o link.' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: emailNormalized,
+        options: { emailRedirectTo: `${window.location.origin}/admin` },
+      });
+      if (error) throw error;
+      toast({ title: 'Link enviado', description: 'Verifique seu email para entrar sem senha.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao enviar link', description: error?.message || 'Tente novamente', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -195,17 +217,24 @@ export default function Login() {
                   </label>
                   <Input
                     id="login-password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     disabled={loading}
                   />
+                  <div className="flex items-center gap-2">
+                    <input id="show-pass" type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
+                    <label htmlFor="show-pass" className="text-xs">Mostrar senha</label>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </Button>
-                <div className="mt-2 text-center">
+                <div className="mt-2 grid grid-cols-1 gap-2 text-center">
+                  <Button type="button" variant="link" onClick={handleMagicLink} disabled={loading}>
+                    Entrar com link por email (sem senha)
+                  </Button>
                   <Button type="button" variant="link" onClick={handleResetPassword} disabled={loading}>
                     Esqueci minha senha
                   </Button>

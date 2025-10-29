@@ -57,31 +57,127 @@ Deno.serve(async (req) => {
 
       const competitor = competitors?.[0];
 
-      // 1) Strategic Summary (faster, synthesizes all)
       if (competitor) {
-        const strategyPrompt = `Crie um RESUMO ESTRATÉGICO EXECUTIVO rápido sobre ${competitor.name} (${competitor.website_url}) e o mercado de turismo.
+        // 1) Análise de Preços e Produtos
+        const pricingPrompt = `Analise IMEDIATAMENTE os pacotes, preços e produtos da ${competitor.name} (${competitor.website_url}).
+
+🎯 DADOS CONCRETOS OBRIGATÓRIOS:
+
+📦 PRINCIPAIS PACOTES/PRODUTOS (3-5 exemplos):
+- Nome do pacote
+- Preço (se disponível)
+- Destino principal
+- Diferenciais
+
+💰 ESTRATÉGIA DE PRECIFICAÇÃO:
+- Faixa de preços praticada
+- Formas de pagamento destacadas
+- Promoções ativas
+
+📊 ANÁLISE ESTRATÉGICA:
+- Posicionamento de preço (premium/médio/econômico)
+- Destinos mais promovidos
+- Oportunidades identificadas
+
+Seja direto, use dados concretos do site/redes sociais.`;
+
+        console.log('🔍 Starting pricing analysis...');
+        const pricingAnalysis = await retryWithBackoff(() => 
+          analyzeWithGemini(googleApiKey, pricingPrompt)
+        );
+        console.log('✅ Pricing analysis completed');
         
-        FORMATO (use emojis e seja conciso):
+        await supabase.from('market_analysis').insert({
+          competitor_id: competitor.id,
+          analysis_type: 'pricing',
+          data: { raw_response: pricingAnalysis.data },
+          insights: pricingAnalysis.insights,
+          recommendations: pricingAnalysis.recommendations,
+          confidence_score: 0.85,
+          is_automated
+        });
+        console.log('Quick pricing analysis inserted');
+
+        // 2) Análise de Redes Sociais - FOCO EM ENGAJAMENTO E PÚBLICO
+        const socialUrls = [
+          competitor.instagram_url,
+          competitor.youtube_url,
+          competitor.tiktok_url,
+          competitor.x_url
+        ].filter(Boolean).join(', ');
+
+        if (socialUrls) {
+          const socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
+
+🎯 ANÁLISE DE ENGAJAMENTO (PRIORIDADE MÁXIMA):
+
+📱 POSTS COM MAIOR ENGAJAMENTO (últimas 48h):
+- Identifique os 5 posts/conteúdos com MAIS curtidas, comentários e compartilhamentos
+- Para cada post top: tema, formato (reel/carrossel/foto), número aproximado de interações
+- Quais PRODUTOS/DESTINOS estão sendo promovidos nos posts de maior engajamento?
+
+👥 PÚBLICO-ALVO E INTERAÇÃO:
+- Perfil demográfico predominante (idade, gênero baseado nos comentários/seguidores)
+- Localização geográfica do público (cidades/regiões mencionadas)
+- Tipos de comentários/perguntas mais frequentes
+- Horários de maior interação
+
+🎨 ESTRATÉGIA DE CONTEÚDO:
+- Tom de voz (formal/informal, descontraído/profissional)
+- Tipos de conteúdo (educativo, promocional, entretenimento)
+- Frequência de postagem
+- Hashtags e palavras-chave usadas
+
+💼 GERAÇÃO DE LEADS:
+- Como capturam contatos? (link na bio, direct, WhatsApp, formulários)
+- Calls-to-action utilizados
+- Promoções/ofertas exclusivas para redes sociais
+- Estratégias de remarketing visíveis
+
+Seja CONCRETO, use DADOS REAIS observados nas redes sociais.`;
+
+          console.log('🔍 Starting social media analysis...');
+          const socialAnalysis = await retryWithBackoff(() => 
+            analyzeWithGemini(googleApiKey, socialPrompt)
+          );
+          console.log('✅ Social media analysis completed');
+          
+          await supabase.from('market_analysis').insert({
+            competitor_id: competitor.id,
+            analysis_type: 'social_media',
+            data: { raw_response: socialAnalysis.data },
+            insights: socialAnalysis.insights,
+            recommendations: socialAnalysis.recommendations,
+            confidence_score: 0.85,
+            is_automated
+          });
+          console.log('Quick social media analysis inserted');
+        }
+
+        // 3) Resumo Estratégico Integrado
+        const strategyPrompt = `Crie um RESUMO ESTRATÉGICO EXECUTIVO sobre ${competitor.name} integrando insights de preços, redes sociais e mercado.
+        
+        FORMATO (use emojis e seja direto):
         
         📊 PREÇOS & PRODUTOS:
-        [2-3 pontos sobre principais preços e pacotes]
+        [3-4 pontos sobre estratégia de precificação e produtos principais]
         
-        📱 REDES SOCIAIS:
-        [2-3 pontos sobre estratégias de conteúdo]
+        📱 REDES SOCIAIS & ENGAJAMENTO:
+        [3-4 pontos sobre conteúdos que geram engajamento e público-alvo]
         
-        📈 MERCADO:
-        [2-3 pontos sobre tendências observadas]
+        💼 GERAÇÃO DE LEADS:
+        [2-3 pontos sobre estratégias de captura observadas]
         
-        💡 AÇÃO IMEDIATA:
-        [1-2 recomendações práticas]
+        💡 AÇÕES RECOMENDADAS:
+        [2-3 recomendações concretas baseadas nos dados observados]
         
-        Seja direto, visual e prático.`;
+        Seja visual, prático e baseado em dados concretos.`;
         
-        console.log('🔍 Starting strategic analysis...');
+        console.log('🔍 Starting strategic summary...');
         const strategyAnalysis = await retryWithBackoff(() => 
           analyzeWithGemini(googleApiKey, strategyPrompt)
         );
-        console.log('✅ Strategic analysis completed');
+        console.log('✅ Strategic summary completed');
         
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
@@ -92,7 +188,7 @@ Deno.serve(async (req) => {
           confidence_score: 0.90,
           is_automated
         });
-        console.log('Quick strategic analysis inserted');
+        console.log('Quick strategic summary inserted');
       }
 
       // 2) Quick Google Trends (optional) - MANUAL: últimas 2h
@@ -204,32 +300,30 @@ Deno.serve(async (req) => {
     for (const competitor of competitors || []) {
       console.log(`Analyzing competitor: ${competitor.name}`);
 
-      // 1. Analyze Pricing Strategy with REAL PACKAGES from CVC
-      const pricingPrompt = `Acesse DIRETAMENTE o site ${competitor.website_url} e perfis oficiais da ${competitor.name} e colete pacotes REAIS anunciados HOJE e os 5 pacotes com MAIOR INTERAÇÃO nas últimas 48 horas (curtidas, comentários, compartilhamentos).
-      
-      🎯 OBRIGATÓRIO: MÍNIMO 3-5 PACOTES DO DIA + TOP 5 PACOTES DE INTERAÇÃO (48H)
-      
-      ESTRUTURA OBRIGATÓRIA POR PACOTE (preencha TODOS os campos):
-      
-      📦 NOME DO PACOTE: [nome exato]
-      💰 PREÇO: [valor exato] ou "informação não disponível no post"
-      📍 DESTINO: [cidade/região] ou "informação não disponível no post"
-      📅 DATAS DE SAÍDA: [todas as datas ou período] ou "informação não disponível no post"
-      🏨 HOTÉIS: [nome + categoria (3★, 4★, 5★)] ou "informação não disponível no post"
-      ✈️ COMPANHIA AÉREA: [nome + voo] ou "informação não disponível no post"
-      ✈️ VOOS: [detalhes do voo] ou "informação não disponível no post"
-      🚗 TRASLADO INCLUSO: [SIM/NÃO + detalhes] ou "informação não disponível no post"
-      🎫 PASSEIOS INCLUSOS: [lista completa] ou "informação não disponível no post"
-      💳 CONDIÇÕES DE PAGAMENTO: [parcelamento, entrada, à vista] ou "informação não disponível no post"
-      🎁 PROMOÇÕES ATIVAS: [cupons, cashback, etc] ou "Nenhuma promoção ativa"
-      
-      IMPORTANTE:
-      - Se um campo não tiver informação no post/site, escreva EXATAMENTE: "informação não disponível no post"
-      - Liste MÍNIMO 3-5 pacotes anunciados HOJE
-      - Liste os TOP 5 pacotes com mais interação (curtidas/comentários/compartilhamentos) nas últimas 48h
-      
-      Ao final, adicione:
-      📊 ANÁLISE GERAL: faixas de preço, estratégia de precificação, sazonalidade identificada.`;
+      // 1. Analyze Pricing Strategy - ANÁLISE COMPLETA E DIRETA
+      const pricingPrompt = `Analise DIRETAMENTE os pacotes, preços e estratégias comerciais da ${competitor.name} (${competitor.website_url}) e suas redes sociais.
+
+🎯 ANÁLISE COMPLETA E IMEDIATA:
+
+📦 PRINCIPAIS PACOTES/PRODUTOS (5-7 exemplos concretos):
+- Nome do pacote/produto
+- Preço (quando disponível)
+- Destino e características
+- Diferenciais destacados
+
+💰 ESTRATÉGIA DE PRECIFICAÇÃO:
+- Faixa de preços praticada (entrada, média, premium)
+- Condições de pagamento mais promovidas
+- Promoções e ofertas ativas
+- Cupons ou cashback disponíveis
+
+📊 ANÁLISE ESTRATÉGICA:
+- Posicionamento no mercado (econômico/médio/premium)
+- Destinos mais promovidos
+- Sazonalidade identificada
+- Pacotes com MAIOR DESTAQUE nas redes sociais (curtidas, comentários)
+
+Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
 
       console.log('Starting pricing analysis...');
       const pricingAnalysis = await retryWithBackoff(() => 
@@ -255,31 +349,43 @@ Deno.serve(async (req) => {
       ].filter(Boolean).join(', ');
 
       if (socialUrls) {
-        const socialPrompt = `Analise PROFUNDAMENTE a postura e voz da marca ${competitor.name} nas redes sociais: ${socialUrls}.
-        
-        🎯 FOCO: POSICIONAMENTO, VOZ E ESTRATÉGIA MERCADOLÓGICA (não apenas o que posta)
-        
-        📱 VOZ DA MARCA:
-        - Tom de comunicação (formal/informal, divertido/sério, emocional/racional)
-        - Personalidade percebida
-        - Valores comunicados
-        
-        🎨 FORMATOS DE MARKETING:
-        - Quais formatos de post geram MAIS ENGAJAMENTO? (carrossel, vídeo, reels, stories)
-        - Quais TIPOS DE CONTEÚDO têm mais visualizações? (bastidores, dicas, promoções, UGC)
-        - Elementos visuais recorrentes (cores, filtros, tipografia)
-        
-        💬 POSICIONAMENTO NO MERCADO:
-        - Como a marca se diferencia dos concorrentes?
-        - Qual público-alvo é evidente na comunicação?
-        - Gatilhos mentais utilizados (escassez, prova social, urgência)
-        
-        📊 ANÁLISE DE ENGAJAMENTO:
-        - Tipos de post com mais curtidas/comentários/compartilhamentos
-        - Horários de publicação mais efetivos
-        - Frequência de postagem
-        
-        Entregue insights ACIONÁVEIS para replicar ou superar essas estratégias.`;
+        const socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
+
+🎯 ANÁLISE DE ENGAJAMENTO E PÚBLICO (PRIORIDADE MÁXIMA):
+
+📱 POSTS COM MAIOR ENGAJAMENTO (últimas 72h):
+- Identifique os 7-10 posts/conteúdos com MAIS curtidas, comentários e compartilhamentos
+- Para cada post top: tema, formato (reel/carrossel/foto/vídeo), métricas de engajamento
+- Quais PRODUTOS/DESTINOS/PACOTES estão sendo promovidos nos posts de maior engajamento?
+- Qual tipo de conteúdo gera mais salvamentos?
+
+👥 PÚBLICO-ALVO E DEMOGRAFIA:
+- Perfil demográfico predominante (faixa etária, gênero - baseado em comentários/seguidores)
+- Localização geográfica do público (estados, cidades mencionadas)
+- Poder aquisitivo percebido (baseado nos produtos/pacotes com mais interação)
+- Personas identificadas (viajantes solo, famílias, casais, grupos)
+
+💬 INTERAÇÃO E ENGAJAMENTO:
+- Tipos de comentários mais frequentes (dúvidas, elogios, solicitações)
+- Perguntas recorrentes do público
+- Horários de maior interação
+- Taxa de resposta da empresa
+
+💼 ESTRATÉGIAS DE GERAÇÃO DE LEADS:
+- Como capturam contatos? (link na bio, direct, WhatsApp, formulários, Manychat)
+- Calls-to-action mais utilizados
+- Promoções exclusivas para followers
+- Estratégias de urgência/escassez
+- Uso de landing pages
+
+🎨 ESTRATÉGIA DE CONTEÚDO:
+- Tom de voz e personalidade da marca
+- Frequência e horários de postagem
+- Formatos que mais performam
+- Hashtags estratégicas
+- Parcerias com influenciadores
+
+Seja EXTREMAMENTE CONCRETO, use DADOS REAIS e EXEMPLOS ESPECÍFICOS observados nas redes sociais.`;
 
         try {
           const socialAnalysis = await retryWithBackoff(() => 
@@ -303,37 +409,36 @@ Deno.serve(async (req) => {
       // 3. Market Trends Analysis (removed - will be replaced by trends summary)
       // Individual competitor trends analysis is now synthesized in the global summary
 
-      // 4. Strategic Summary (combines all insights) - COMPLETO, DIDÁTICO E CONCISO
-      const strategyPrompt = `Você está criando um RESUMO ESTRATÉGICO EXECUTIVO COMPLETO sobre ${competitor.name} e o mercado de turismo.
+      // 4. Strategic Summary (combines all insights) - FOCO EM DADOS ACIONÁVEIS
+      const strategyPrompt = `Você está criando um RESUMO ESTRATÉGICO EXECUTIVO COMPLETO sobre ${competitor.name} focado em GERAÇÃO DE CAMPANHAS.
       
-      Este resumo deve ser COMPLETO, DIDÁTICO e CONCISO, sintetizando:
-      - Preços, produtos e estratégia de precificação da concorrência
-      - Estratégias de redes sociais, engajamento e formatos que funcionam
-      - Tendências do Google Trends (30 dias + 24h)
-      - Top 10 assuntos mais pesquisados no Google Brasil (24h)
-      - Perguntas que as pessoas estão fazendo (PAA)
+      Este resumo deve sintetizar DADOS ACIONÁVEIS para criar campanhas de marketing efetivas:
+      - Produtos/pacotes com maior engajamento nas redes sociais
+      - Perfil demográfico e comportamental do público-alvo
+      - Estratégias de geração de leads observadas
+      - Conteúdos e formatos que geram resultados
       
-      FORMATO OBRIGATÓRIO (use emojis, dados concretos e estruturação visual):
+      FORMATO OBRIGATÓRIO (use emojis, dados concretos e exemplos reais):
       
-      📊 PREÇOS & PRODUTOS (5-7 pontos detalhados):
-      [faixas de preço específicas, principais pacotes e valores, estratégia de precificação (entrada/parcelamento), destinos populares, comparação com mercado]
+      📊 PRODUTOS & PREÇOS COM MAIOR ENGAJAMENTO (5-7 pontos):
+      [produtos/pacotes específicos com mais interação, faixas de preço que geram mais conversão, destinos em alta, promoções que funcionam]
       
-      📱 REDES SOCIAIS (5-7 pontos detalhados):
-      [formatos de post mais efetivos (carrossel/reel/stories), horários de maior engajamento, tom de voz e posicionamento, gatilhos mentais utilizados, frequência de postagem, tipos de conteúdo com mais interação]
+      📱 CONTEÚDOS DE ALTO ENGAJAMENTO (7-10 pontos):
+      [posts específicos com métricas, formatos que performam (reel/carrossel), temas que geram salvamentos/compartilhamentos, horários ideais, CTAs efetivos]
       
-      📈 TENDÊNCIAS DE MERCADO (5-7 pontos detalhados):
-      [destinos em alta (30 dias + 24h), palavras-chave emergentes, comportamento do consumidor, sazonalidade identificada, oportunidades de nicho]
+      👥 PÚBLICO-ALVO E DEMOGRAFIA (5-7 pontos):
+      [faixa etária predominante, gênero, localização geográfica, poder aquisitivo, perfis/personas identificadas, dores e desejos]
       
-      🔥 TOP 10 ASSUNTOS BRASIL (24H):
-      [liste os 10 assuntos mais pesquisados no Google Brasil nas últimas 24h, identificando quais podem ser aproveitados para campanhas de turismo com humor/criatividade]
+      💼 ESTRATÉGIAS DE GERAÇÃO DE LEADS (5-7 pontos):
+      [métodos de captura (WhatsApp/formulário/Manychat), ofertas/iscas digitais, landing pages, estratégias de urgência, taxa de resposta]
       
-      ❓ DÚVIDAS COMUNS DO PÚBLICO (5 principais):
-      [perguntas e preocupações dos viajantes, oportunidades de conteúdo]
+      📈 TENDÊNCIAS E OPORTUNIDADES (5-7 pontos):
+      [destinos emergentes, nichos inexplorados, comportamentos do consumidor, sazonalidade, lacunas no mercado]
       
-      💡 SÍNTESE ESTRATÉGICA & AÇÕES IMEDIATAS (3-5 insights-chave):
-      [insights acionáveis mesclando todas as informações acima, recomendações de campanhas considerando os top assuntos sociais do momento]
+      💡 PLANO DE AÇÃO PARA CAMPANHAS (5-7 recomendações):
+      [ações concretas baseadas nos dados observados, tipos de campanha recomendados, públicos a segmentar, produtos a promover, formatos a usar]
       
-      IMPORTANTE: Use dados concretos, seja executivo mas didático, mantenha formato visual e fácil de ler.`;
+      CRÍTICO: Use EXEMPLOS ESPECÍFICOS, NÚMEROS, DADOS CONCRETOS observados. Foque no que GERA RESULTADOS.`;
 
       try {
         const strategyAnalysis = await retryWithBackoff(() => 

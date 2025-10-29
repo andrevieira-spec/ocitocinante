@@ -6,8 +6,9 @@ import { ChatInterface } from '@/components/chat/ChatInterface';
 import { MarketInsights } from '@/components/insights/MarketInsights';
 import { CompetitorForm } from '@/components/competitors/CompetitorForm';
 import { CompetitorsList } from '@/components/competitors/CompetitorsList';
+import { AccessRequestsManager } from '@/components/admin/AccessRequestsManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, LayoutDashboard, Brain, TrendingUp } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
@@ -96,6 +97,10 @@ export default function Admin() {
               <MessageSquare className="w-4 h-4" />
               Chat
             </TabsTrigger>
+            <TabsTrigger value="access" className="gap-2">
+              <UserCheck className="w-4 h-4" />
+              Acessos
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="insights" className="flex-1 m-0 overflow-y-auto p-6">
@@ -112,6 +117,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="chat" className="flex-1 m-0">
           <ChatInterface />
+        </TabsContent>
+        <TabsContent value="access" className="flex-1 m-0 overflow-y-auto p-6">
+          <AccessRequestsManager />
         </TabsContent>
       </Tabs>
     </div>

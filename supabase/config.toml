@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.analyze-competitors]
 verify_jwt = false
+
+[functions.notify-access-approved]
+verify_jwt = true

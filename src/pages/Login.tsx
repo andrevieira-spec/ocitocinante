@@ -290,8 +290,18 @@ export default function Login() {
                   {loading ? 'Criando conta...' : 'Criar Conta'}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center">
-                  Após criar sua conta, entre em contato com o administrador para liberar acesso.
+                  Após criar sua conta, aguarde aprovação do administrador.
                 </p>
+                <div className="text-center mt-4">
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => navigate('/request-access')}
+                    className="text-sm"
+                  >
+                    Não tem conta? Solicite acesso aqui
+                  </Button>
+                </div>
               </form>
             </TabsContent>
           </Tabs>

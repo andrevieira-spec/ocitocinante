@@ -27,6 +27,8 @@ const App = () => (
           <Route path="/reset" element={<ResetPassword />} />
           <Route path="/request-access" element={<RequestAccess />} />
           <Route path="/cbos-setup" element={<CbosSetup />} />
+          <Route path="/cbos" element={<CbosSetup />} />
+          <Route path="/setup/cbos" element={<CbosSetup />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

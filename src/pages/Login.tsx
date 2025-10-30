@@ -19,31 +19,59 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!email || !password) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha email e senha',
+        variant: 'destructive',
+      });
+      return;
+    }
 
+    setLoading(true);
     const emailNormalized = email.trim().toLowerCase();
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Login
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: emailNormalized,
-        password,
+        password: password,
       });
 
-      if (error) throw error;
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
+      }
 
-      // Verificar se é admin
+      if (!authData?.user) {
+        throw new Error('Usuário não encontrado');
+      }
+
+      // Verificar role de admin
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', data.user.id)
+        .eq('user_id', authData.user.id)
         .eq('role', 'admin')
-        .single();
+        .maybeSingle();
 
-      if (roleError || !roleData) {
+      if (roleError) {
+        console.error('Role check error:', roleError);
+        await supabase.auth.signOut();
+        toast({
+          title: 'Erro ao verificar permissões',
+          description: 'Tente novamente',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!roleData) {
         await supabase.auth.signOut();
         toast({
           title: 'Acesso negado',
-          description: 'Você não tem permissão para acessar este sistema.',
+          description: 'Você não tem permissão de administrador.',
           variant: 'destructive',
         });
         return;
@@ -56,13 +84,20 @@ export default function Login() {
 
       navigate('/admin');
     } catch (error: any) {
-      const msg: string = error?.message || '';
-      const friendly = msg.includes('Invalid login credentials')
-        ? 'Email ou senha incorretos'
-        : msg;
+      console.error('Login error:', error);
+      let errorMessage = 'Erro ao fazer login. Tente novamente.';
+      
+      if (error?.message?.includes('Invalid login credentials')) {
+        errorMessage = 'Email ou senha incorretos';
+      } else if (error?.message?.includes('Email not confirmed')) {
+        errorMessage = 'Confirme seu email antes de fazer login';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: 'Erro no login',
-        description: friendly || 'Credenciais inválidas',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -114,6 +149,15 @@ export default function Login() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!email || !password || !confirmPassword) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha todos os campos',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     if (password !== confirmPassword) {
       toast({
         title: 'Erro',
@@ -133,17 +177,21 @@ export default function Login() {
     }
 
     setLoading(true);
+    const emailNormalized = email.trim().toLowerCase();
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
+        email: emailNormalized,
+        password: password,
         options: {
           emailRedirectTo: `${window.location.origin}/admin`,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Signup error:', error);
+        throw error;
+      }
 
       if (data.user) {
         toast({
@@ -152,15 +200,23 @@ export default function Login() {
           duration: 5000,
         });
         
-        // Limpar campos
         setEmail('');
         setPassword('');
         setConfirmPassword('');
       }
     } catch (error: any) {
+      console.error('Signup error:', error);
+      let errorMessage = 'Não foi possível criar a conta';
+      
+      if (error?.message?.includes('already registered')) {
+        errorMessage = 'Este email já está cadastrado';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: 'Erro no cadastro',
-        description: error.message || 'Não foi possível criar a conta',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

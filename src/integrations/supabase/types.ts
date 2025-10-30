@@ -53,6 +53,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_policies: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          policy_data: Json
+          policy_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          policy_data: Json
+          policy_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          policy_data?: Json
+          policy_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       archived_analyses: {
         Row: {
           analyses: Json
@@ -76,6 +103,44 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      campaign_approvals: {
+        Row: {
+          action: string
+          campaign_id: string | null
+          comments: string | null
+          created_at: string | null
+          id: string
+          user_id: string | null
+          version_diff: Json | null
+        }
+        Insert: {
+          action: string
+          campaign_id?: string | null
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string | null
+          version_diff?: Json | null
+        }
+        Update: {
+          action?: string
+          campaign_id?: string | null
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string | null
+          version_diff?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_approvals_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "daily_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaigns: {
         Row: {
@@ -123,7 +188,9 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_active: boolean | null
+          is_national: boolean | null
           name: string
+          priority: string | null
           tiktok_url: string | null
           updated_at: string
           website_url: string
@@ -136,7 +203,9 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_active?: boolean | null
+          is_national?: boolean | null
           name: string
+          priority?: string | null
           tiktok_url?: string | null
           updated_at?: string
           website_url: string
@@ -149,12 +218,44 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_active?: boolean | null
+          is_national?: boolean | null
           name?: string
+          priority?: string | null
           tiktok_url?: string | null
           updated_at?: string
           website_url?: string
           x_url?: string | null
           youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      content_calendar: {
+        Row: {
+          created_at: string | null
+          embargo_rules: Json | null
+          event_date: string
+          event_name: string
+          event_type: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          embargo_rules?: Json | null
+          event_date: string
+          event_name: string
+          event_type: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          embargo_rules?: Json | null
+          event_date?: string
+          event_name?: string
+          event_type?: string
+          id?: string
+          notes?: string | null
         }
         Relationships: []
       }
@@ -182,6 +283,57 @@ export type Database = {
           title?: string | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      daily_campaigns: {
+        Row: {
+          ab_tests: Json | null
+          approved_at: string | null
+          approved_by: string | null
+          archived_at: string | null
+          campaign_date: string
+          campaign_plan: Json
+          checklist: Json | null
+          created_at: string | null
+          diagnosis: Json
+          evidence: Json | null
+          id: string
+          status: string | null
+          strategic_directive: Json
+          visible_until: string | null
+        }
+        Insert: {
+          ab_tests?: Json | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          campaign_date: string
+          campaign_plan: Json
+          checklist?: Json | null
+          created_at?: string | null
+          diagnosis: Json
+          evidence?: Json | null
+          id?: string
+          status?: string | null
+          strategic_directive: Json
+          visible_until?: string | null
+        }
+        Update: {
+          ab_tests?: Json | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          campaign_date?: string
+          campaign_plan?: Json
+          checklist?: Json | null
+          created_at?: string | null
+          diagnosis?: Json
+          evidence?: Json | null
+          id?: string
+          status?: string | null
+          strategic_directive?: Json
+          visible_until?: string | null
         }
         Relationships: []
       }
@@ -276,6 +428,53 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_alerts: {
+        Row: {
+          action_items: Json | null
+          alert_date: string | null
+          alert_type: string
+          created_at: string | null
+          description: string
+          id: string
+          is_read: boolean | null
+          related_competitor_id: string | null
+          severity: string | null
+          title: string
+        }
+        Insert: {
+          action_items?: Json | null
+          alert_date?: string | null
+          alert_type: string
+          created_at?: string | null
+          description: string
+          id?: string
+          is_read?: boolean | null
+          related_competitor_id?: string | null
+          severity?: string | null
+          title: string
+        }
+        Update: {
+          action_items?: Json | null
+          alert_date?: string | null
+          alert_type?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          is_read?: boolean | null
+          related_competitor_id?: string | null
+          severity?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_alerts_related_competitor_id_fkey"
+            columns: ["related_competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
             referencedColumns: ["id"]
           },
         ]
@@ -448,6 +647,36 @@ export type Database = {
           },
         ]
       }
+      priority_destinations: {
+        Row: {
+          created_at: string | null
+          destination_name: string
+          id: string
+          is_active: boolean | null
+          key_periods: Json | null
+          notes: string | null
+          priority: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          destination_name: string
+          id?: string
+          is_active?: boolean | null
+          key_periods?: Json | null
+          notes?: string | null
+          priority?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          destination_name?: string
+          id?: string
+          is_active?: boolean | null
+          key_periods?: Json | null
+          notes?: string | null
+          priority?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           availability: boolean | null
@@ -597,6 +826,45 @@ export type Database = {
           products_found?: number | null
           products_updated?: number | null
           status?: string
+        }
+        Relationships: []
+      }
+      social_trends: {
+        Row: {
+          caution_notes: string | null
+          created_at: string | null
+          creative_suggestions: Json | null
+          id: string
+          is_sensitive: boolean | null
+          source: string
+          tourism_correlation_score: number | null
+          trend_date: string
+          trend_name: string
+          volume_estimate: number | null
+        }
+        Insert: {
+          caution_notes?: string | null
+          created_at?: string | null
+          creative_suggestions?: Json | null
+          id?: string
+          is_sensitive?: boolean | null
+          source: string
+          tourism_correlation_score?: number | null
+          trend_date?: string
+          trend_name: string
+          volume_estimate?: number | null
+        }
+        Update: {
+          caution_notes?: string | null
+          created_at?: string | null
+          creative_suggestions?: Json | null
+          id?: string
+          is_sensitive?: boolean | null
+          source?: string
+          tourism_correlation_score?: number | null
+          trend_date?: string
+          trend_name?: string
+          volume_estimate?: number | null
         }
         Relationships: []
       }

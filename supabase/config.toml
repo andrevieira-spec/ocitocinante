@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.notify-access-approved]
 verify_jwt = true
+
+[functions.generate-daily-campaign]
+verify_jwt = false
+
+[functions.schedule-daily-analysis]
+verify_jwt = false

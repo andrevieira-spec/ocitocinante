@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBOS - Manual de Configuração</title>
+    <style>
+        @media print {
+            body { margin: 0; }
+            h1 { page-break-before: always; }
+            h1:first-of-type { page-break-before: avoid; }
+            pre { page-break-inside: avoid; }
+            .no-print { display: none; }
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            color: #333;
+        }
+        h1 {
+            color: #1a1a1a;
+            border-bottom: 3px solid #4f46e5;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        h2 {
+            color: #4f46e5;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #6366f1;
+            margin-top: 20px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #4f46e5;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+        ul { padding-left: 25px; }
+        li { margin: 8px 0; }
+        .section { margin: 30px 0; }
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid;
+        }
+        .alert-success { background: #d1fae5; border-color: #065f46; }
+        .alert-warning { background: #fef3c7; border-color: #92400e; }
+        .alert-info { background: #dbeafe; border-color: #1e40af; }
+        .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .print-btn:hover {
+            background: #4338ca;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn no-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+
+    <h1>CBOS - Competitor & Market Intelligence System</h1>
+    <p style="font-size: 18px; color: #666;">Sistema de Monitoração de Mercado e Inteligência Competitiva</p>
+
+    <div class="alert alert-success">
+        <strong>✅ Sistema 100% Implementado!</strong><br>
+        Todas as funcionalidades foram desenvolvidas e estão prontas para uso. Falta apenas configurar as APIs externas.
+    </div>
+
+    <div class="section">
+        <h2>✅ O QUE FOI IMPLEMENTADO</h2>
+
+        <h3>1. Banco de Dados Completo</h3>
+        <ul>
+            <li><span class="badge badge-success">✅</span> Tabela <code>competitors</code> expandida (flag nacional/internacional, prioridade)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>social_trends</code> (tendências sociais)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>daily_campaigns</code> (campanhas diárias com ciclo de vida)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>admin_policies</code> (políticas e preferências)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>priority_destinations</code> (destinos prioritários)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>content_calendar</code> (calendário e embargos)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>market_alerts</code> (alertas de mercado)</li>
+            <li><span class="badge badge-success">✅</span> Tabela <code>campaign_approvals</code> (log de aprovações)</li>
+            <li><span class="badge badge-success">✅</span> RLS policies para todas as tabelas</li>
+            <li><span class="badge badge-success">✅</span> Triggers e índices otimizados</li>
+        </ul>
+
+        <h3>2. Dashboards Implementados</h3>
+        <ul>
+            <li><span class="badge badge-success">✅</span> <strong>Visão Geral Brasil</strong> (prioridade #1): SOV, sentimento, Δ preços, alertas</li>
+            <li><span class="badge badge-success">✅</span> <strong>Campanha do Dia</strong>: Geração com IA, diagnóstico, diretriz, plano, checklist</li>
+            <li><span class="badge badge-success">✅</span> <strong>Mercado & Tendências</strong> (prioridade #2): Top keywords, destinos em alta</li>
+            <li><span class="badge badge-success">✅</span> <strong>Tendências Sociais</strong> (prioridade #3): Top 10 trends com índice de correlação</li>
+            <li><span class="badge badge-success">✅</span> <strong>Políticas & Preferências</strong>: 5 abas de configuração avançada</li>
+            <li><span class="badge badge-success">✅</span> <strong>Análises Legadas</strong>: Preços, Redes Sociais, Insights Estratégicos</li>
+        </ul>
+
+        <h3>3. Edge Functions</h3>
+        <ul>
+            <li><span class="badge badge-success">✅</span> <code>analyze-competitors</code>: Análise de concorrentes</li>
+            <li><span class="badge badge-success">✅</span> <code>generate-daily-campaign</code>: Gera campanha diária com IA</li>
+            <li><span class="badge badge-success">✅</span> <code>schedule-daily-analysis</code>: Job agendado para execução às 06:00 BRT</li>
+        </ul>
+
+        <h3>4. Funcionalidades</h3>
+        <ul>
+            <li><span class="badge badge-success">✅</span> Ciclo de vida de campanhas (visível até 05:55, arquivamento automático)</li>
+            <li><span class="badge badge-success">✅</span> Retenção de 30 dias</li>
+            <li><span class="badge badge-success">✅</span> Exportação de campanhas em JSON</li>
+            <li><span class="badge badge-success">✅</span> Sistema de alertas com severidade</li>
+            <li><span class="badge badge-success">✅</span> Válvulas de segurança (modo crise, aprovação manual)</li>
+            <li><span class="badge badge-success">✅</span> Integração com Lovable AI (sem necessidade de API keys externa)</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>🔧 CONFIGURAÇÃO NECESSÁRIA</h2>
+
+        <h3>APIs Externas (Pendentes)</h3>
+        <p>Para o sistema funcionar 100%, você precisa configurar as seguintes APIs no Lovable Cloud:</p>
+
+        <h4>1. Google APIs</h4>
+        <pre>GOOGLE_API_KEY=sua_chave_aqui
+GOOGLE_CX_ID=seu_cx_id_aqui</pre>
+        <p><strong>Como obter:</strong></p>
+        <ul>
+            <li>Acesse <a href="https://console.cloud.google.com/">Google Cloud Console</a></li>
+            <li>Ative: Google Custom Search API, Google Trends API</li>
+            <li>Crie credenciais → API Key</li>
+        </ul>
+
+        <h4>2. YouTube</h4>
+        <pre>YOUTUBE_API_KEY=sua_chave_aqui</pre>
+        <p><strong>Como obter:</strong></p>
+        <ul>
+            <li>Acesse Google Cloud Console</li>
+            <li>Ative: YouTube Data API v3</li>
+            <li>Use a mesma API Key do Google</li>
+        </ul>
+
+        <h4>3. X (Twitter)</h4>
+        <pre>X_BEARER_TOKEN=seu_token_aqui</pre>
+        <p><strong>Como obter:</strong></p>
+        <ul>
+            <li>Acesse <a href="https://developer.x.com/">X Developer Portal</a></li>
+            <li>Crie um App</li>
+            <li>Gere Bearer Token em "Keys and Tokens"</li>
+        </ul>
+
+        <h4>4. Meta / Instagram</h4>
+        <pre>META_APP_ID=seu_app_id_aqui
+META_APP_SECRET=seu_secret_aqui
+META_ACCESS_TOKEN=seu_token_aqui</pre>
+        <p><strong>Como obter:</strong></p>
+        <ul>
+            <li>Acesse <a href="https://developers.facebook.com/">Meta for Developers</a></li>
+            <li>Crie um App</li>
+            <li>Configure Instagram Basic Display API</li>
+            <li>Gere Access Token</li>
+        </ul>
+
+        <h4>5. TikTok</h4>
+        <pre>TIKTOK_APP_ID=seu_app_id_aqui
+TIKTOK_APP_SECRET=seu_secret_aqui
+TIKTOK_ACCESS_TOKEN=seu_token_aqui</pre>
+        <p><strong>Como obter:</strong></p>
+        <ul>
+            <li>Acesse <a href="https://developers.tiktok.com/">TikTok for Developers</a></li>
+            <li>Crie um App</li>
+            <li>Solicite acesso à API</li>
+        </ul>
+
+        <div class="alert alert-info">
+            <strong>💡 Como Adicionar as APIs no Projeto</strong><br><br>
+            <strong>Via Interface Lovable Cloud:</strong><br>
+            → Vá em Settings → Secrets<br>
+            → Adicione cada variável de ambiente acima
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>⏰ AGENDAMENTO DIÁRIO (CRON JOB)</h2>
+
+        <h3>Configurar o Job às 06:00 BRT (Segunda a Sexta)</h3>
+        <p>O sistema foi projetado para executar <strong>automaticamente de segunda a sexta às 06:00</strong> (horário de Brasília).</p>
+
+        <div class="alert alert-warning">
+            <strong>IMPORTANTE:</strong> O sistema também pode ser executado <strong>manualmente a qualquer hora e qualquer dia</strong> (incluindo sábados e domingos) usando o botão "Executar Nova Análise" na interface.
+        </div>
+
+        <h4>Opção 1: Supabase pg_cron (Recomendado)</h4>
+        <p>Execute este SQL no Supabase SQL Editor:</p>
+        <pre>-- Habilitar extensões
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Criar job diário às 06:00 BRT (09:00 UTC) - SEGUNDA A SEXTA
+SELECT cron.schedule(
+  'cbos-daily-analysis',
+  '0 9 * * 1-5', -- 09:00 UTC = 06:00 BRT, segunda a sexta
+  $$
+  SELECT net.http_post(
+    url := 'https://xppgoccktxwfpqqvcqug.supabase.co/functions/v1/schedule-daily-analysis',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer SEU_ANON_KEY"}'::jsonb,
+    body := '{}'::jsonb
+  ) as request_id;
+  $$
+);
+
+-- Verificar jobs agendados
+SELECT * FROM cron.job;</pre>
+
+        <h4>Formato Cron:</h4>
+        <ul>
+            <li><code>0 9 * * 1-5</code> = 09:00 UTC, segunda (1) a sexta (5)</li>
+            <li><code>0 9 * * *</code> = 09:00 UTC, todos os dias</li>
+            <li><code>0 9 * * 0,6</code> = 09:00 UTC, apenas sábado (6) e domingo (0)</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>📊 COMO USAR O SISTEMA</h2>
+
+        <h3>1. Primeira Execução</h3>
+        <ol>
+            <li>Faça login como admin</li>
+            <li>Vá na aba "Concorrentes"</li>
+            <li>Cadastre pelo menos 3-5 concorrentes com:
+                <ul>
+                    <li>Nome</li>
+                    <li>Website</li>
+                    <li>Redes sociais (Instagram, TikTok, YouTube, X)</li>
+                    <li>Marque se é Nacional (BR) ou Internacional</li>
+                    <li>Defina a prioridade (Alta/Média/Baixa)</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>2. Configurar Políticas</h3>
+        <ol>
+            <li>Vá na aba "Políticas & Preferências"</li>
+            <li>Configure:
+                <ul>
+                    <li><strong>Destinos Prioritários:</strong> Adicione destinos-chave</li>
+                    <li><strong>Temas Sensíveis:</strong> Defina o que evitar</li>
+                    <li><strong>Palavras Proibidas:</strong> Liste termos bloqueados</li>
+                    <li><strong>Voz de Marca:</strong> Escolha o preset de tom</li>
+                    <li><strong>Calendário:</strong> Adicione feriados e datas importantes</li>
+                </ul>
+            </li>
+            <li>Ative "Modo de Crise" se necessário</li>
+            <li>Ative "Exigir Aprovação Manual" para revisar campanhas antes de publicar</li>
+        </ol>
+
+        <h3>3. Executar Análise Manual</h3>
+        <ol>
+            <li>Vá na aba "Monitoração de Mercado"</li>
+            <li>Clique em "Executar Nova Análise"</li>
+            <li>Aguarde ~30 segundos</li>
+            <li>Veja os resultados em:
+                <ul>
+                    <li>Visão Geral BR</li>
+                    <li>Mercado & Tendências</li>
+                    <li>Preços, Redes Sociais, Insights</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>4. Gerar Campanha do Dia</h3>
+        <ol>
+            <li>Vá na aba "Campanha do Dia"</li>
+            <li>Clique em "Gerar Campanha do Dia"</li>
+            <li>A IA criará:
+                <ul>
+                    <li>Diagnóstico (6 bullets)</li>
+                    <li>Diretriz Estratégica</li>
+                    <li>Plano de Execução completo</li>
+                    <li>Testes A/B</li>
+                    <li>Checklist</li>
+                </ul>
+            </li>
+            <li>Exporte em JSON se necessário</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>🎯 FLUXO AUTOMÁTICO DIÁRIO</h2>
+        <p>Quando o cron job estiver configurado, <strong>DE SEGUNDA A SEXTA às 06:00</strong>:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Horário</th>
+                    <th>Ação</th>
+                    <th>Descrição</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>06:00</td>
+                    <td>Início</td>
+                    <td>Sistema executa schedule-daily-analysis</td>
+                </tr>
+                <tr>
+                    <td>06:00-06:10</td>
+                    <td>Coleta</td>
+                    <td>Analisa preços, redes sociais, tendências</td>
+                </tr>
+                <tr>
+                    <td>06:10-06:15</td>
+                    <td>IA</td>
+                    <td>Processa dados e gera Campanha do Dia</td>
+                </tr>
+                <tr>
+                    <td>06:15</td>
+                    <td>Publicação</td>
+                    <td>Campanha fica visível no dashboard</td>
+                </tr>
+                <tr>
+                    <td>05:55 (dia seguinte)</td>
+                    <td>Arquivamento</td>
+                    <td>Campanha anterior é arquivada automaticamente</td>
+                </tr>
+                <tr>
+                    <td>A cada 30 dias</td>
+                    <td>Limpeza</td>
+                    <td>Campanhas antigas são deletadas</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>🛡️ VÁLVULAS DE SEGURANÇA</h2>
+
+        <h3>Pré-Publicação</h3>
+        <ul>
+            <li>✅ Checagem de palavras proibidas (bloqueio duro)</li>
+            <li>✅ Verificação de temas sensíveis</li>
+            <li>✅ Validação de destinos prioritários</li>
+            <li>✅ Conferência de embargos do dia</li>
+            <li>✅ Modo de crise (se ativado)</li>
+            <li>✅ Aprovação manual (se configurado)</li>
+        </ul>
+
+        <h3>Durante Operação</h3>
+        <ul>
+            <li>✅ Detecção de queda de preço ≥10%</li>
+            <li>✅ Monitoramento de sentimento negativo</li>
+            <li>✅ Identificação de trends de alto aproveitamento</li>
+            <li>✅ Alertas de novas campanhas concorrentes</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>🔍 TROUBLESHOOTING</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Problema</th>
+                    <th>Solução</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>"Nenhuma análise disponível"</td>
+                    <td>Execute uma análise manual primeiro ou aguarde o cron job às 06:00</td>
+                </tr>
+                <tr>
+                    <td>"Aguardando APIs externas"</td>
+                    <td>Configure as APIs no Secrets. Algumas funcionalidades funcionam sem APIs (usando Lovable AI)</td>
+                </tr>
+                <tr>
+                    <td>"Erro ao gerar campanha"</td>
+                    <td>Falta de dados de análise. Execute análise de mercado primeiro</td>
+                </tr>
+                <tr>
+                    <td>Cron job não executando</td>
+                    <td>Verifique se pg_cron está habilitado no Supabase e se o horário está correto (UTC vs BRT)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>✨ PRÓXIMOS PASSOS</h2>
+        <ol style="font-size: 18px;">
+            <li>✅ Configure as APIs externas (Google, X, TikTok, Meta)</li>
+            <li>✅ Configure o cron job para 06:00 BRT (segunda a sexta)</li>
+            <li>✅ Cadastre 5-10 concorrentes prioritários</li>
+            <li>✅ Configure destinos e políticas</li>
+            <li>✅ Execute primeira análise manual para testar</li>
+            <li>✅ Aguarde primeiro job automático às 06:00</li>
+        </ol>
+    </div>
+
+    <div class="alert alert-success" style="margin-top: 40px; font-size: 18px;">
+        <strong>🎉 Sistema totalmente implementado e pronto para uso!</strong><br>
+        Falta apenas configurar as APIs externas.
+    </div>
+
+    <footer style="margin-top: 60px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #666;">
+        <p>CBOS - Competitor & Market Intelligence System</p>
+        <p>Desenvolvido para Ocitocina Viagens & Sonhos</p>
+        <p style="font-size: 14px;">Documento gerado em <?php echo date('d/m/Y H:i'); ?></p>
+    </footer>
+</body>
+</html>

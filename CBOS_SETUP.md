@@ -112,9 +112,11 @@ TIKTOK_ACCESS_TOKEN=seu_token_aqui
 
 ## ⏰ AGENDAMENTO DIÁRIO (CRON JOB)
 
-### Como Configurar o Job às 06:00 BRT
+### Como Configurar o Job às 06:00 BRT (Segunda a Sexta)
 
-O sistema foi projetado para executar automaticamente todos os dias às 06:00 (horário de Brasília).
+O sistema foi projetado para executar **automaticamente de segunda a sexta às 06:00** (horário de Brasília).
+
+**IMPORTANTE:** O sistema também pode ser executado **manualmente a qualquer hora e qualquer dia** (incluindo sábados e domingos) usando o botão "Executar Nova Análise" na interface.
 
 **Opção 1: Supabase pg_cron (Recomendado)**
 
@@ -125,10 +127,10 @@ Execute este SQL no Supabase SQL Editor:
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- Criar job diário às 06:00 BRT (09:00 UTC)
+-- Criar job diário às 06:00 BRT (09:00 UTC) - SEGUNDA A SEXTA
 SELECT cron.schedule(
   'cbos-daily-analysis',
-  '0 9 * * *', -- 09:00 UTC = 06:00 BRT
+  '0 9 * * 1-5', -- 09:00 UTC = 06:00 BRT, segunda a sexta (1-5)
   $$
   SELECT net.http_post(
     url := 'https://xppgoccktxwfpqqvcqug.supabase.co/functions/v1/schedule-daily-analysis',
@@ -137,6 +139,9 @@ SELECT cron.schedule(
   ) as request_id;
   $$
 );
+
+-- IMPORTANTE: Você também pode executar MANUALMENTE a qualquer hora/dia
+-- usando o botão "Executar Nova Análise" na interface
 
 -- Verificar jobs agendados
 SELECT * FROM cron.job;
@@ -306,17 +311,29 @@ O sistema possui proteções automáticas:
 
 ## 🎨 CUSTOMIZAÇÃO
 
-### Mudar Horário de Execução
+### Mudar Horário ou Dias de Execução
 
 Edite o cron schedule:
 ```sql
--- Trocar para 07:00 BRT (10:00 UTC)
+-- Trocar para 07:00 BRT (10:00 UTC) ainda de segunda a sexta
 SELECT cron.schedule(
   'cbos-daily-analysis',
-  '0 10 * * *', -- novo horário
+  '0 10 * * 1-5', -- 10:00 UTC, segunda a sexta
+  ...
+);
+
+-- Ou incluir sábados e domingos
+SELECT cron.schedule(
+  'cbos-daily-analysis',
+  '0 9 * * *', -- todos os dias
   ...
 );
 ```
+
+**Formato cron:**
+- `0 9 * * 1-5` = 09:00 UTC, segunda (1) a sexta (5)
+- `0 9 * * *` = 09:00 UTC, todos os dias
+- `0 9 * * 0,6` = 09:00 UTC, apenas sábado (6) e domingo (0)
 
 ### Adicionar Novos Destinos
 

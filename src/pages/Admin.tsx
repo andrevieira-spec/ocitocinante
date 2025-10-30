@@ -83,7 +83,7 @@ export default function Admin() {
           <TabsList className="w-full justify-start rounded-none h-14 px-4">
             <TabsTrigger value="insights" className="gap-2">
               <Brain className="w-4 h-4" />
-              Insights IA
+              Monitoração de Mercado
             </TabsTrigger>
             <TabsTrigger value="competitors" className="gap-2">
               <TrendingUp className="w-4 h-4" />

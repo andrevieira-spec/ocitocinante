@@ -10,6 +10,7 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import RequestAccess from "./pages/RequestAccess";
+import CbosSetup from "./pages/CbosSetup";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/reset" element={<ResetPassword />} />
           <Route path="/request-access" element={<RequestAccess />} />
+          <Route path="/cbos-setup" element={<CbosSetup />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { ChatInterface } from '@/components/chat/ChatInterface';
@@ -101,6 +101,11 @@ export default function Admin() {
               <UserCheck className="w-4 h-4" />
               Acessos
             </TabsTrigger>
+            <div className="ml-auto">
+              <Link to="/cbos-setup" className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+                📄 Manual CBOS
+              </Link>
+            </div>
           </TabsList>
         </div>
         <TabsContent value="insights" className="flex-1 m-0 overflow-y-auto p-6">

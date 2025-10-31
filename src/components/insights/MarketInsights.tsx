@@ -121,8 +121,9 @@ export const MarketInsights = () => {
     const start = Date.now();
     const interval: ReturnType<typeof setInterval> = setInterval(() => {
       loadData();
-      if (Date.now() - start > 30000) {
+      if (Date.now() - start > 120000) { // 2 minutes to allow full analysis to complete
         clearInterval(interval);
+        loadData(); // Final load after polling stops
         setAnalyzing(false);
       }
     }, 5000);
@@ -160,7 +161,7 @@ export const MarketInsights = () => {
         }
       }
 
-      toast({ title: 'Análise iniciada! Atualizando automaticamente por 30s...' });
+      toast({ title: 'Análise iniciada! Atualizando automaticamente por 2 minutos...' });
     } catch (error: any) {
       const errorMsg = error?.message || 'Erro desconhecido';
       
@@ -179,7 +180,7 @@ export const MarketInsights = () => {
       // For other errors, keep polling
       toast({
         title: 'Não foi possível confirmar o início da análise',
-        description: errorMsg.slice(0, 100) + '... Continuaremos atualizando por 30s.',
+        description: errorMsg.slice(0, 100) + '... Continuaremos atualizando por 2 minutos.',
         variant: 'destructive',
       });
     }

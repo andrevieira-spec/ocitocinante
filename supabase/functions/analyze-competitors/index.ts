@@ -163,6 +163,12 @@ Deno.serve(async (req) => {
     const xBearerToken = Deno.env.get('X_BEARER_TOKEN') || '';
     const metaUserToken = Deno.env.get('META_USER_TOKEN') || '';
 
+    // Track API health status
+    const apiHealthStatus = {
+      x_api: { healthy: true, error: null as string | null },
+      instagram_api: { healthy: true, error: null as string | null },
+      google_search: { healthy: true, error: null as string | null }
+    };
 
     console.log('Request flags:', { scheduled, include_trends, include_paa });
     // Manual (rápido) vs Agendado (completo)
@@ -229,19 +235,54 @@ Seja direto, use dados concretos do site/redes sociais.`;
         ].filter(Boolean).join(', ');
 
         if (socialUrls) {
-          // Fetch real X data if available
+          // Fetch real X data with health check
           let xData = null;
           if (competitor.x_url && xBearerToken) {
             const xUsername = competitor.x_url.split('/').pop();
             if (xUsername) {
-              xData = await fetchXUserData(xUsername, xBearerToken);
+              try {
+                xData = await fetchXUserData(xUsername, xBearerToken);
+                apiHealthStatus.x_api.healthy = true;
+              } catch (error) {
+                console.error('X API failed:', error);
+                apiHealthStatus.x_api.healthy = false;
+                apiHealthStatus.x_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do X/Twitter';
+                
+                await supabase.from('api_tokens').upsert({
+                  api_name: 'X_BEARER_TOKEN',
+                  is_healthy: false,
+                  last_error: apiHealthStatus.x_api.error,
+                  last_health_check: new Date().toISOString()
+                });
+              }
             }
           }
 
-          // Fetch real Instagram data if available
+          // Fetch real Instagram data with health check
           let instagramData = null;
           if (competitor.instagram_url && metaUserToken) {
-            instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
+            try {
+              instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
+              apiHealthStatus.instagram_api.healthy = true;
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'META_USER_TOKEN',
+                is_healthy: true,
+                last_error: null,
+                last_health_check: new Date().toISOString()
+              });
+            } catch (error) {
+              console.error('Instagram API failed:', error);
+              apiHealthStatus.instagram_api.healthy = false;
+              apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do Instagram';
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'META_USER_TOKEN',
+                is_healthy: false,
+                last_error: apiHealthStatus.instagram_api.error,
+                last_health_check: new Date().toISOString()
+              });
+            }
           }
 
           let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
@@ -478,7 +519,13 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
       }
 
       return new Response(
-        JSON.stringify({ success: true, mode: 'quick', message: 'Análise rápida concluída', timestamp: new Date().toISOString() }),
+        JSON.stringify({ 
+          success: true, 
+          mode: 'quick', 
+          message: 'Análise rápida concluída', 
+          timestamp: new Date().toISOString(),
+          api_health: apiHealthStatus
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -548,19 +595,54 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
       ].filter(Boolean).join(', ');
 
       if (socialUrls) {
-        // Fetch real X data if available
+        // Fetch real X data with health check
         let xData = null;
         if (competitor.x_url && xBearerToken) {
           const xUsername = competitor.x_url.split('/').pop();
           if (xUsername) {
-            xData = await fetchXUserData(xUsername, xBearerToken);
+            try {
+              xData = await fetchXUserData(xUsername, xBearerToken);
+              apiHealthStatus.x_api.healthy = true;
+            } catch (error) {
+              console.error(`X API failed for ${competitor.name}:`, error);
+              apiHealthStatus.x_api.healthy = false;
+              apiHealthStatus.x_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do X/Twitter';
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'X_BEARER_TOKEN',
+                is_healthy: false,
+                last_error: apiHealthStatus.x_api.error,
+                last_health_check: new Date().toISOString()
+              });
+            }
           }
         }
 
-        // Fetch real Instagram data if available
+        // Fetch real Instagram data with health check
         let instagramData = null;
         if (competitor.instagram_url && metaUserToken) {
-          instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
+          try {
+            instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
+            apiHealthStatus.instagram_api.healthy = true;
+            
+            await supabase.from('api_tokens').upsert({
+              api_name: 'META_USER_TOKEN',
+              is_healthy: true,
+              last_error: null,
+              last_health_check: new Date().toISOString()
+            });
+          } catch (error) {
+            console.error(`Instagram API failed for ${competitor.name}:`, error);
+            apiHealthStatus.instagram_api.healthy = false;
+            apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do Instagram';
+            
+            await supabase.from('api_tokens').upsert({
+              api_name: 'META_USER_TOKEN',
+              is_healthy: false,
+              last_error: apiHealthStatus.instagram_api.error,
+              last_health_check: new Date().toISOString()
+            });
+          }
         }
 
         let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}

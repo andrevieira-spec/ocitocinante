@@ -80,6 +80,42 @@ export type Database = {
         }
         Relationships: []
       }
+      api_tokens: {
+        Row: {
+          api_name: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_healthy: boolean | null
+          last_error: string | null
+          last_health_check: string | null
+          token_added_at: string
+          updated_at: string
+        }
+        Insert: {
+          api_name: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_healthy?: boolean | null
+          last_error?: string | null
+          last_health_check?: string | null
+          token_added_at?: string
+          updated_at?: string
+        }
+        Update: {
+          api_name?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_healthy?: boolean | null
+          last_error?: string | null
+          last_health_check?: string | null
+          token_added_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       archived_analyses: {
         Row: {
           analyses: Json

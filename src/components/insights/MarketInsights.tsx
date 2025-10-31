@@ -37,7 +37,53 @@ export const MarketInsights = () => {
 
   useEffect(() => {
     loadData();
+    checkApiHealth();
+    // Check API health every 5 minutes
+    const healthCheckInterval = setInterval(checkApiHealth, 5 * 60 * 1000);
+    return () => clearInterval(healthCheckInterval);
   }, []);
+
+  const checkApiHealth = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('api_tokens')
+        .select('*')
+        .eq('is_healthy', false);
+
+      if (error) throw error;
+
+      // Show persistent toast for unhealthy APIs
+      if (data && data.length > 0) {
+        data.forEach((token) => {
+          toast({
+            title: `⚠️ Problema com ${token.api_name}`,
+            description: token.last_error || 'API não está funcionando corretamente',
+            variant: 'destructive',
+          });
+        });
+      }
+
+      // Check for expiring tokens (within 24 hours)
+      const { data: expiringData } = await supabase
+        .from('api_tokens')
+        .select('*')
+        .gte('expires_at', new Date().toISOString())
+        .lte('expires_at', new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
+
+      if (expiringData && expiringData.length > 0) {
+        expiringData.forEach((token) => {
+          const hoursLeft = Math.floor((new Date(token.expires_at).getTime() - Date.now()) / (1000 * 60 * 60));
+          toast({
+            title: `🔔 ${token.api_name} expira em breve!`,
+            description: `O token expira em ${hoursLeft} horas. Atualize-o para continuar usando a API.`,
+            variant: 'destructive',
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error checking API health:', error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -82,7 +128,7 @@ export const MarketInsights = () => {
     }, 5000);
 
     try {
-      const { error } = await supabase.functions.invoke('analyze-competitors', {
+      const { data, error } = await supabase.functions.invoke('analyze-competitors', {
         body: {
           scheduled: false,
           include_trends: true,
@@ -92,6 +138,27 @@ export const MarketInsights = () => {
       });
 
       if (error) throw error;
+
+      // Check API health status from response
+      if (data?.api_health) {
+        const apiHealth = data.api_health;
+        
+        if (!apiHealth.x_api.healthy) {
+          toast({
+            title: '⚠️ Falha na API do X/Twitter',
+            description: apiHealth.x_api.error || 'Erro ao buscar dados do X',
+            variant: 'destructive',
+          });
+        }
+        
+        if (!apiHealth.instagram_api.healthy) {
+          toast({
+            title: '⚠️ Falha na API do Instagram',
+            description: apiHealth.instagram_api.error || 'Erro ao buscar dados do Instagram',
+            variant: 'destructive',
+          });
+        }
+      }
 
       toast({ title: 'Análise iniciada! Atualizando automaticamente por 30s...' });
     } catch (error: any) {

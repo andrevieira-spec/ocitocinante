@@ -87,6 +87,65 @@ async function fetchXUserData(username: string, bearerToken: string) {
   }
 }
 
+// Instagram (Meta) API integration
+async function fetchInstagramData(instagramUrl: string, userToken: string) {
+  try {
+    // Extract username from Instagram URL
+    const match = instagramUrl.match(/instagram\.com\/([^/?]+)/);
+    if (!match) return null;
+
+    const username = match[1];
+    console.log(`📸 Fetching Instagram data for: ${username}`);
+
+    // First, search for the Instagram Business Account ID
+    const searchResponse = await fetch(
+      `https://graph.facebook.com/v18.0/ig_hashtag_search?user_id=${username}&q=${username}&access_token=${userToken}`
+    );
+
+    if (!searchResponse.ok) {
+      console.error(`Instagram search error: ${searchResponse.status}`);
+      // Try alternative: get account info directly if we have the numeric ID
+      return null;
+    }
+
+    // Get account basic info and recent media
+    // Note: This requires the Instagram Business Account to be linked to a Facebook Page
+    const accountResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${username}?fields=id,username,followers_count,follows_count,media_count,profile_picture_url&access_token=${userToken}`
+    );
+
+    if (!accountResponse.ok) {
+      console.error(`Instagram account error: ${accountResponse.status}`);
+      return null;
+    }
+
+    const accountData = await accountResponse.json();
+    const accountId = accountData.id;
+
+    // Get recent media with engagement metrics
+    const mediaResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${accountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=10&access_token=${userToken}`
+    );
+
+    if (!mediaResponse.ok) {
+      console.error(`Instagram media error: ${mediaResponse.status}`);
+      return null;
+    }
+
+    const mediaData = await mediaResponse.json();
+    
+    console.log(`✅ Retrieved ${mediaData.data?.length || 0} posts from Instagram`);
+    
+    return {
+      account: accountData,
+      media: mediaData.data || []
+    };
+  } catch (error) {
+    console.error('Error fetching Instagram data:', error);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -102,6 +161,7 @@ Deno.serve(async (req) => {
 
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY') || '';
     const xBearerToken = Deno.env.get('X_BEARER_TOKEN') || '';
+    const metaUserToken = Deno.env.get('META_USER_TOKEN') || '';
 
 
     console.log('Request flags:', { scheduled, include_trends, include_paa });
@@ -178,6 +238,12 @@ Seja direto, use dados concretos do site/redes sociais.`;
             }
           }
 
+          // Fetch real Instagram data if available
+          let instagramData = null;
+          if (competitor.instagram_url && metaUserToken) {
+            instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
+          }
+
           let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
 
 🎯 ANÁLISE DE ENGAJAMENTO (PRIORIDADE MÁXIMA):
@@ -221,6 +287,29 @@ ${tweetsInfo}
 Use estes dados concretos do X para enriquecer sua análise de engajamento.`;
           }
 
+          // Add real Instagram data to prompt if available
+          if (instagramData && instagramData.media.length > 0) {
+            const postsInfo = instagramData.media.slice(0, 5).map((post: any) => {
+              return `
+Post: "${post.caption?.substring(0, 100) || 'Sem legenda'}..."
+📊 Métricas: ${post.like_count || 0} likes, ${post.comments_count || 0} comentários
+📅 Data: ${new Date(post.timestamp).toLocaleDateString('pt-BR')}
+🔗 Link: ${post.permalink}`;
+            }).join('\n');
+
+            const accountInfo = `
+👤 Perfil: @${instagramData.account.username}
+👥 Seguidores: ${instagramData.account.followers_count || 'N/A'}
+📸 Posts totais: ${instagramData.account.media_count || 'N/A'}`;
+
+            socialPrompt += `\n\n📸 DADOS REAIS DO INSTAGRAM:
+${accountInfo}
+
+${postsInfo}
+
+Use estes dados concretos do Instagram para enriquecer sua análise de engajamento e público-alvo.`;
+          }
+
           socialPrompt += `\n\nSeja CONCRETO, use DADOS REAIS observados nas redes sociais.`;
 
           console.log('🔍 Starting social media analysis...');
@@ -239,6 +328,18 @@ Use estes dados concretos do X para enriquecer sua análise de engajamento.`;
               }))
             };
           }
+          if (instagramData) {
+            analysisData.instagram_metrics = {
+              followers: instagramData.account.followers_count,
+              posts_analyzed: instagramData.media.length,
+              sample_posts: instagramData.media.slice(0, 3).map((p: any) => ({
+                caption: p.caption?.substring(0, 100),
+                likes: p.like_count,
+                comments: p.comments_count,
+                type: p.media_type
+              }))
+            };
+          }
           
           await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
@@ -246,7 +347,7 @@ Use estes dados concretos do X para enriquecer sua análise de engajamento.`;
             data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: xData ? 0.95 : 0.85,
+            confidence_score: (xData || instagramData) ? 0.95 : 0.85,
             is_automated
           });
           console.log('Quick social media analysis inserted');
@@ -456,6 +557,12 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
           }
         }
 
+        // Fetch real Instagram data if available
+        let instagramData = null;
+        if (competitor.instagram_url && metaUserToken) {
+          instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
+        }
+
         let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
 
 🎯 ANÁLISE DE ENGAJAMENTO E PÚBLICO (PRIORIDADE MÁXIMA):
@@ -520,6 +627,41 @@ ${tweetsInfo}
 Use estes dados concretos do X para enriquecer sua análise de engajamento e identificar padrões de conteúdo que performam bem.`;
         }
 
+        // Add real Instagram data to prompt if available
+        if (instagramData && instagramData.media.length > 0) {
+          const postsInfo = instagramData.media.slice(0, 10).map((post: any) => {
+            const engagement = (post.like_count || 0) + (post.comments_count || 0);
+            return `
+Post: "${post.caption?.substring(0, 150) || 'Sem legenda'}..."
+📊 Métricas: ${post.like_count || 0} likes, ${post.comments_count || 0} comentários, ${engagement} engajamento total
+🎬 Tipo: ${post.media_type}
+📅 Data: ${new Date(post.timestamp).toLocaleDateString('pt-BR')}
+🔗 Link: ${post.permalink}`;
+          }).join('\n');
+
+          const totalEngagement = instagramData.media.reduce((acc: number, post: any) => {
+            return acc + (post.like_count || 0) + (post.comments_count || 0);
+          }, 0);
+          
+          const avgEngagement = Math.round(totalEngagement / instagramData.media.length);
+
+          const accountInfo = `
+👤 Perfil: @${instagramData.account.username}
+👥 Seguidores: ${instagramData.account.followers_count || 'N/A'}
+📸 Posts totais: ${instagramData.account.media_count || 'N/A'}`;
+
+          socialPrompt += `\n\n📸 DADOS REAIS DO INSTAGRAM:
+${accountInfo}
+
+📈 Total de posts analisados: ${instagramData.media.length}
+📊 Engajamento médio por post: ${avgEngagement} interações
+
+Posts recentes:
+${postsInfo}
+
+Use estes dados concretos do Instagram para enriquecer sua análise de engajamento, identificar formatos que performam melhor e entender o público-alvo.`;
+        }
+
         socialPrompt += `\n\nSeja EXTREMAMENTE CONCRETO, use DADOS REAIS e EXEMPLOS ESPECÍFICOS observados nas redes sociais.`;
 
         try {
@@ -542,6 +684,27 @@ Use estes dados concretos do X para enriquecer sua análise de engajamento e ide
               }))
             };
           }
+          if (instagramData) {
+            analysisData.instagram_metrics = {
+              account: {
+                username: instagramData.account.username,
+                followers: instagramData.account.followers_count,
+                total_posts: instagramData.account.media_count
+              },
+              posts_analyzed: instagramData.media.length,
+              total_engagement: instagramData.media.reduce((acc: number, p: any) => {
+                return acc + (p.like_count || 0) + (p.comments_count || 0);
+              }, 0),
+              sample_posts: instagramData.media.slice(0, 5).map((p: any) => ({
+                caption: p.caption?.substring(0, 150),
+                likes: p.like_count,
+                comments: p.comments_count,
+                type: p.media_type,
+                timestamp: p.timestamp,
+                permalink: p.permalink
+              }))
+            };
+          }
           
           const { error: socialError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
@@ -549,7 +712,7 @@ Use estes dados concretos do X para enriquecer sua análise de engajamento e ide
             data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: xData ? 0.95 : 0.80,
+            confidence_score: (xData || instagramData) ? 0.95 : 0.80,
             is_automated
           });
           if (socialError) console.error('Error inserting social analysis:', socialError);

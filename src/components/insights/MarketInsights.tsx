@@ -4,15 +4,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3, Settings, Calendar } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { ArchiveModal } from './ArchiveModal';
 import { MarketOverview } from '@/components/market/MarketOverview';
 import { MarketTrends } from '@/components/market/MarketTrends';
 import { SocialTrends } from '@/components/market/SocialTrends';
-import { DailyCampaign } from '@/components/market/DailyCampaign';
-import { AdminPolicies } from '@/components/market/AdminPolicies';
 
 interface Analysis {
   id: string;
@@ -199,10 +196,6 @@ export const MarketInsights = () => {
               <BarChart3 className="w-4 h-4" />
               Visão Geral BR
             </TabsTrigger>
-            <TabsTrigger value="campaign" className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Campanha do Dia
-            </TabsTrigger>
             <TabsTrigger value="market" className="gap-2">
               <TrendingUp className="w-4 h-4" />
               Mercado & Tendências
@@ -211,9 +204,6 @@ export const MarketInsights = () => {
               <Users className="w-4 h-4" />
               Tendências Sociais
             </TabsTrigger>
-            
-            <Separator orientation="vertical" className="h-8 mx-2" />
-            
             <TabsTrigger value="pricing" className="gap-2">
               <DollarSign className="w-4 h-4" />
               Preços
@@ -226,21 +216,10 @@ export const MarketInsights = () => {
               <Lightbulb className="w-4 h-4" />
               Insights Estratégicos
             </TabsTrigger>
-            
-            <Separator orientation="vertical" className="h-8 mx-2" />
-            
-            <TabsTrigger value="policies" className="gap-2">
-              <Settings className="w-4 h-4" />
-              Políticas
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
             <MarketOverview />
-          </TabsContent>
-
-          <TabsContent value="campaign" className="mt-6">
-            <DailyCampaign />
           </TabsContent>
 
           <TabsContent value="market" className="mt-6">
@@ -249,10 +228,6 @@ export const MarketInsights = () => {
 
           <TabsContent value="social" className="mt-6">
             <SocialTrends />
-          </TabsContent>
-
-          <TabsContent value="policies" className="mt-6">
-            <AdminPolicies />
           </TabsContent>
 
           {['strategic_insights', 'pricing', 'social_media'].map(type => (

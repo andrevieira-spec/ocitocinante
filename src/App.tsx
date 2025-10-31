@@ -7,6 +7,7 @@ import { PublicChat } from "@/components/public/PublicChat";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
+import Policies from "./pages/Policies";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import RequestAccess from "./pages/RequestAccess";
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/policies" element={<Policies />} />
           <Route path="/reset" element={<ResetPassword />} />
           <Route path="/request-access" element={<RequestAccess />} />
           <Route path="/cbos-setup" element={<CbosSetup />} />

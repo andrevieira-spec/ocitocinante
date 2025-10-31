@@ -26,6 +26,67 @@ async function retryWithBackoff<T>(
   throw new Error('Max retries reached');
 }
 
+// X (Twitter) API v2 integration
+async function fetchXUserData(username: string, bearerToken: string) {
+  try {
+    // Remove @ if present and get clean username
+    const cleanUsername = username.replace(/^@/, '').split('/').pop()?.trim();
+    if (!cleanUsername) return null;
+
+    console.log(`🐦 Fetching X data for: ${cleanUsername}`);
+
+    // Get user ID first
+    const userResponse = await fetch(
+      `https://api.x.com/2/users/by/username/${cleanUsername}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!userResponse.ok) {
+      console.error(`X API user lookup error: ${userResponse.status}`);
+      return null;
+    }
+
+    const userData = await userResponse.json();
+    const userId = userData.data?.id;
+
+    if (!userId) return null;
+
+    // Get user tweets with metrics
+    const tweetsResponse = await fetch(
+      `https://api.x.com/2/users/${userId}/tweets?max_results=10&tweet.fields=created_at,public_metrics,entities&expansions=attachments.media_keys&media.fields=type,url`,
+      {
+        headers: {
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!tweetsResponse.ok) {
+      console.error(`X API tweets error: ${tweetsResponse.status}`);
+      return null;
+    }
+
+    const tweetsData = await tweetsResponse.json();
+    
+    console.log(`✅ Retrieved ${tweetsData.data?.length || 0} tweets from X`);
+    
+    return {
+      user: userData.data,
+      tweets: tweetsData.data || [],
+      includes: tweetsData.includes || {}
+    };
+  } catch (error) {
+    console.error('Error fetching X data:', error);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -40,6 +101,7 @@ Deno.serve(async (req) => {
     );
 
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY') || '';
+    const xBearerToken = Deno.env.get('X_BEARER_TOKEN') || '';
 
 
     console.log('Request flags:', { scheduled, include_trends, include_paa });
@@ -107,7 +169,16 @@ Seja direto, use dados concretos do site/redes sociais.`;
         ].filter(Boolean).join(', ');
 
         if (socialUrls) {
-          const socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
+          // Fetch real X data if available
+          let xData = null;
+          if (competitor.x_url && xBearerToken) {
+            const xUsername = competitor.x_url.split('/').pop();
+            if (xUsername) {
+              xData = await fetchXUserData(xUsername, xBearerToken);
+            }
+          }
+
+          let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
 
 🎯 ANÁLISE DE ENGAJAMENTO (PRIORIDADE MÁXIMA):
 
@@ -132,9 +203,25 @@ Seja direto, use dados concretos do site/redes sociais.`;
 - Como capturam contatos? (link na bio, direct, WhatsApp, formulários)
 - Calls-to-action utilizados
 - Promoções/ofertas exclusivas para redes sociais
-- Estratégias de remarketing visíveis
+- Estratégias de remarketing visíveis`;
 
-Seja CONCRETO, use DADOS REAIS observados nas redes sociais.`;
+          // Add real X data to prompt if available
+          if (xData && xData.tweets.length > 0) {
+            const tweetsInfo = xData.tweets.slice(0, 5).map((tweet: any) => {
+              const metrics = tweet.public_metrics;
+              return `
+Tweet: "${tweet.text.substring(0, 100)}..."
+📊 Métricas: ${metrics.like_count} likes, ${metrics.retweet_count} RTs, ${metrics.reply_count} respostas
+📅 Data: ${new Date(tweet.created_at).toLocaleDateString('pt-BR')}`;
+            }).join('\n');
+
+            socialPrompt += `\n\n🐦 DADOS REAIS DO X (TWITTER):
+${tweetsInfo}
+
+Use estes dados concretos do X para enriquecer sua análise de engajamento.`;
+          }
+
+          socialPrompt += `\n\nSeja CONCRETO, use DADOS REAIS observados nas redes sociais.`;
 
           console.log('🔍 Starting social media analysis...');
           const socialAnalysis = await retryWithBackoff(() => 
@@ -142,13 +229,24 @@ Seja CONCRETO, use DADOS REAIS observados nas redes sociais.`;
           );
           console.log('✅ Social media analysis completed');
           
+          const analysisData: any = { raw_response: socialAnalysis.data };
+          if (xData) {
+            analysisData.x_metrics = {
+              tweets_analyzed: xData.tweets.length,
+              sample_tweets: xData.tweets.slice(0, 3).map((t: any) => ({
+                text: t.text.substring(0, 100),
+                metrics: t.public_metrics
+              }))
+            };
+          }
+          
           await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
             analysis_type: 'social_media',
-            data: { raw_response: socialAnalysis.data },
+            data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: 0.85,
+            confidence_score: xData ? 0.95 : 0.85,
             is_automated
           });
           console.log('Quick social media analysis inserted');
@@ -349,7 +447,16 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
       ].filter(Boolean).join(', ');
 
       if (socialUrls) {
-        const socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
+        // Fetch real X data if available
+        let xData = null;
+        if (competitor.x_url && xBearerToken) {
+          const xUsername = competitor.x_url.split('/').pop();
+          if (xUsername) {
+            xData = await fetchXUserData(xUsername, xBearerToken);
+          }
+        }
+
+        let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
 
 🎯 ANÁLISE DE ENGAJAMENTO E PÚBLICO (PRIORIDADE MÁXIMA):
 
@@ -383,21 +490,66 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
 - Frequência e horários de postagem
 - Formatos que mais performam
 - Hashtags estratégicas
-- Parcerias com influenciadores
+- Parcerias com influenciadores`;
 
-Seja EXTREMAMENTE CONCRETO, use DADOS REAIS e EXEMPLOS ESPECÍFICOS observados nas redes sociais.`;
+        // Add real X data to prompt if available
+        if (xData && xData.tweets.length > 0) {
+          const tweetsInfo = xData.tweets.slice(0, 10).map((tweet: any) => {
+            const metrics = tweet.public_metrics;
+            const engagement = metrics.like_count + metrics.retweet_count + metrics.reply_count;
+            return `
+Tweet: "${tweet.text.substring(0, 150)}..."
+📊 Métricas: ${metrics.like_count} likes, ${metrics.retweet_count} RTs, ${metrics.reply_count} respostas, ${engagement} engajamento total
+📅 Data: ${new Date(tweet.created_at).toLocaleDateString('pt-BR')}`;
+          }).join('\n');
+
+          const totalEngagement = xData.tweets.reduce((acc: number, tweet: any) => {
+            const m = tweet.public_metrics;
+            return acc + m.like_count + m.retweet_count + m.reply_count;
+          }, 0);
+          
+          const avgEngagement = Math.round(totalEngagement / xData.tweets.length);
+
+          socialPrompt += `\n\n🐦 DADOS REAIS DO X (TWITTER):
+📈 Total de tweets analisados: ${xData.tweets.length}
+📊 Engajamento médio por tweet: ${avgEngagement} interações
+
+Posts recentes:
+${tweetsInfo}
+
+Use estes dados concretos do X para enriquecer sua análise de engajamento e identificar padrões de conteúdo que performam bem.`;
+        }
+
+        socialPrompt += `\n\nSeja EXTREMAMENTE CONCRETO, use DADOS REAIS e EXEMPLOS ESPECÍFICOS observados nas redes sociais.`;
 
         try {
           const socialAnalysis = await retryWithBackoff(() => 
             analyzeWithGemini(googleApiKey, socialPrompt)
           );
+          
+          const analysisData: any = { raw_response: socialAnalysis.data };
+          if (xData) {
+            analysisData.x_metrics = {
+              tweets_analyzed: xData.tweets.length,
+              total_engagement: xData.tweets.reduce((acc: number, t: any) => {
+                const m = t.public_metrics;
+                return acc + m.like_count + m.retweet_count + m.reply_count;
+              }, 0),
+              sample_tweets: xData.tweets.slice(0, 5).map((t: any) => ({
+                text: t.text.substring(0, 150),
+                metrics: t.public_metrics,
+                created_at: t.created_at
+              }))
+            };
+          }
+          
           const { error: socialError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
             analysis_type: 'social_media',
-            data: { raw_response: socialAnalysis.data },
+            data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: 0.80,
+            confidence_score: xData ? 0.95 : 0.80,
             is_automated
           });
           if (socialError) console.error('Error inserting social analysis:', socialError);

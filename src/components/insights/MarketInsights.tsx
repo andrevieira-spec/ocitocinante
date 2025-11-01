@@ -4,12 +4,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3 } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3, Target, HelpCircle, Zap, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ArchiveModal } from './ArchiveModal';
 import { MarketOverview } from '@/components/market/MarketOverview';
+import { CompetitiveRadar } from '@/components/market/CompetitiveRadar';
 import { SocialTrends } from '@/components/market/SocialTrends';
 import { ProductPricing } from '@/components/market/ProductPricing';
+import { PeopleAlsoAsk } from '@/components/market/PeopleAlsoAsk';
+import { SocialMomentum } from '@/components/market/SocialMomentum';
+import { StrategyBI } from '@/components/market/StrategyBI';
+import { AnomaliesLogs } from '@/components/market/AnomaliesLogs';
 
 interface Analysis {
   id: string;
@@ -324,44 +329,46 @@ export const MarketInsights = () => {
         </Card>
       ) : (
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-2 bg-muted rounded-lg w-full">
+          <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2 h-auto p-2 bg-card-dark rounded-lg w-full">
             <TabsTrigger value="overview" className="gap-2 flex items-center justify-center">
               <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Visão Geral BR</span>
-              <span className="sm:hidden">Visão BR</span>
+              <span className="hidden sm:inline">Visão Executiva</span>
+              <span className="sm:hidden">Visão</span>
             </TabsTrigger>
-            <TabsTrigger value="social" className="gap-2 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Tendências Sociais</span>
-              <span className="sm:hidden">Social</span>
-            </TabsTrigger>
-            <TabsTrigger value="trends" className="gap-2 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
-              <span>Tendências</span>
-            </TabsTrigger>
-            <TabsTrigger value="google_trends" className="gap-2 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Google Trends</span>
-              <span className="sm:hidden">Google</span>
-            </TabsTrigger>
-            <TabsTrigger value="people_also_ask" className="gap-2 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">People Also Ask</span>
-              <span className="sm:hidden">PAA</span>
+            <TabsTrigger value="radar" className="gap-2 flex items-center justify-center">
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">Radar Competitivo</span>
+              <span className="sm:hidden">Radar</span>
             </TabsTrigger>
             <TabsTrigger value="pricing" className="gap-2 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
-              <span>Preços</span>
+              <span className="hidden sm:inline">Preço & Prateleira</span>
+              <span className="sm:hidden">Preços</span>
             </TabsTrigger>
-            <TabsTrigger value="social_media" className="gap-2 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Redes Sociais</span>
-              <span className="sm:hidden">Redes</span>
+            <TabsTrigger value="social" className="gap-2 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
+              <span className="hidden sm:inline">Tendências Sociais</span>
+              <span className="sm:hidden">Social</span>
             </TabsTrigger>
-            <TabsTrigger value="strategic_insights" className="gap-2 flex items-center justify-center">
-              <Lightbulb className="w-4 h-4" />
-              <span className="hidden sm:inline">Insights Estratégicos</span>
-              <span className="sm:hidden">Insights</span>
+            <TabsTrigger value="paa" className="gap-2 flex items-center justify-center">
+              <HelpCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">People Also Ask</span>
+              <span className="sm:hidden">PAA</span>
+            </TabsTrigger>
+            <TabsTrigger value="momentum" className="gap-2 flex items-center justify-center">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Social Momentum</span>
+              <span className="sm:hidden">Momentum</span>
+            </TabsTrigger>
+            <TabsTrigger value="strategy" className="gap-2 flex items-center justify-center">
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">Estratégia</span>
+              <span className="sm:hidden">BI</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="hidden sm:inline">Anomalias & Logs</span>
+              <span className="sm:hidden">Logs</span>
             </TabsTrigger>
           </TabsList>
 
@@ -369,24 +376,45 @@ export const MarketInsights = () => {
             <MarketOverview />
           </TabsContent>
 
-          <TabsContent value="social" className="mt-6">
-            <SocialTrends />
+          <TabsContent value="radar" className="mt-6">
+            <CompetitiveRadar />
           </TabsContent>
 
           <TabsContent value="pricing" className="mt-6">
             <ProductPricing />
           </TabsContent>
 
-          {['strategic_insights', 'social_media', 'google_trends', 'people_also_ask', 'trends'].map(type => (
+          <TabsContent value="social" className="mt-6">
+            <SocialTrends />
+          </TabsContent>
+
+          <TabsContent value="paa" className="mt-6">
+            <PeopleAlsoAsk />
+          </TabsContent>
+
+          <TabsContent value="momentum" className="mt-6">
+            <SocialMomentum />
+          </TabsContent>
+
+          <TabsContent value="strategy" className="mt-6">
+            <StrategyBI />
+          </TabsContent>
+
+          <TabsContent value="logs" className="mt-6">
+            <AnomaliesLogs />
+          </TabsContent>
+
+          {/* Análises antigas ainda acessíveis em abas separadas */}
+          {['trends', 'google_trends', 'people_also_ask', 'social_media', 'strategic_insights'].map(type => (
             <TabsContent key={type} value={type} className="space-y-4 mt-6">
               {filterAnalysesByType(type).map((analysis) => (
-                <Card key={analysis.id}>
+                <Card key={analysis.id} className="bg-card-dark border-border">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         {getIcon(analysis.analysis_type)}
                         <div>
-                          <CardTitle className="text-xl flex items-center gap-2">
+                          <CardTitle className="text-xl flex items-center gap-2 text-text-primary">
                             {analysis.competitor_id 
                               ? getCompetitorName(analysis.competitor_id) 
                               : getTypeLabel(analysis.analysis_type)}
@@ -397,7 +425,7 @@ export const MarketInsights = () => {
                               </Badge>
                             )}
                           </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-sm text-text-muted mt-1">
                             {new Date(analysis.analyzed_at).toLocaleDateString('pt-BR')} às{' '}
                             {new Date(analysis.analyzed_at).toLocaleTimeString('pt-BR', { 
                               hour: '2-digit', 
@@ -413,18 +441,18 @@ export const MarketInsights = () => {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="rounded-lg bg-muted/50 p-4">
-                      <h4 className="text-lg font-bold mb-3 flex items-center gap-2">
+                      <h4 className="text-lg font-bold mb-3 flex items-center gap-2 text-text-primary">
                         📊 Insights Principais
                       </h4>
-                      <div className="text-base leading-relaxed whitespace-pre-line">
+                      <div className="text-base leading-relaxed whitespace-pre-line text-text-primary">
                         {analysis.insights}
                       </div>
                     </div>
                     <div className="rounded-lg bg-primary/5 p-4 border-l-4 border-primary">
-                      <h4 className="text-lg font-bold mb-3 flex items-center gap-2">
+                      <h4 className="text-lg font-bold mb-3 flex items-center gap-2 text-text-primary">
                         💡 Recomendações Estratégicas
                       </h4>
-                      <div className="text-base leading-relaxed whitespace-pre-line">
+                      <div className="text-base leading-relaxed whitespace-pre-line text-text-primary">
                         {analysis.recommendations}
                       </div>
                     </div>
@@ -433,8 +461,8 @@ export const MarketInsights = () => {
               ))}
               
               {filterAnalysesByType(type).length === 0 && (
-                <Card>
-                  <CardContent className="pt-6 text-center text-muted-foreground">
+                <Card className="bg-card-dark border-border">
+                  <CardContent className="pt-6 text-center text-text-muted">
                     Nenhuma análise de {getTypeLabel(type).toLowerCase()} disponível.
                   </CardContent>
                 </Card>

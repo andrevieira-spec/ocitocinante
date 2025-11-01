@@ -324,42 +324,49 @@ export const MarketInsights = () => {
         </Card>
       ) : (
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="inline-flex h-12 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-full overflow-x-auto">
-            <TabsTrigger value="overview" className="gap-2">
+          <TabsList className="grid grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-2 bg-muted rounded-lg w-full">
+            <TabsTrigger value="overview" className="gap-2 flex items-center justify-center">
               <BarChart3 className="w-4 h-4" />
-              Visão Geral BR
+              <span className="hidden sm:inline">Visão Geral BR</span>
+              <span className="sm:hidden">Visão BR</span>
             </TabsTrigger>
-            <TabsTrigger value="market" className="gap-2">
+            <TabsTrigger value="market" className="gap-2 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
-              Mercado & Tendências
+              <span className="hidden sm:inline">Mercado & Tendências</span>
+              <span className="sm:hidden">Mercado</span>
             </TabsTrigger>
-            <TabsTrigger value="social" className="gap-2">
+            <TabsTrigger value="social" className="gap-2 flex items-center justify-center">
               <Users className="w-4 h-4" />
-              Tendências Sociais
+              <span className="hidden sm:inline">Tendências Sociais</span>
+              <span className="sm:hidden">Social</span>
             </TabsTrigger>
-            <TabsTrigger value="trends" className="gap-2">
+            <TabsTrigger value="trends" className="gap-2 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
-              Tendências
+              <span>Tendências</span>
             </TabsTrigger>
-            <TabsTrigger value="google_trends" className="gap-2">
+            <TabsTrigger value="google_trends" className="gap-2 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
-              Google Trends
+              <span className="hidden sm:inline">Google Trends</span>
+              <span className="sm:hidden">Google</span>
             </TabsTrigger>
-            <TabsTrigger value="people_also_ask" className="gap-2">
+            <TabsTrigger value="people_also_ask" className="gap-2 flex items-center justify-center">
               <Users className="w-4 h-4" />
-              People Also Ask
+              <span className="hidden sm:inline">People Also Ask</span>
+              <span className="sm:hidden">PAA</span>
             </TabsTrigger>
-            <TabsTrigger value="pricing" className="gap-2">
+            <TabsTrigger value="pricing" className="gap-2 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
-              Preços
+              <span>Preços</span>
             </TabsTrigger>
-            <TabsTrigger value="social_media" className="gap-2">
+            <TabsTrigger value="social_media" className="gap-2 flex items-center justify-center">
               <Users className="w-4 h-4" />
-              Redes Sociais
+              <span className="hidden sm:inline">Redes Sociais</span>
+              <span className="sm:hidden">Redes</span>
             </TabsTrigger>
-            <TabsTrigger value="strategic_insights" className="gap-2">
+            <TabsTrigger value="strategic_insights" className="gap-2 flex items-center justify-center">
               <Lightbulb className="w-4 h-4" />
-              Insights Estratégicos
+              <span className="hidden sm:inline">Insights Estratégicos</span>
+              <span className="sm:hidden">Insights</span>
             </TabsTrigger>
           </TabsList>
 

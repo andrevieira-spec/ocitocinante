@@ -40,16 +40,72 @@ export const MarketTrends = () => {
   };
 
   const extractKeywords = (text: string) => {
-    // Extract keywords mentioned in the insights
+    // Extract keywords from numbered or bulleted lists
     const lines = text.split('\n').filter(l => l.trim());
-    return lines.slice(0, 5).map(l => l.replace(/[-•]/g, '').trim());
+    const keywords: string[] = [];
+    
+    for (const line of lines) {
+      // Match patterns like "1. Keyword" or "• Keyword" or "- Keyword"
+      const match = line.match(/^[\d.•\-*]+\s*["']?([^"':]+?)["']?[:.]?\s*$/);
+      if (match && keywords.length < 5) {
+        keywords.push(match[1].trim());
+      }
+    }
+    return keywords;
+  };
+
+  const extractDestinations = () => {
+    // Extract destinations from social media analyses (competitor data)
+    const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media');
+    const destinationMap = new Map<string, number>();
+    
+    for (const analysis of socialAnalyses) {
+      const text = analysis.insights + ' ' + (analysis.recommendations || '');
+      // Look for Brazilian destinations mentioned
+      const brazilianDestinations = [
+        'Gramado', 'Canela', 'Beto Carrero', 'Foz do Iguaçu', 'Bonito', 
+        'Fernando de Noronha', 'Jericoacoara', 'Chapada dos Veadeiros',
+        'Lençóis Maranhenses', 'Pantanal', 'Amazônia', 'Porto de Galinhas',
+        'Maragogi', 'Arraial do Cabo', 'Búzios', 'Paraty', 'Ilhabela',
+        'Campos do Jordão', 'Monte Verde', 'Rio de Janeiro', 'São Paulo',
+        'Salvador', 'Recife', 'Fortaleza', 'Natal', 'João Pessoa'
+      ];
+      
+      for (const dest of brazilianDestinations) {
+        if (text.toLowerCase().includes(dest.toLowerCase())) {
+          destinationMap.set(dest, (destinationMap.get(dest) || 0) + 1);
+        }
+      }
+    }
+    
+    // Sort by frequency and return top 5
+    return Array.from(destinationMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([dest, count]) => `${dest} (${count} menções)`);
+  };
+
+  const extractOpportunity = () => {
+    // Extract opportunity from trends analysis
+    const trendAnalysis = analyses.find(a => a.analysis_type === 'trends');
+    if (!trendAnalysis?.data?.raw_response) return null;
+    
+    const text = trendAnalysis.data.raw_response;
+    const oppMatch = text.match(/🎯\s*\*\*OPORTUNIDADE:\*\*\s*\n\s*\*\s*(.+?)(?=\n\n|---|\*\*|$)/s);
+    if (oppMatch) {
+      return oppMatch[1].trim();
+    }
+    
+    // Fallback to first recommendation
+    return trendAnalysis.recommendations?.split('\n')[0]?.replace(/[-•\d.]/g, '').trim();
   };
 
   const latestTrend = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
   const latestStrategy = analyses.find(a => a.analysis_type === 'strategic_insights');
   
   const keywords = latestTrend ? extractKeywords(latestTrend.insights) : [];
-  const destinations = latestTrend ? extractKeywords(latestTrend.recommendations) : [];
+  const destinations = extractDestinations();
+  const opportunity = extractOpportunity();
   
   if (loading) {
     return <div className="text-center py-8">Carregando tendências...</div>;
@@ -127,12 +183,12 @@ export const MarketTrends = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {latestStrategy ? (
+                {opportunity ? (
                   <p className="text-sm line-clamp-3">
-                    {latestStrategy.recommendations.split('\n')[0]}
+                    {opportunity}
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Aguardando análise</p>
+                  <p className="text-xs text-muted-foreground">Execute análise de tendências</p>
                 )}
               </CardContent>
             </Card>

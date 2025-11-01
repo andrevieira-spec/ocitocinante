@@ -117,7 +117,22 @@ export const MarketInsights = () => {
 
   const runAnalysis = async () => {
     setAnalyzing(true);
+    // Verifica se há concorrente ativo para análise completa
     try {
+      const { data: activeCompetitors } = await supabase
+        .from('competitors')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (!activeCompetitors || activeCompetitors.length === 0) {
+        toast({
+          title: 'Nenhum concorrente ativo',
+          description: 'Ative um concorrente para análises completas. Continuando com Trends/PAA.',
+          variant: 'destructive',
+        });
+      }
+
       const { data, error } = await supabase.functions.invoke('analyze-competitors', {
         body: {
           scheduled: false,
@@ -276,6 +291,18 @@ export const MarketInsights = () => {
               <Users className="w-4 h-4" />
               Tendências Sociais
             </TabsTrigger>
+            <TabsTrigger value="trends" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Tendências
+            </TabsTrigger>
+            <TabsTrigger value="google_trends" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Google Trends
+            </TabsTrigger>
+            <TabsTrigger value="people_also_ask" className="gap-2">
+              <Users className="w-4 h-4" />
+              People Also Ask
+            </TabsTrigger>
             <TabsTrigger value="pricing" className="gap-2">
               <DollarSign className="w-4 h-4" />
               Preços
@@ -302,7 +329,7 @@ export const MarketInsights = () => {
             <SocialTrends />
           </TabsContent>
 
-          {['strategic_insights', 'pricing', 'social_media'].map(type => (
+          {['strategic_insights', 'pricing', 'social_media', 'google_trends', 'people_also_ask', 'trends'].map(type => (
             <TabsContent key={type} value={type} className="space-y-4 mt-6">
               {filterAnalysesByType(type).map((analysis) => (
                 <Card key={analysis.id}>

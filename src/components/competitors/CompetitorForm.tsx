@@ -30,7 +30,8 @@ export const CompetitorForm = ({ onSuccess }: { onSuccess: () => void }) => {
         instagram_url: formData.instagram_url || null,
         youtube_url: formData.youtube_url || null,
         tiktok_url: formData.tiktok_url || null,
-        x_url: formData.x_url || null
+        x_url: formData.x_url || null,
+        is_active: true
       }]);
 
       if (error) throw error;

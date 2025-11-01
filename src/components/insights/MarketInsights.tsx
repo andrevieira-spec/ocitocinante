@@ -34,6 +34,7 @@ export const MarketInsights = () => {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -117,6 +118,8 @@ export const MarketInsights = () => {
 
   const runAnalysis = async () => {
     setAnalyzing(true);
+    setProgress(0);
+    
     // Verifica se há concorrente ativo para análise completa
     try {
       const { data: activeCompetitors } = await supabase
@@ -133,6 +136,8 @@ export const MarketInsights = () => {
         });
       }
 
+      setProgress(10);
+      
       const { data, error } = await supabase.functions.invoke('analyze-competitors', {
         body: {
           scheduled: false,
@@ -143,6 +148,8 @@ export const MarketInsights = () => {
       });
 
       if (error) throw error;
+      
+      setProgress(25);
 
       // Check API health status from response
       if (data?.api_health) {
@@ -167,12 +174,23 @@ export const MarketInsights = () => {
 
       // Start polling only after successful invocation
       const start = Date.now();
+      const maxDuration = 120000; // 2 minutes
+      
       const interval: ReturnType<typeof setInterval> = setInterval(() => {
+        const elapsed = Date.now() - start;
+        const progressPercent = Math.min(25 + (elapsed / maxDuration) * 70, 95);
+        setProgress(progressPercent);
+        
         loadData();
-        if (Date.now() - start > 120000) { // 2 minutes to allow full analysis to complete
+        
+        if (elapsed > maxDuration) {
           clearInterval(interval);
           loadData(); // Final load after polling stops
-          setAnalyzing(false);
+          setProgress(100);
+          setTimeout(() => {
+            setAnalyzing(false);
+            setProgress(0);
+          }, 500);
         }
       }, 5000);
 
@@ -197,6 +215,7 @@ export const MarketInsights = () => {
       
       // Stop immediately on other errors so you can try again
       setAnalyzing(false);
+      setProgress(0);
       toast({
         title: 'Não foi possível iniciar a análise',
         description: errorMsg.slice(0, 160),
@@ -267,6 +286,33 @@ export const MarketInsights = () => {
           </Button>
         </div>
       </div>
+
+      {analyzing && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Análise em andamento...</span>
+                <span className="text-muted-foreground">{Math.round(progress)}%</span>
+              </div>
+              <div className="relative h-3 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                >
+                  <div className="absolute inset-0 animate-pulse bg-white/20" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                {progress < 30 ? '🔍 Iniciando análise...' : 
+                 progress < 60 ? '📊 Coletando dados de mercado...' :
+                 progress < 85 ? '🤖 Gerando insights com IA...' :
+                 '✨ Finalizando análise...'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <ArchiveModal open={showArchive} onClose={() => setShowArchive(false)} />
 

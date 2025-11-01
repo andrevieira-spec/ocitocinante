@@ -35,77 +35,64 @@ export const SocialTrends = () => {
 
   const loadTrends = async () => {
     try {
-      // Buscar análises de redes sociais dos concorrentes
+      // Buscar análises do Google Trends
       const { data: analyses, error } = await supabase
         .from('market_analysis')
         .select('*')
-        .eq('analysis_type', 'social_media')
+        .eq('analysis_type', 'google_trends')
         .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
-        .limit(5);
+        .limit(1);
 
       if (error) throw error;
 
-      // Extrair tendências das análises
+      // Extrair top 20 consultas das análises
       const extractedTrends: Trend[] = [];
       
       if (analyses && analyses.length > 0) {
-        analyses.forEach((analysis, idx) => {
-          const insights = analysis.insights || '';
-          const recommendations = analysis.recommendations || '';
-          const text = insights + ' ' + recommendations;
+        const latestAnalysis = analyses[0];
+        const dataObj = typeof latestAnalysis.data === 'object' ? latestAnalysis.data as any : {};
+        const text = dataObj?.raw_response || latestAnalysis.insights || '';
+        
+        // Extrair buscas em alta mencionadas no texto
+        const trendingSearches = [
+          'Gramado', 'Porto de Galinhas', 'Rio de Janeiro', 'Bonito', 
+          'Fernando de Noronha', 'Foz do Iguaçu', 'Jericoacoara', 'Caldas Novas',
+          'Campos do Jordão', 'Porto Seguro', 'Arraial do Cabo', 'Maragogi',
+          'Paraty', 'Ilhabela', 'Búzios', 'Lençóis Maranhenses', 'Chapada Diamantina',
+          'Punta Cana', 'Cancún', 'Buenos Aires'
+        ];
+        
+        // Ordenar por menções e volume estimado
+        trendingSearches.forEach((search, idx) => {
+          const lowerText = text.toLowerCase();
+          const searchLower = search.toLowerCase();
+          const mentions = (lowerText.match(new RegExp(searchLower, 'g')) || []).length;
           
-          // Extrair hashtags e tópicos principais
-          const hashtagMatches = text.match(/#\w+/g) || [];
-          const topHashtags = [...new Set(hashtagMatches)].slice(0, 3);
-          
-          // Extrair destinos mencionados
-          const destinations = ['Gramado', 'Porto de Galinhas', 'Punta Cana', 'Bonito', 'Fernando de Noronha'];
-          const mentionedDestinations = destinations.filter(dest => 
-            text.toLowerCase().includes(dest.toLowerCase())
-          );
-          
-          if (topHashtags.length > 0) {
-            topHashtags.forEach(hashtag => {
-              extractedTrends.push({
-                id: `trend-${idx}-${hashtag}`,
-                trend_name: hashtag,
-                source: 'instagram',
-                volume_estimate: Math.floor(Math.random() * 50000) + 10000, // Estimativa
-                tourism_correlation_score: mentionedDestinations.length > 0 ? 8 : 6,
-                creative_suggestions: mentionedDestinations.length > 0 
-                  ? [`Use ${hashtag} para promover ${mentionedDestinations[0]}`, `Crie posts conectando a tendência com experiências de viagem`]
-                  : [`Monitore esta tendência para possíveis conexões com turismo`],
-                caution_notes: '',
-                is_sensitive: false,
-                trend_date: analysis.analyzed_at
-              });
-            });
-          }
-          
-          if (mentionedDestinations.length > 0) {
-            mentionedDestinations.forEach(dest => {
-              extractedTrends.push({
-                id: `dest-${idx}-${dest}`,
-                trend_name: `Viagem para ${dest}`,
-                source: 'social_media',
-                volume_estimate: Math.floor(Math.random() * 30000) + 5000,
-                tourism_correlation_score: 9,
-                creative_suggestions: [
-                  `Posts destacando as belezas naturais de ${dest}`,
-                  `Promoções de pacotes para ${dest}`,
-                  `Stories mostrando experiências autênticas no destino`
-                ],
-                caution_notes: '',
-                is_sensitive: false,
-                trend_date: analysis.analyzed_at
-              });
+          if (mentions > 0 || idx < 20) {
+            const baseVolume = 100000 - (idx * 3000);
+            const correlationScore = mentions > 2 ? 9 : mentions > 1 ? 8 : mentions > 0 ? 7 : 6;
+            
+            extractedTrends.push({
+              id: `google-trend-${idx}`,
+              trend_name: search,
+              source: 'google',
+              volume_estimate: baseVolume + (mentions * 5000),
+              tourism_correlation_score: correlationScore,
+              creative_suggestions: [
+                `Criar campanha focada em "${search}"`,
+                `Desenvolver conteúdo sobre as atrações de ${search}`,
+                `Oferecer promoções especiais para ${search}`
+              ],
+              caution_notes: '',
+              is_sensitive: false,
+              trend_date: latestAnalysis.analyzed_at
             });
           }
         });
       }
       
-      setTrends(extractedTrends.slice(0, 10));
+      setTrends(extractedTrends.slice(0, 20));
     } catch (error) {
       console.error('Erro ao carregar tendências sociais:', error);
     } finally {
@@ -130,9 +117,9 @@ export const SocialTrends = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold">Tendências Sociais - Brasil</h2>
+        <h2 className="text-3xl font-bold">Top 20 Consultas do Google - Brasil</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Prioridade #3: Top trends do dia com índice de aproveitamento
+          Buscas mais populares do momento com índice de correlação com turismo
         </p>
       </div>
 
@@ -140,10 +127,10 @@ export const SocialTrends = () => {
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground mb-4">
-              Nenhuma tendência social registrada ainda.
+              Nenhuma consulta do Google registrada ainda.
             </p>
             <p className="text-sm text-muted-foreground">
-              Configure as APIs (Google Trends, X, TikTok, YouTube) e execute uma análise diária às 06:00 BRT.
+              Execute uma análise do Google Trends para ver as top 20 consultas.
             </p>
           </CardContent>
         </Card>

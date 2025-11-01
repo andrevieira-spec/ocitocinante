@@ -8,7 +8,6 @@ import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3 
 import { Button } from '@/components/ui/button';
 import { ArchiveModal } from './ArchiveModal';
 import { MarketOverview } from '@/components/market/MarketOverview';
-import { MarketTrends } from '@/components/market/MarketTrends';
 import { SocialTrends } from '@/components/market/SocialTrends';
 import { ProductPricing } from '@/components/market/ProductPricing';
 
@@ -331,11 +330,6 @@ export const MarketInsights = () => {
               <span className="hidden sm:inline">Visão Geral BR</span>
               <span className="sm:hidden">Visão BR</span>
             </TabsTrigger>
-            <TabsTrigger value="market" className="gap-2 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Mercado & Tendências</span>
-              <span className="sm:hidden">Mercado</span>
-            </TabsTrigger>
             <TabsTrigger value="social" className="gap-2 flex items-center justify-center">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Tendências Sociais</span>
@@ -373,10 +367,6 @@ export const MarketInsights = () => {
 
           <TabsContent value="overview" className="mt-6">
             <MarketOverview />
-          </TabsContent>
-
-          <TabsContent value="market" className="mt-6">
-            <MarketTrends />
           </TabsContent>
 
           <TabsContent value="social" className="mt-6">

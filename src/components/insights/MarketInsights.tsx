@@ -10,6 +10,7 @@ import { ArchiveModal } from './ArchiveModal';
 import { MarketOverview } from '@/components/market/MarketOverview';
 import { MarketTrends } from '@/components/market/MarketTrends';
 import { SocialTrends } from '@/components/market/SocialTrends';
+import { ProductPricing } from '@/components/market/ProductPricing';
 
 interface Analysis {
   id: string;
@@ -382,7 +383,11 @@ export const MarketInsights = () => {
             <SocialTrends />
           </TabsContent>
 
-          {['strategic_insights', 'pricing', 'social_media', 'google_trends', 'people_also_ask', 'trends'].map(type => (
+          <TabsContent value="pricing" className="mt-6">
+            <ProductPricing />
+          </TabsContent>
+
+          {['strategic_insights', 'social_media', 'google_trends', 'people_also_ask', 'trends'].map(type => (
             <TabsContent key={type} value={type} className="space-y-4 mt-6">
               {filterAnalysesByType(type).map((analysis) => (
                 <Card key={analysis.id}>

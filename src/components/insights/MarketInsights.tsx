@@ -122,11 +122,13 @@ export const MarketInsights = () => {
   };
 
   const runAnalysis = async () => {
+    console.log('🔍 [MarketInsights] runAnalysis iniciado');
     setAnalyzing(true);
     setProgress(0);
     
     // Verifica se há concorrente ativo para análise completa
     try {
+      console.log('🔍 [MarketInsights] Verificando concorrentes ativos...');
       const { data: activeCompetitors } = await supabase
         .from('competitors')
         .select('id')
@@ -143,6 +145,7 @@ export const MarketInsights = () => {
 
       setProgress(10);
       
+      console.log('🔍 [MarketInsights] Invocando analyze-competitors...');
       const { data, error } = await supabase.functions.invoke('analyze-competitors', {
         body: {
           scheduled: false,
@@ -152,8 +155,12 @@ export const MarketInsights = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [MarketInsights] Erro na invocação:', error);
+        throw error;
+      }
       
+      console.log('✅ [MarketInsights] Função invocada com sucesso:', data);
       setProgress(25);
 
       // Check API health status from response
@@ -201,6 +208,7 @@ export const MarketInsights = () => {
 
       toast({ title: 'Análise iniciada! Atualizando automaticamente por 2 minutos...' });
     } catch (error: any) {
+      console.error('❌ [MarketInsights] Erro capturado:', error);
       const errorMsg = error?.message || 'Erro desconhecido';
       
       // Check if it's a credits error

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function RequestAccess() {
@@ -75,6 +75,16 @@ export default function RequestAccess() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
+      <div className="absolute top-4 right-4">
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/cbos-setup')}
+          className="gap-2"
+        >
+          <FileText className="w-4 h-4" />
+          Documentação CBOS
+        </Button>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">

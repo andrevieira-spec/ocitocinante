@@ -10,7 +10,7 @@ const CbosSetup = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-12 print:p-8">
-        {/* Header with Print Button */}
+        {/* Header with Navigation and Print Button */}
         <div className="flex justify-between items-start mb-8 print:hidden">
           <div>
             <h1 className="text-4xl font-bold text-foreground mb-2">
@@ -20,10 +20,16 @@ const CbosSetup = () => {
               Sistema de Monitoração de Mercado e Inteligência Competitiva
             </p>
           </div>
-          <Button onClick={handlePrint} size="lg" className="gap-2">
-            <Download className="h-5 w-5" />
-            Salvar como PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => window.location.href = '/admin'} variant="outline" size="lg" className="gap-2">
+              <FileText className="h-5 w-5" />
+              Ir para Admin
+            </Button>
+            <Button onClick={handlePrint} size="lg" className="gap-2">
+              <Download className="h-5 w-5" />
+              Salvar como PDF
+            </Button>
+          </div>
         </div>
 
         {/* Print Header */}

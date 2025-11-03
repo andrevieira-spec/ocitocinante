@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3, Target, HelpCircle, Zap, AlertTriangle } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3, Target, HelpCircle, Zap, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ArchiveModal } from './ArchiveModal';
 import { MarketOverview } from '@/components/market/MarketOverview';
@@ -308,6 +308,7 @@ export const MarketInsights = () => {
   }
 
   const latestAutomated = analyses.find(a => a.is_automated);
+  const latestSolicited = analyses.find(a => !a.is_automated);
 
   return (
     <div className="space-y-6">
@@ -315,13 +316,22 @@ export const MarketInsights = () => {
         <div>
           <h2 className="text-3xl font-bold">Mercado</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {analyses.length} análises | {latestAutomated && (
+            {analyses.length} análises
+          </p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {latestAutomated && (
               <span className="inline-flex items-center gap-1 text-primary">
                 <Sparkles className="w-3 h-3" />
-                Última automática: {new Date(latestAutomated.analyzed_at).toLocaleString('pt-BR')}
+                Última automática: {new Date(latestAutomated.analyzed_at).toLocaleDateString('pt-BR')} às 06:00
               </span>
             )}
-          </p>
+            {latestSolicited && (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                Última solicitada: {new Date(latestSolicited.analyzed_at).toLocaleString('pt-BR')}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowArchive(true)}>

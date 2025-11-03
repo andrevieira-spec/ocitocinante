@@ -145,22 +145,56 @@ export const MarketInsights = () => {
 
       setProgress(10);
       
-      console.log('🔍 [MarketInsights] Invocando analyze-competitors...');
-      const { data, error } = await supabase.functions.invoke('analyze-competitors', {
+      console.log('🔍 [MarketInsights] Invocando analyze-competitors (SDK)...');
+
+      const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL as string;
+      const SUPABASE_ANON = (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+      // Tenta via SDK com timeout de 10s
+      const sdkCall = supabase.functions.invoke('analyze-competitors', {
         body: {
           scheduled: false,
           include_trends: true,
           include_paa: true,
           is_automated: false,
+          force: true,
         },
       });
 
-      if (error) {
-        console.error('❌ [MarketInsights] Erro na invocação:', error);
-        throw error;
+      let data: any | null = null;
+      try {
+        const { data: sdkData, error } = await Promise.race([
+          sdkCall,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10_000)),
+        ]) as any;
+        if (error) throw error;
+        data = sdkData;
+        console.log('✅ [MarketInsights] Invocado via SDK com sucesso');
+      } catch (err) {
+        console.warn('⚠️ [MarketInsights] SDK falhou/timeout, tentando fallback HTTP direto...', err);
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/analyze-competitors`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON}`,
+          },
+          body: JSON.stringify({
+            scheduled: false,
+            include_trends: true,
+            include_paa: true,
+            is_automated: false,
+            force: true,
+          }),
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('❌ [MarketInsights] Fallback HTTP falhou:', txt);
+          throw new Error(txt || 'Falha ao invocar função');
+        }
+        data = await resp.json();
+        console.log('✅ [MarketInsights] Invocado via HTTP com sucesso');
       }
       
-      console.log('✅ [MarketInsights] Função invocada com sucesso:', data);
       setProgress(25);
 
       // Check API health status from response

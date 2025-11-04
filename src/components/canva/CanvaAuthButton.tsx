@@ -23,12 +23,16 @@ export const CanvaAuthButton = () => {
 
       if (error) throw error;
 
-      // Armazenar state e userId para validação no callback
-      sessionStorage.setItem('canva_oauth_state', data.state);
-      sessionStorage.setItem('canva_oauth_user_id', user.id);
+      // Armazenar state e userId para validação no callback (usar localStorage para persistir ao sair do iframe)
+      localStorage.setItem('canva_oauth_state', data.state);
+      localStorage.setItem('canva_oauth_user_id', user.id);
 
-      // Redirecionar para Canva
-      window.location.href = data.authUrl;
+      // Redirecionar para Canva fora do iframe de preview
+      if (window.top) {
+        window.top.location.href = data.authUrl;
+      } else {
+        window.location.href = data.authUrl;
+      }
     } catch (error) {
       console.error('Erro ao conectar com Canva:', error);
       toast({

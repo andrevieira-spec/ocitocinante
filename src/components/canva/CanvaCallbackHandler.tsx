@@ -27,12 +27,12 @@ export const CanvaCallbackHandler = () => {
         }
 
         // Validar state
-        const savedState = sessionStorage.getItem('canva_oauth_state');
+        const savedState = localStorage.getItem('canva_oauth_state');
         if (state !== savedState) {
           throw new Error('State inválido - possível ataque CSRF');
         }
 
-        const userId = sessionStorage.getItem('canva_oauth_user_id');
+        const userId = localStorage.getItem('canva_oauth_user_id');
         if (!userId) {
           throw new Error('ID do usuário não encontrado');
         }
@@ -47,8 +47,8 @@ export const CanvaCallbackHandler = () => {
         if (callbackError) throw callbackError;
 
         // Limpar dados temporários
-        sessionStorage.removeItem('canva_oauth_state');
-        sessionStorage.removeItem('canva_oauth_user_id');
+        localStorage.removeItem('canva_oauth_state');
+        localStorage.removeItem('canva_oauth_user_id');
 
         toast({
           title: 'Conectado com sucesso!',

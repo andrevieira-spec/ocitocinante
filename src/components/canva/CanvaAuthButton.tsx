@@ -27,11 +27,12 @@ export const CanvaAuthButton = () => {
       localStorage.setItem('canva_oauth_state', data.state);
       localStorage.setItem('canva_oauth_user_id', user.id);
 
-      // Redirecionar para Canva fora do iframe de preview
-      if (window.top) {
-        window.top.location.href = data.authUrl;
-      } else {
-        window.location.href = data.authUrl;
+      // Redirecionar para Canva em nova aba (evita bloqueios de iframe/sandbox)
+      const win = window.open(data.authUrl, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        // fallback caso bloqueado: tentar redirecionar no topo
+        if (window.top) window.top.location.href = data.authUrl;
+        else window.location.href = data.authUrl;
       }
     } catch (error) {
       console.error('Erro ao conectar com Canva:', error);

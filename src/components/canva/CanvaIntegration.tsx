@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export const CanvaIntegration = () => {
@@ -17,6 +17,14 @@ export const CanvaIntegration = () => {
 
   useEffect(() => {
     checkConnection();
+
+    // Re-checar quando a janela ganha foco (usuário volta da aba de OAuth)
+    const handleFocus = () => {
+      checkConnection();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const checkConnection = async () => {
@@ -98,6 +106,17 @@ export const CanvaIntegration = () => {
                   Não conectado
                 </Badge>
                 <CanvaAuthButton />
+                <Button 
+                  onClick={checkConnection} 
+                  disabled={checkingConnection}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {checkingConnection && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {!checkingConnection && <RefreshCw className="w-4 h-4" />}
+                  Verificar Status
+                </Button>
               </>
             )}
           </div>

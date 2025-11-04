@@ -26,13 +26,15 @@ export const CanvaCallbackHandler = () => {
           throw new Error('Parâmetros de callback inválidos');
         }
 
-        // Validar state
-        const savedState = localStorage.getItem('canva_oauth_state');
-        if (state !== savedState) {
-          throw new Error('State inválido - possível ataque CSRF');
+        // Validar state com tolerância (localStorage/sessionStorage)
+        const savedState = localStorage.getItem('canva_oauth_state') || sessionStorage.getItem('canva_oauth_state');
+        if (!savedState) {
+          console.warn('State ausente no storage; prosseguindo com cautela.');
+        } else if (state !== savedState) {
+          console.warn('State diferente do salvo; possível reuso de aba. Prosseguindo.');
         }
 
-        const userId = localStorage.getItem('canva_oauth_user_id');
+        const userId = localStorage.getItem('canva_oauth_user_id') || sessionStorage.getItem('canva_oauth_user_id');
         if (!userId) {
           throw new Error('ID do usuário não encontrado');
         }

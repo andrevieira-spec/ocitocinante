@@ -67,7 +67,7 @@ export const CanvaCallbackHandler = () => {
 
         setStatus('Trocando código por token de acesso...');
 
-        const codeVerifier = localStorage.getItem('canva_oauth_code_verifier');
+        const codeVerifier = localStorage.getItem('canva_oauth_code_verifier') || sessionStorage.getItem('canva_oauth_code_verifier');
         if (!codeVerifier) throw new Error('code_verifier ausente');
 
         // Trocar código por token
@@ -81,6 +81,9 @@ export const CanvaCallbackHandler = () => {
         localStorage.removeItem('canva_oauth_state');
         localStorage.removeItem('canva_oauth_user_id');
         localStorage.removeItem('canva_oauth_code_verifier');
+        sessionStorage.removeItem('canva_oauth_state');
+        sessionStorage.removeItem('canva_oauth_user_id');
+        sessionStorage.removeItem('canva_oauth_code_verifier');
 
         toast({
           title: 'Conectado com sucesso!',
@@ -107,6 +110,10 @@ export const CanvaCallbackHandler = () => {
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
       <Loader2 className="w-8 h-8 animate-spin text-primary" />
       <p className="text-lg text-muted-foreground">{status}</p>
+      {/* SEO semantics */}
+      <link rel="canonical" href={`${window.location.origin}/canva/callback`} />
+      <meta name="description" content="Callback de autenticação Canva - conectar conta com segurança via PKCE." />
+      <title>Canva Callback | Conectar Conta Canva</title>
     </div>
   );
 };

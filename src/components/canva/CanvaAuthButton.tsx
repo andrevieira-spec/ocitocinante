@@ -57,6 +57,10 @@ export const CanvaAuthButton = () => {
       localStorage.setItem('canva_oauth_state', data.state);
       localStorage.setItem('canva_oauth_user_id', user.id);
       localStorage.setItem('canva_oauth_code_verifier', codeVerifier);
+      // Duplicar em sessionStorage para maior compatibilidade entre abas/janelas
+      sessionStorage.setItem('canva_oauth_state', data.state);
+      sessionStorage.setItem('canva_oauth_user_id', user.id);
+      sessionStorage.setItem('canva_oauth_code_verifier', codeVerifier);
 
       // Redirecionar para Canva em nova aba (evita bloqueios de iframe/sandbox)
       const win = window.open(data.authUrl, '_blank', 'noopener,noreferrer');

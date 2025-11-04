@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { code_challenge } = await req.json().catch(() => ({ code_challenge: undefined }));
+    const { code_challenge, client_state } = await req.json().catch(() => ({ code_challenge: undefined, client_state: undefined }));
 
     const clientId = Deno.env.get('CANVA_CLIENT_ID');
     
@@ -28,7 +28,8 @@ serve(async (req) => {
     }
 
     // Gerar state aleatório para segurança
-    const state = crypto.randomUUID();
+    const baseState = crypto.randomUUID();
+    const finalState = client_state ? `${baseState}.${client_state}` : baseState;
     
     // Scopes necessários para a integração com Canva
     const scopes = [
@@ -46,7 +47,7 @@ serve(async (req) => {
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', scopes);
-    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('state', finalState);
     authUrl.searchParams.set('code_challenge', code_challenge);
     authUrl.searchParams.set('code_challenge_method', 's256');
 
@@ -56,7 +57,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         authUrl: authUrl.toString(),
-        state 
+        state: finalState 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

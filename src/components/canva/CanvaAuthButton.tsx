@@ -46,8 +46,9 @@ export const CanvaAuthButton = () => {
       const challenge = base64UrlEncode(await sha256(codeVerifier));
 
       // Iniciar fluxo OAuth com PKCE
+      const clientState = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ userId: user.id })));
       const { data, error } = await supabase.functions.invoke('canva-oauth-start', {
-        body: { code_challenge: challenge },
+        body: { code_challenge: challenge, client_state: clientState },
       });
 
       if (error) throw error;

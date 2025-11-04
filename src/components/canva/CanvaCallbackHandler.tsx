@@ -4,6 +4,22 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
+function base64UrlDecode(str: string) {
+  const pad = str.length % 4 === 0 ? '' : '='.repeat(4 - (str.length % 4));
+  const s = str.replace(/-/g, '+').replace(/_/g, '/') + pad;
+  const decoded = atob(s);
+  try {
+    return decodeURIComponent(
+      decoded
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+  } catch {
+    return decoded;
+  }
+}
+
 export const CanvaCallbackHandler = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -34,7 +50,17 @@ export const CanvaCallbackHandler = () => {
           console.warn('State diferente do salvo; possível reuso de aba. Prosseguindo.');
         }
 
-        const userId = localStorage.getItem('canva_oauth_user_id') || sessionStorage.getItem('canva_oauth_user_id');
+        let userId = localStorage.getItem('canva_oauth_user_id') || sessionStorage.getItem('canva_oauth_user_id');
+        if (!userId && state && state.includes('.')) {
+          try {
+            const encoded = state.split('.').pop() as string;
+            const decoded = base64UrlDecode(encoded);
+            const parsed = JSON.parse(decoded);
+            userId = parsed.userId;
+          } catch (e) {
+            console.warn('Falha ao decodificar userId do state:', e);
+          }
+        }
         if (!userId) {
           throw new Error('ID do usuário não encontrado');
         }

@@ -217,6 +217,27 @@ export type Database = {
         }
         Relationships: []
       }
+      canva_oauth_states: {
+        Row: {
+          code_verifier: string
+          created_at: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          code_verifier: string
+          created_at?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          code_verifier?: string
+          created_at?: string | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       canva_oauth_tokens: {
         Row: {
           access_token: string
@@ -964,6 +985,7 @@ export type Database = {
     }
     Functions: {
       archive_old_manual_analyses: { Args: never; Returns: undefined }
+      cleanup_expired_oauth_states: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

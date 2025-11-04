@@ -62,16 +62,20 @@ export const CanvaAuthButton = () => {
       sessionStorage.setItem('canva_oauth_user_id', user.id);
       sessionStorage.setItem('canva_oauth_code_verifier', codeVerifier);
 
-      // Redirecionar para Canva na MESMA aba (preserva sessionStorage)
-      try {
-        window.location.assign(data.authUrl);
-      } catch (e) {
-        // Fallback: tentar nova aba
+      // Redirecionar considerando execução em iframe
+      if (window.self !== window.top) {
+        // Dentro de iframe: abrir nova aba para evitar bloqueios de frame-ancestors
         const win = window.open(data.authUrl, '_blank', 'noopener');
         if (!win) {
-          // Último recurso: mesma aba via href
-          window.location.href = data.authUrl;
+          toast({
+            title: 'Pop-up bloqueado',
+            description: 'Habilite pop-ups para este site e tente novamente.',
+            variant: 'destructive',
+          });
         }
+      } else {
+        // Fora de iframe: mesma aba preserva sessionStorage
+        window.location.assign(data.authUrl);
       }
     } catch (error) {
       console.error('Erro ao conectar com Canva:', error);

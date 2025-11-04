@@ -1,5 +1,6 @@
 import { AdminPolicies } from '@/components/market/AdminPolicies';
 import { Button } from '@/components/ui/button';
+import { BackToHomeButton } from '@/components/navigation/BackToHomeButton';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -20,6 +21,7 @@ export default function Policies() {
               Documentação CBOS
             </Button>
           </Link>
+          <BackToHomeButton />
         </div>
         <AdminPolicies />
       </div>

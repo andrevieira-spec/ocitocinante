@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { BackToHomeButton } from "@/components/navigation/BackToHomeButton";
 import { FileText, Download, CheckCircle, Clock, Shield, AlertTriangle } from "lucide-react";
 
 const CbosSetup = () => {
@@ -21,6 +22,7 @@ const CbosSetup = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <BackToHomeButton />
             <Button onClick={() => window.location.href = '/admin'} variant="outline" size="lg" className="gap-2">
               <FileText className="h-5 w-5" />
               Ir para Admin

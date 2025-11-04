@@ -9,6 +9,7 @@ import { CompetitorForm } from '@/components/competitors/CompetitorForm';
 import { CompetitorsList } from '@/components/competitors/CompetitorsList';
 import { AccessRequestsManager } from '@/components/admin/AccessRequestsManager';
 import { CanvaIntegration } from '@/components/canva/CanvaIntegration';
+import { BackToHomeButton } from '@/components/navigation/BackToHomeButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -111,10 +112,11 @@ export default function Admin() {
               <Palette className="w-4 h-4" />
               Canva
             </TabsTrigger>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <Link to="/cbos-setup" className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
                 📄 Manual CBOS
               </Link>
+              <BackToHomeButton />
             </div>
           </TabsList>
         </div>

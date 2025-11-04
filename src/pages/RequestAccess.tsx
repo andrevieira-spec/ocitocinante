@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BackToHomeButton } from '@/components/navigation/BackToHomeButton';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -75,7 +76,7 @@ export default function RequestAccess() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 flex gap-2">
         <Button 
           variant="outline" 
           onClick={() => navigate('/cbos-setup')}
@@ -84,6 +85,7 @@ export default function RequestAccess() {
           <FileText className="w-4 h-4" />
           Documentação CBOS
         </Button>
+        <BackToHomeButton />
       </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">

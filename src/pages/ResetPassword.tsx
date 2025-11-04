@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { BackToHomeButton } from '@/components/navigation/BackToHomeButton';
 import { useToast } from '@/hooks/use-toast';
 import { FileText } from 'lucide-react';
 
@@ -39,7 +40,7 @@ export default function ResetPassword() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 flex gap-2">
         <Button 
           variant="outline" 
           onClick={() => navigate('/cbos-setup')}
@@ -48,6 +49,7 @@ export default function ResetPassword() {
           <FileText className="w-4 h-4" />
           Documentação CBOS
         </Button>
+        <BackToHomeButton />
       </div>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">

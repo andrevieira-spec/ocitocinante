@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.schedule-daily-analysis]
 verify_jwt = false
+
+[functions.canva-oauth-start]
+verify_jwt = true
+
+[functions.canva-oauth-callback]
+verify_jwt = false
+
+[functions.canva-refresh-token]
+verify_jwt = true

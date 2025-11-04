@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, CheckCircle2, Calendar, FileDown, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { CanvaDesignsGallery } from '@/components/canva/CanvaDesignsGallery';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Campaign {
   id: string;
@@ -26,6 +28,7 @@ export const DailyCampaign = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatingDesigns, setGeneratingDesigns] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('InstagramPost');
 
   useEffect(() => {
     loadTodayCampaign();
@@ -87,21 +90,27 @@ export const DailyCampaign = () => {
     URL.revokeObjectURL(url);
   };
 
-  const generateCanvaDesigns = async () => {
+  const generateCanvaDesigns = async (platform: string) => {
     if (!campaign) return;
     
     setGeneratingDesigns(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-canva-designs', {
-        body: { campaignId: campaign.id }
+        body: { 
+          campaignId: campaign.id,
+          designType: platform 
+        }
       });
       
       if (error) throw error;
 
       toast({
         title: 'Designs gerados!',
-        description: `${data.designs?.length || 0} designs criados no Canva.`,
+        description: `${data.designs?.length || 0} designs criados no Canva para ${getPlatformName(platform)}.`,
       });
+      
+      // Recarregar a galeria
+      window.location.reload();
     } catch (error: any) {
       toast({
         title: 'Erro ao gerar designs',
@@ -111,6 +120,17 @@ export const DailyCampaign = () => {
     } finally {
       setGeneratingDesigns(false);
     }
+  };
+
+  const getPlatformName = (platform: string) => {
+    const names: Record<string, string> = {
+      'InstagramPost': 'Instagram',
+      'TwitterPost': 'X (Twitter)',
+      'YouTubeThumbnail': 'YouTube',
+      'TikTokVideo': 'TikTok',
+      'FacebookPost': 'Facebook'
+    };
+    return names[platform] || platform;
   };
 
   if (loading) {
@@ -163,14 +183,6 @@ export const DailyCampaign = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={generateCanvaDesigns}
-            disabled={generatingDesigns}
-          >
-            <Palette className="w-4 h-4 mr-2" />
-            {generatingDesigns ? 'Gerando...' : 'Gerar Materiais no Canva'}
-          </Button>
           <Button variant="outline" onClick={exportCampaign}>
             <FileDown className="w-4 h-4 mr-2" />
             Exportar
@@ -180,6 +192,53 @@ export const DailyCampaign = () => {
           </Badge>
         </div>
       </div>
+
+      {/* Seção de Materiais Canva */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="w-5 h-5" />
+            Materiais no Canva
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={selectedPlatform} onValueChange={setSelectedPlatform}>
+            <div className="flex items-center justify-between mb-4">
+              <TabsList>
+                <TabsTrigger value="InstagramPost">Instagram</TabsTrigger>
+                <TabsTrigger value="TwitterPost">X</TabsTrigger>
+                <TabsTrigger value="YouTubeThumbnail">YouTube</TabsTrigger>
+                <TabsTrigger value="TikTokVideo">TikTok</TabsTrigger>
+                <TabsTrigger value="FacebookPost">Facebook</TabsTrigger>
+              </TabsList>
+              <Button 
+                size="sm"
+                onClick={() => generateCanvaDesigns(selectedPlatform)}
+                disabled={generatingDesigns}
+              >
+                <Palette className="w-4 h-4 mr-2" />
+                {generatingDesigns ? 'Gerando...' : `Gerar para ${getPlatformName(selectedPlatform)}`}
+              </Button>
+            </div>
+            
+            <TabsContent value="InstagramPost">
+              <CanvaDesignsGallery campaignId={campaign.id} />
+            </TabsContent>
+            <TabsContent value="TwitterPost">
+              <CanvaDesignsGallery campaignId={campaign.id} />
+            </TabsContent>
+            <TabsContent value="YouTubeThumbnail">
+              <CanvaDesignsGallery campaignId={campaign.id} />
+            </TabsContent>
+            <TabsContent value="TikTokVideo">
+              <CanvaDesignsGallery campaignId={campaign.id} />
+            </TabsContent>
+            <TabsContent value="FacebookPost">
+              <CanvaDesignsGallery campaignId={campaign.id} />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Diagnóstico do Dia */}
       <Card>

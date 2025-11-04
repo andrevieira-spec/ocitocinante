@@ -12,10 +12,19 @@ serve(async (req) => {
   }
 
   try {
-    const { campaignId } = await req.json();
+    const { campaignId, designType = 'InstagramPost' } = await req.json();
 
     if (!campaignId) {
       return new Response(JSON.stringify({ error: 'campaignId é obrigatório' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validar tipo de design
+    const validDesignTypes = ['InstagramPost', 'TwitterPost', 'YouTubeThumbnail', 'TikTokVideo', 'FacebookPost'];
+    if (!validDesignTypes.includes(designType)) {
+      return new Response(JSON.stringify({ error: 'Tipo de design inválido' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,18 +84,29 @@ serve(async (req) => {
 
     console.log('Token do Canva válido');
 
+    // Definir características por plataforma
+    const platformSpecs: Record<string, { maxChars: number; name: string }> = {
+      'InstagramPost': { maxChars: 2200, name: 'Instagram' },
+      'TwitterPost': { maxChars: 280, name: 'X (Twitter)' },
+      'YouTubeThumbnail': { maxChars: 100, name: 'YouTube (título do vídeo)' },
+      'TikTokVideo': { maxChars: 150, name: 'TikTok' },
+      'FacebookPost': { maxChars: 500, name: 'Facebook' }
+    };
+
+    const specs = platformSpecs[designType];
+
     // Usar Lovable AI para gerar textos criativos baseados na campanha
     const aiPrompt = `
-Com base nesta diretiva estratégica de campanha de turismo, crie textos curtos e impactantes para posts em redes sociais:
+Com base nesta diretiva estratégica de campanha de turismo, crie textos curtos e impactantes para posts em ${specs.name}:
 
 Diagnóstico: ${JSON.stringify(campaign.diagnosis)}
 Diretiva Estratégica: ${JSON.stringify(campaign.strategic_directive)}
 Plano de Campanha: ${JSON.stringify(campaign.campaign_plan)}
 
-Gere 3 variações de texto (máximo 280 caracteres cada) focadas em:
-1. Engajamento emocional
-2. Call-to-action clara
-3. Hashtags relevantes
+Gere 3 variações de texto (máximo ${specs.maxChars} caracteres cada) otimizadas para ${specs.name}, focadas em:
+1. Engajamento emocional específico para a plataforma
+2. Call-to-action clara e efetiva
+3. Hashtags relevantes (quantidade apropriada para ${specs.name})
 
 Formato JSON:
 {
@@ -167,8 +187,8 @@ Formato JSON:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          design_type: 'InstagramPost',
-          title: `${textData.title} - ${campaign.campaign_date}`,
+          design_type: designType,
+          title: `${specs.name} - ${textData.title} - ${campaign.campaign_date}`,
         }),
       });
 
@@ -187,9 +207,9 @@ Formato JSON:
         .insert({
           campaign_id: campaignId,
           design_id: designData.design.id,
-          design_title: `${textData.title} - ${campaign.campaign_date}`,
+          design_title: `${specs.name} - ${textData.title}`,
           design_url: designData.design.urls?.view_url,
-          design_type: 'InstagramPost',
+          design_type: designType,
           status: 'draft',
         });
 

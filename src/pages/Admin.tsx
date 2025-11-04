@@ -8,8 +8,9 @@ import { DailyCampaign } from '@/components/market/DailyCampaign';
 import { CompetitorForm } from '@/components/competitors/CompetitorForm';
 import { CompetitorsList } from '@/components/competitors/CompetitorsList';
 import { AccessRequestsManager } from '@/components/admin/AccessRequestsManager';
+import { CanvaIntegration } from '@/components/canva/CanvaIntegration';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
@@ -106,6 +107,10 @@ export default function Admin() {
               <UserCheck className="w-4 h-4" />
               Acessos
             </TabsTrigger>
+            <TabsTrigger value="canva" className="gap-2">
+              <Palette className="w-4 h-4" />
+              Canva
+            </TabsTrigger>
             <div className="ml-auto">
               <Link to="/cbos-setup" className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
                 📄 Manual CBOS
@@ -133,6 +138,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="access" className="flex-1 m-0 overflow-y-auto p-6">
           <AccessRequestsManager />
+        </TabsContent>
+        <TabsContent value="canva" className="flex-1 m-0 overflow-y-auto p-6">
+          <CanvaIntegration />
         </TabsContent>
       </Tabs>
     </div>

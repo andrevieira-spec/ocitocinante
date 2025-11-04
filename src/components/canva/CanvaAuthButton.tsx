@@ -62,12 +62,16 @@ export const CanvaAuthButton = () => {
       sessionStorage.setItem('canva_oauth_user_id', user.id);
       sessionStorage.setItem('canva_oauth_code_verifier', codeVerifier);
 
-      // Redirecionar para Canva em nova aba (evita bloqueios de iframe/sandbox)
-      const win = window.open(data.authUrl, '_blank', 'noopener,noreferrer');
-      if (!win) {
-        // fallback caso bloqueado: tentar redirecionar no topo
-        if (window.top) window.top.location.href = data.authUrl;
-        else window.location.href = data.authUrl;
+      // Redirecionar para Canva na MESMA aba (preserva sessionStorage)
+      try {
+        window.location.assign(data.authUrl);
+      } catch (e) {
+        // Fallback: tentar nova aba
+        const win = window.open(data.authUrl, '_blank', 'noopener');
+        if (!win) {
+          // Último recurso: mesma aba via href
+          window.location.href = data.authUrl;
+        }
       }
     } catch (error) {
       console.error('Erro ao conectar com Canva:', error);

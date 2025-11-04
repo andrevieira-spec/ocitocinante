@@ -39,9 +39,12 @@ export const CanvaCallbackHandler = () => {
 
         setStatus('Trocando código por token de acesso...');
 
+        const codeVerifier = localStorage.getItem('canva_oauth_code_verifier');
+        if (!codeVerifier) throw new Error('code_verifier ausente');
+
         // Trocar código por token
         const { error: callbackError } = await supabase.functions.invoke('canva-oauth-callback', {
-          body: { code, userId }
+          body: { code, userId, code_verifier: codeVerifier }
         });
 
         if (callbackError) throw callbackError;
@@ -49,6 +52,7 @@ export const CanvaCallbackHandler = () => {
         // Limpar dados temporários
         localStorage.removeItem('canva_oauth_state');
         localStorage.removeItem('canva_oauth_user_id');
+        localStorage.removeItem('canva_oauth_code_verifier');
 
         toast({
           title: 'Conectado com sucesso!',

@@ -11,15 +11,20 @@ serve(async (req) => {
   }
 
   try {
+    const { code_challenge } = await req.json().catch(() => ({ code_challenge: undefined }));
+
     const clientId = Deno.env.get('CANVA_CLIENT_ID');
     
     // A URL do app deve ser configurada via variável de ambiente
     // ou usar a URL de preview como fallback
     const appUrl = Deno.env.get('APP_URL') || 'https://62965e9e-7836-46d9-9cc2-ca6912c0d4ff.lovableproject.com';
     const redirectUri = `${appUrl}/canva/callback`;
-    
+
     if (!clientId) {
       throw new Error('CANVA_CLIENT_ID não configurado');
+    }
+    if (!code_challenge) {
+      return new Response(JSON.stringify({ error: 'code_challenge ausente' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Gerar state aleatório para segurança
@@ -42,6 +47,8 @@ serve(async (req) => {
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', scopes);
     authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('code_challenge', code_challenge);
+    authUrl.searchParams.set('code_challenge_method', 's256');
 
     console.log('Iniciando fluxo OAuth do Canva');
     console.log('Redirect URI:', redirectUri);

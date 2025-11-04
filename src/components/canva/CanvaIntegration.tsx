@@ -24,12 +24,13 @@ export const CanvaIntegration = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('canva_oauth_tokens')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
+      if (error && error.code !== 'PGRST116') throw error;
       setIsConnected(!!data);
     } catch (error) {
       setIsConnected(false);

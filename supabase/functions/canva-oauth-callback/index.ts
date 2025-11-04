@@ -12,13 +12,20 @@ serve(async (req) => {
   }
 
   try {
-    const { code, userId } = await req.json();
+    const { code, userId, code_verifier } = await req.json();
 
     const clientId = Deno.env.get('CANVA_CLIENT_ID');
     const clientSecret = Deno.env.get('CANVA_CLIENT_SECRET');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const redirectUri = `${supabaseUrl}/auth/v1/callback`;
+
+    // Usar a mesma redirect URI do passo de autorização
+    const appUrl = Deno.env.get('APP_URL') || 'https://62965e9e-7836-46d9-9cc2-ca6912c0d4ff.lovableproject.com';
+    const redirectUri = `${appUrl}/canva/callback`;
+
+    if (!code_verifier) {
+      throw new Error('code_verifier ausente');
+    }
 
     if (!clientId || !clientSecret) {
       throw new Error('Credenciais do Canva não configuradas');
@@ -38,6 +45,7 @@ serve(async (req) => {
         client_id: clientId,
         client_secret: clientSecret,
         redirect_uri: redirectUri,
+        code_verifier: code_verifier,
       }).toString(),
     });
 

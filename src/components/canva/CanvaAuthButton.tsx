@@ -4,6 +4,29 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
+// PKCE helpers
+async function sha256(message: string) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(message);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return new Uint8Array(hash);
+}
+
+function base64UrlEncode(buf: Uint8Array) {
+  let str = btoa(String.fromCharCode(...buf));
+  return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function generateCodeVerifier(length = 64) {
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const randomValues = crypto.getRandomValues(new Uint8Array(length));
+  let result = '';
+  for (let i = 0; i < randomValues.length; i++) {
+    result += charset[randomValues[i] % charset.length];
+  }
+  return result;
+}
+
 export const CanvaAuthButton = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
@@ -18,14 +41,21 @@ export const CanvaAuthButton = () => {
         throw new Error('Usuário não autenticado');
       }
 
-      // Iniciar fluxo OAuth
-      const { data, error } = await supabase.functions.invoke('canva-oauth-start');
+      // Gerar PKCE
+      const codeVerifier = generateCodeVerifier();
+      const challenge = base64UrlEncode(await sha256(codeVerifier));
+
+      // Iniciar fluxo OAuth com PKCE
+      const { data, error } = await supabase.functions.invoke('canva-oauth-start', {
+        body: { code_challenge: challenge },
+      });
 
       if (error) throw error;
 
-      // Armazenar state e userId para validação no callback (usar localStorage para persistir ao sair do iframe)
+      // Armazenar state, userId e code_verifier para validação no callback
       localStorage.setItem('canva_oauth_state', data.state);
       localStorage.setItem('canva_oauth_user_id', user.id);
+      localStorage.setItem('canva_oauth_code_verifier', codeVerifier);
 
       // Redirecionar para Canva em nova aba (evita bloqueios de iframe/sandbox)
       const win = window.open(data.authUrl, '_blank', 'noopener,noreferrer');

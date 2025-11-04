@@ -1,0 +1,235 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { campaignId } = await req.json();
+
+    if (!campaignId) {
+      return new Response(JSON.stringify({ error: 'campaignId é obrigatório' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    console.log('Buscando campanha:', campaignId);
+
+    // Buscar dados da campanha
+    const { data: campaign, error: campaignError } = await supabase
+      .from('daily_campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .single();
+
+    if (campaignError || !campaign) {
+      console.error('Erro ao buscar campanha:', campaignError);
+      throw new Error('Campanha não encontrada');
+    }
+
+    console.log('Campanha encontrada:', campaign.campaign_date);
+
+    // Buscar usuário autenticado (primeiro admin disponível)
+    const { data: adminRole } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .limit(1)
+      .single();
+
+    if (!adminRole) {
+      throw new Error('Nenhum admin encontrado');
+    }
+
+    // Buscar token do Canva do usuário
+    const { data: canvaToken, error: tokenError } = await supabase
+      .from('canva_oauth_tokens')
+      .select('access_token, expires_at')
+      .eq('user_id', adminRole.user_id)
+      .single();
+
+    if (tokenError || !canvaToken) {
+      console.error('Erro ao buscar token:', tokenError);
+      throw new Error('Token do Canva não encontrado. Conecte sua conta primeiro.');
+    }
+
+    // Verificar se token expirou
+    const expiresAt = new Date(canvaToken.expires_at);
+    if (expiresAt < new Date()) {
+      throw new Error('Token do Canva expirado. Reconecte sua conta.');
+    }
+
+    console.log('Token do Canva válido');
+
+    // Usar Lovable AI para gerar textos criativos baseados na campanha
+    const aiPrompt = `
+Com base nesta diretiva estratégica de campanha de turismo, crie textos curtos e impactantes para posts em redes sociais:
+
+Diagnóstico: ${JSON.stringify(campaign.diagnosis)}
+Diretiva Estratégica: ${JSON.stringify(campaign.strategic_directive)}
+Plano de Campanha: ${JSON.stringify(campaign.campaign_plan)}
+
+Gere 3 variações de texto (máximo 280 caracteres cada) focadas em:
+1. Engajamento emocional
+2. Call-to-action clara
+3. Hashtags relevantes
+
+Formato JSON:
+{
+  "texts": [
+    { "title": "Post 1", "content": "texto aqui", "hashtags": ["#tag1", "#tag2"] },
+    { "title": "Post 2", "content": "texto aqui", "hashtags": ["#tag1", "#tag2"] },
+    { "title": "Post 3", "content": "texto aqui", "hashtags": ["#tag1", "#tag2"] }
+  ]
+}
+`;
+
+    console.log('Gerando textos com Lovable AI...');
+
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Você é um especialista em copywriting para turismo. Retorne apenas JSON válido.' },
+          { role: 'user', content: aiPrompt }
+        ],
+        tools: [{
+          type: 'function',
+          function: {
+            name: 'generate_post_texts',
+            description: 'Gera textos para posts de redes sociais',
+            parameters: {
+              type: 'object',
+              properties: {
+                texts: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' },
+                      content: { type: 'string' },
+                      hashtags: { type: 'array', items: { type: 'string' } }
+                    },
+                    required: ['title', 'content', 'hashtags']
+                  }
+                }
+              },
+              required: ['texts']
+            }
+          }
+        }],
+        tool_choice: { type: 'function', function: { name: 'generate_post_texts' } }
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('Erro na API Lovable AI:', aiResponse.status, errorText);
+      throw new Error('Falha ao gerar textos com IA');
+    }
+
+    const aiData = await aiResponse.json();
+    const toolCall = aiData.choices[0]?.message?.tool_calls?.[0];
+    const generatedTexts = toolCall ? JSON.parse(toolCall.function.arguments) : { texts: [] };
+
+    console.log('Textos gerados:', generatedTexts.texts.length);
+
+    // Criar designs no Canva
+    const createdDesigns = [];
+
+    for (const [index, textData] of generatedTexts.texts.entries()) {
+      console.log(`Criando design ${index + 1}...`);
+
+      // Criar design vazio no Canva
+      const createDesignResponse = await fetch('https://api.canva.com/rest/v1/designs', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${canvaToken.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          design_type: 'InstagramPost',
+          title: `${textData.title} - ${campaign.campaign_date}`,
+        }),
+      });
+
+      if (!createDesignResponse.ok) {
+        const errorText = await createDesignResponse.text();
+        console.error('Erro ao criar design no Canva:', createDesignResponse.status, errorText);
+        continue;
+      }
+
+      const designData = await createDesignResponse.json();
+      console.log('Design criado:', designData.design.id);
+
+      // Salvar no banco
+      const { error: insertError } = await supabase
+        .from('canva_designs')
+        .insert({
+          campaign_id: campaignId,
+          design_id: designData.design.id,
+          design_title: `${textData.title} - ${campaign.campaign_date}`,
+          design_url: designData.design.urls?.view_url,
+          design_type: 'InstagramPost',
+          status: 'draft',
+        });
+
+      if (insertError) {
+        console.error('Erro ao salvar design no banco:', insertError);
+      } else {
+        createdDesigns.push({
+          id: designData.design.id,
+          title: textData.title,
+          url: designData.design.urls?.view_url,
+          text: textData.content,
+          hashtags: textData.hashtags,
+        });
+      }
+    }
+
+    console.log(`${createdDesigns.length} designs criados com sucesso`);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        designs: createdDesigns,
+        message: `${createdDesigns.length} designs criados no Canva`
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
+  } catch (error) {
+    console.error('Erro ao gerar designs:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        success: false 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});

@@ -217,6 +217,53 @@ export type Database = {
         }
         Relationships: []
       }
+      canva_designs: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          design_id: string
+          design_title: string
+          design_type: string
+          design_url: string | null
+          id: string
+          status: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          design_id: string
+          design_title: string
+          design_type: string
+          design_url?: string | null
+          id?: string
+          status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          design_id?: string
+          design_title?: string
+          design_type?: string
+          design_url?: string | null
+          id?: string
+          status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canva_designs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "daily_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canva_oauth_states: {
         Row: {
           code_verifier: string

@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.canva-refresh-token]
 verify_jwt = true
+
+[functions.generate-canva-designs]
+verify_jwt = true

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, CheckCircle2, Calendar, FileDown } from 'lucide-react';
+import { Sparkles, CheckCircle2, Calendar, FileDown, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Campaign {
@@ -25,6 +25,7 @@ export const DailyCampaign = () => {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingDesigns, setGeneratingDesigns] = useState(false);
 
   useEffect(() => {
     loadTodayCampaign();
@@ -86,6 +87,32 @@ export const DailyCampaign = () => {
     URL.revokeObjectURL(url);
   };
 
+  const generateCanvaDesigns = async () => {
+    if (!campaign) return;
+    
+    setGeneratingDesigns(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-canva-designs', {
+        body: { campaignId: campaign.id }
+      });
+      
+      if (error) throw error;
+
+      toast({
+        title: 'Designs gerados!',
+        description: `${data.designs?.length || 0} designs criados no Canva.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao gerar designs',
+        description: error.message || 'Verifique se sua conta Canva está conectada.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingDesigns(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-8">Carregando campanha do dia...</div>;
   }
@@ -136,6 +163,14 @@ export const DailyCampaign = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={generateCanvaDesigns}
+            disabled={generatingDesigns}
+          >
+            <Palette className="w-4 h-4 mr-2" />
+            {generatingDesigns ? 'Gerando...' : 'Gerar Materiais no Canva'}
+          </Button>
           <Button variant="outline" onClick={exportCampaign}>
             <FileDown className="w-4 h-4 mr-2" />
             Exportar

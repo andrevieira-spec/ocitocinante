@@ -42,48 +42,32 @@ export const CanvaCallbackHandler = () => {
           throw new Error('Parâmetros de callback inválidos');
         }
 
-        // Validar state com tolerância (localStorage/sessionStorage)
+        // Validar state
         const savedState = localStorage.getItem('canva_oauth_state') || sessionStorage.getItem('canva_oauth_state');
         if (!savedState) {
-          console.warn('State ausente no storage; prosseguindo com cautela.');
+          console.warn('State ausente no storage; prosseguindo com state da URL.');
         } else if (state !== savedState) {
           console.warn('State diferente do salvo; possível reuso de aba. Prosseguindo.');
         }
 
-        let userId = localStorage.getItem('canva_oauth_user_id') || sessionStorage.getItem('canva_oauth_user_id');
-        if (!userId && state && state.includes('.')) {
-          try {
-            const encoded = state.split('.').pop() as string;
-            const decoded = base64UrlDecode(encoded);
-            const parsed = JSON.parse(decoded);
-            userId = parsed.userId;
-          } catch (e) {
-            console.warn('Falha ao decodificar userId do state:', e);
-          }
-        }
-        if (!userId) {
-          throw new Error('ID do usuário não encontrado');
+        // Obter userId autenticado atual
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('Usuário não autenticado');
         }
 
         setStatus('Trocando código por token de acesso...');
 
-        const codeVerifier = localStorage.getItem('canva_oauth_code_verifier') || sessionStorage.getItem('canva_oauth_code_verifier');
-        if (!codeVerifier) throw new Error('code_verifier ausente');
-
-        // Trocar código por token
+        // O code_verifier agora é buscado do backend pela edge function
         const { error: callbackError } = await supabase.functions.invoke('canva-oauth-callback', {
-          body: { code, userId, code_verifier: codeVerifier }
+          body: { code, userId: user.id, state }
         });
 
         if (callbackError) throw callbackError;
 
         // Limpar dados temporários
         localStorage.removeItem('canva_oauth_state');
-        localStorage.removeItem('canva_oauth_user_id');
-        localStorage.removeItem('canva_oauth_code_verifier');
         sessionStorage.removeItem('canva_oauth_state');
-        sessionStorage.removeItem('canva_oauth_user_id');
-        sessionStorage.removeItem('canva_oauth_code_verifier');
 
         toast({
           title: 'Conectado com sucesso!',

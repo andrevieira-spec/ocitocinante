@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { code, userId, code_verifier } = await req.json();
+    const { code, userId, state, code_verifier: clientCodeVerifier } = await req.json();
 
     const clientId = Deno.env.get('CANVA_CLIENT_ID');
     const clientSecret = Deno.env.get('CANVA_CLIENT_SECRET');
@@ -23,7 +23,28 @@ serve(async (req) => {
     const appUrl = Deno.env.get('APP_URL') || 'https://62965e9e-7836-46d9-9cc2-ca6912c0d4ff.lovableproject.com';
     const redirectUri = `${appUrl}/canva/callback`;
 
-    if (!code_verifier) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Buscar code_verifier do backend se não vier do cliente
+    let codeVerifier = clientCodeVerifier;
+    if (!codeVerifier && state) {
+      const { data: stateData, error: stateError } = await supabase
+        .from('canva_oauth_states')
+        .select('code_verifier')
+        .eq('state', state)
+        .single();
+      
+      if (stateError || !stateData) {
+        console.error('Erro ao buscar code_verifier do backend:', stateError);
+        throw new Error('code_verifier ausente no backend');
+      }
+      codeVerifier = stateData.code_verifier;
+      
+      // Deletar state do banco após uso
+      await supabase.from('canva_oauth_states').delete().eq('state', state);
+    }
+
+    if (!codeVerifier) {
       throw new Error('code_verifier ausente');
     }
 
@@ -40,12 +61,12 @@ serve(async (req) => {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        grant_type: 'authorization_code',
+      grant_type: 'authorization_code',
         code: code,
         client_id: clientId,
         client_secret: clientSecret,
         redirect_uri: redirectUri,
-        code_verifier: code_verifier,
+        code_verifier: codeVerifier,
       }).toString(),
     });
 
@@ -62,8 +83,6 @@ serve(async (req) => {
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
 
     // Armazenar tokens no banco
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
     const { error: dbError } = await supabase
       .from('canva_oauth_tokens')
       .upsert({

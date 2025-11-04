@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,9 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { code_challenge, client_state } = await req.json().catch(() => ({ code_challenge: undefined, client_state: undefined }));
+    const { code_challenge, client_state, code_verifier, user_id } = await req.json().catch(() => ({}));
 
     const clientId = Deno.env.get('CANVA_CLIENT_ID');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     // A URL do app deve ser configurada via variável de ambiente
     // ou usar a URL de preview como fallback
@@ -25,6 +28,9 @@ serve(async (req) => {
     }
     if (!code_challenge) {
       return new Response(JSON.stringify({ error: 'code_challenge ausente' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!code_verifier || !user_id) {
+      return new Response(JSON.stringify({ error: 'code_verifier ou user_id ausente' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Gerar state aleatório para segurança
@@ -53,6 +59,21 @@ serve(async (req) => {
 
     console.log('Iniciando fluxo OAuth do Canva');
     console.log('Redirect URI:', redirectUri);
+
+    // Salvar code_verifier no backend vinculado ao state
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { error: dbError } = await supabase
+      .from('canva_oauth_states')
+      .insert({
+        state: finalState,
+        user_id,
+        code_verifier,
+      });
+
+    if (dbError) {
+      console.error('Erro ao salvar state no backend:', dbError);
+      throw new Error('Falha ao armazenar state OAuth');
+    }
 
     return new Response(
       JSON.stringify({ 

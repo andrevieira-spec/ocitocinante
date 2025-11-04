@@ -45,22 +45,22 @@ export const CanvaAuthButton = () => {
       const codeVerifier = generateCodeVerifier();
       const challenge = base64UrlEncode(await sha256(codeVerifier));
 
-      // Iniciar fluxo OAuth com PKCE
+      // Iniciar fluxo OAuth com PKCE (enviar code_verifier para backend)
       const clientState = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ userId: user.id })));
       const { data, error } = await supabase.functions.invoke('canva-oauth-start', {
-        body: { code_challenge: challenge, client_state: clientState },
+        body: { 
+          code_challenge: challenge, 
+          client_state: clientState,
+          code_verifier: codeVerifier,
+          user_id: user.id,
+        },
       });
 
       if (error) throw error;
 
-      // Armazenar state, userId e code_verifier para validação no callback
+      // Armazenar apenas state no frontend para validação (code_verifier agora fica no backend)
       localStorage.setItem('canva_oauth_state', data.state);
-      localStorage.setItem('canva_oauth_user_id', user.id);
-      localStorage.setItem('canva_oauth_code_verifier', codeVerifier);
-      // Duplicar em sessionStorage para maior compatibilidade entre abas/janelas
       sessionStorage.setItem('canva_oauth_state', data.state);
-      sessionStorage.setItem('canva_oauth_user_id', user.id);
-      sessionStorage.setItem('canva_oauth_code_verifier', codeVerifier);
 
       // Redirecionar considerando execução em iframe
       if (window.self !== window.top) {

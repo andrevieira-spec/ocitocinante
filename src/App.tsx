@@ -34,6 +34,7 @@ const App = () => (
           <Route path="/cbos" element={<CbosSetup />} />
           <Route path="/setup/cbos" element={<CbosSetup />} />
           <Route path="/auth/callback" element={<CanvaCallbackHandler />} />
+          <Route path="/canva/callback" element={<CanvaCallbackHandler />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

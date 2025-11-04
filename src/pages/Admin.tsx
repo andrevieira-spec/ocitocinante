@@ -81,6 +81,14 @@ export default function Admin() {
 
   return (
     <div className="h-screen flex flex-col">
+      {/* Header fixo com botão de voltar */}
+      <div className="border-b bg-background px-4 py-2 flex items-center justify-between">
+        <BackToHomeButton />
+        <Link to="/cbos-setup" className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+          📄 Manual CBOS
+        </Link>
+      </div>
+      
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <div className="border-b">
           <TabsList className="w-full justify-start rounded-none h-14 px-4">
@@ -112,12 +120,6 @@ export default function Admin() {
               <Palette className="w-4 h-4" />
               Canva
             </TabsTrigger>
-            <div className="ml-auto flex items-center gap-2">
-              <Link to="/cbos-setup" className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
-                📄 Manual CBOS
-              </Link>
-              <BackToHomeButton />
-            </div>
           </TabsList>
         </div>
         <TabsContent value="dashboard" className="flex-1 m-0 overflow-y-auto">

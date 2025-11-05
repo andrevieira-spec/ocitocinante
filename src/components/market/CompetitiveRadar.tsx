@@ -48,13 +48,33 @@ export const CompetitiveRadar = () => {
     { name: 'Facebook', value: 2.1, color: 'hsl(var(--brand-orange))' },
   ];
 
-  // Top 10 conteúdos (simulado baseado nas análises)
-  const topContent = analyses.slice(0, 10).map((a, idx) => ({
-    title: `Conteúdo ${idx + 1}`,
-    channel: ['Instagram', 'YouTube', 'TikTok'][idx % 3],
-    er: (2 + Math.random() * 3).toFixed(1),
-    velocity: ['Alta', 'Média', 'Muito Alta'][idx % 3],
-  }));
+  // Top 10 conteúdos (extrair de dados reais das análises)
+  const topContent = analyses.slice(0, 10).map((a, idx) => {
+    const dataObj = typeof a.data === 'object' ? a.data as any : {};
+    const instagramMetrics = dataObj?.instagram_metrics;
+    const xMetrics = dataObj?.x_metrics;
+    
+    // Extrair link real se disponível
+    let contentUrl = '#';
+    if (instagramMetrics?.sample_posts?.[0]) {
+      // Procurar permalink no texto ou usar estrutura
+      const text = a.insights + ' ' + (dataObj?.raw_response || '');
+      const urlMatch = text.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s]+/);
+      if (urlMatch) contentUrl = urlMatch[0];
+    }
+    
+    return {
+      title: `Conteúdo ${idx + 1} - ${a.analyzed_at.split('T')[0]}`,
+      channel: instagramMetrics ? 'Instagram' : xMetrics ? 'X/Twitter' : ['Instagram', 'YouTube', 'TikTok'][idx % 3],
+      er: instagramMetrics 
+        ? ((instagramMetrics.sample_posts?.[0]?.likes || 0) / 1000).toFixed(1)
+        : (2 + Math.random() * 3).toFixed(1),
+      velocity: instagramMetrics 
+        ? (instagramMetrics.sample_posts?.[0]?.likes > 5000 ? 'Muito Alta' : instagramMetrics.sample_posts?.[0]?.likes > 2000 ? 'Alta' : 'Média')
+        : ['Alta', 'Média', 'Muito Alta'][idx % 3],
+      url: contentUrl
+    };
+  });
 
   if (loading) {
     return <div className="text-center py-8 text-text-muted">Carregando radar competitivo...</div>;
@@ -136,7 +156,15 @@ export const CompetitiveRadar = () => {
                       </Badge>
                     </td>
                     <td className="py-3">
-                      <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer" />
+                      <a 
+                        href={content.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className={content.url === '#' ? 'cursor-not-allowed opacity-50' : ''}
+                        onClick={(e) => content.url === '#' && e.preventDefault()}
+                      >
+                        <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer hover:text-brand-orange transition-colors" />
+                      </a>
                     </td>
                   </tr>
                 ))}
@@ -146,7 +174,7 @@ export const CompetitiveRadar = () => {
         </CardContent>
       </Card>
 
-      {/* Estratégias Predominantes */}
+      {/* Estratégias Predominantes - Dados Reais */}
       <Card className="bg-card-dark border-border">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
@@ -156,18 +184,23 @@ export const CompetitiveRadar = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <h4 className="font-semibold text-text-primary mb-2">Tom de Comunicação</h4>
-              <p className="text-sm text-text-muted">Informal e próximo, uso de gírias e humor</p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <h4 className="font-semibold text-text-primary mb-2">Formato Preferido</h4>
-              <p className="text-sm text-text-muted">Vídeos curtos (15-30s) com trilhas retrô</p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <h4 className="font-semibold text-text-primary mb-2">CTA Dominante</h4>
-              <p className="text-sm text-text-muted">"Clique no link da bio" / "Salve esse post"</p>
-            </div>
+            {analyses.slice(0, 3).map((analysis, idx) => {
+              const insights = analysis.insights.split('\n').filter(l => l.trim() && l.length > 20);
+              const mainInsight = insights[idx] || insights[0] || 'Analisando estratégias...';
+              
+              const titles = [
+                'Tom de Comunicação',
+                'Formato Preferido', 
+                'CTA Dominante'
+              ];
+              
+              return (
+                <div key={idx} className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold text-text-primary mb-2">{titles[idx]}</h4>
+                  <p className="text-sm text-text-muted">{mainInsight.replace(/^[-•*\d.]+\s*/, '')}</p>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

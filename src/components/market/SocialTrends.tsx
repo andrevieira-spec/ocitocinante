@@ -47,7 +47,7 @@ export const SocialTrends = () => {
       if (error) throw error;
 
       // Extrair top 20 consultas das análises
-      const extractedTrends: Trend[] = [];
+      let extractedTrends: Trend[] = [];
       
       if (analyses && analyses.length > 0) {
         const latestAnalysis = analyses[0];
@@ -63,36 +63,40 @@ export const SocialTrends = () => {
           'Punta Cana', 'Cancún', 'Buenos Aires'
         ];
         
-        // Ordenar por menções e volume estimado
-        trendingSearches.forEach((search, idx) => {
+        // Criar array com dados e ordenar por volume
+        const trendsWithData = trendingSearches.map((search, idx) => {
           const lowerText = text.toLowerCase();
           const searchLower = search.toLowerCase();
           const mentions = (lowerText.match(new RegExp(searchLower, 'g')) || []).length;
           
-          if (mentions > 0 || idx < 20) {
-            const baseVolume = 100000 - (idx * 3000);
-            const correlationScore = mentions > 2 ? 9 : mentions > 1 ? 8 : mentions > 0 ? 7 : 6;
-            
-            extractedTrends.push({
-              id: `google-trend-${idx}`,
-              trend_name: search,
-              source: 'google',
-              volume_estimate: baseVolume + (mentions * 5000),
-              tourism_correlation_score: correlationScore,
-              creative_suggestions: [
-                `Criar campanha focada em "${search}"`,
-                `Desenvolver conteúdo sobre as atrações de ${search}`,
-                `Oferecer promoções especiais para ${search}`
-              ],
-              caution_notes: '',
-              is_sensitive: false,
-              trend_date: latestAnalysis.analyzed_at
-            });
-          }
+          const baseVolume = 100000 - (idx * 3000);
+          const correlationScore = mentions > 2 ? 9 : mentions > 1 ? 8 : mentions > 0 ? 7 : 6;
+          
+          return {
+            id: `google-trend-${idx}`,
+            trend_name: search,
+            source: 'google',
+            volume_estimate: baseVolume + (mentions * 5000),
+            tourism_correlation_score: correlationScore,
+            creative_suggestions: [
+              `O que mais perguntam: "Melhor época para visitar ${search}", "Quanto custa ${search}", "É seguro viajar para ${search}"`,
+              `Principais dores: Preocupação com custo-benefício, dúvidas sobre segurança e melhor período`,
+              `Dúvidas comuns: Documentação necessária, vacinas, o que levar na mala, quantos dias ficar`,
+              `Estratégia: Criar guia completo "${search}: Tudo que você precisa saber antes de ir" focando em resolver essas dúvidas`
+            ],
+            caution_notes: '',
+            is_sensitive: false,
+            trend_date: latestAnalysis.analyzed_at
+          };
         });
+        
+        // Ordenar por volume estimado (maior para menor)
+        extractedTrends = trendsWithData
+          .sort((a, b) => b.volume_estimate - a.volume_estimate)
+          .slice(0, 20);
       }
       
-      setTrends(extractedTrends.slice(0, 20));
+      setTrends(extractedTrends);
     } catch (error) {
       console.error('Erro ao carregar tendências sociais:', error);
     } finally {

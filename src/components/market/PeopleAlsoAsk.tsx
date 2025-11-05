@@ -99,7 +99,7 @@ export const PeopleAlsoAsk = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-foreground">People Also Ask (PAA)</h2>
+        <h2 className="text-3xl font-bold text-foreground">PAA (People Also Ask)</h2>
         <p className="text-sm text-text-muted mt-1">
           Dúvidas e desejos do público no Google
         </p>

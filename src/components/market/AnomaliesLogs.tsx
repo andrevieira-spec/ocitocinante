@@ -238,7 +238,10 @@ export const AnomaliesLogs = () => {
         <CardContent>
           <div className="space-y-3">
             {!apiTokens.every(t => t.is_healthy) && (
-              <div className="p-4 bg-danger/10 border border-danger/20 rounded-lg">
+              <div 
+                className="p-4 bg-danger/10 border border-danger/20 rounded-lg group relative"
+                title="Algumas APIs estão com problemas de autenticação ou conectividade. Verifique se os tokens ainda são válidos e se as credenciais estão corretas nas configurações."
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-text-primary mb-1">APIs com problemas detectadas</p>
@@ -252,7 +255,10 @@ export const AnomaliesLogs = () => {
             )}
             
             {Number(successRate) < 80 && (
-              <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+              <div 
+                className="p-4 bg-warning/10 border border-warning/20 rounded-lg"
+                title="A taxa de sucesso está abaixo de 80%, indicando falhas frequentes nas coletas. Isso pode ser causado por: timeouts, rate limits das APIs, ou problemas de conectividade. Recomenda-se aumentar o intervalo entre coletas ou revisar configurações de timeout."
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-text-primary mb-1">Taxa de sucesso abaixo do ideal</p>
@@ -265,7 +271,10 @@ export const AnomaliesLogs = () => {
               </div>
             )}
 
-            <div className="p-4 bg-brand-blue/10 border border-brand-blue/20 rounded-lg">
+            <div 
+              className="p-4 bg-brand-blue/10 border border-brand-blue/20 rounded-lg"
+              title="O sistema possui retry automático configurado com backoff exponencial. Em caso de falhas temporárias (timeouts, rate limits), o sistema aguarda progressivamente mais tempo (1s, 2s, 4s) antes de tentar novamente, aumentando as chances de sucesso."
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-semibold text-text-primary mb-1">Retry automático ativo</p>

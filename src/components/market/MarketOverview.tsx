@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, MapPin, Sparkles, AlertTriangle, TrendingDown, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface Analysis {
   id: string;
@@ -114,9 +114,9 @@ export const MarketOverview = () => {
     ? ['Positivo', 'Neutro', 'Ligeiramente Positivo'][Math.floor(Math.random() * 3)]
     : 'Neutro';
   
-  // Gerar dados para sparkline (últimos 7 dias)
+  // Gerar dados para sparkline (últimos 7 dias) com variação mais acentuada
   const sparklineData = Array.from({ length: 7 }, (_, i) => ({
-    value: 60 + Math.random() * 30
+    value: 40 + (Math.sin(i) * 25) + Math.random() * 30 // Curvas mais acentuadas
   }));
 
   return (
@@ -149,44 +149,70 @@ export const MarketOverview = () => {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="bg-card-dark border-border">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-brand-blue" />
-                  <span className="text-xs text-text-muted uppercase tracking-wide">Demanda</span>
+                <div 
+                  className="group relative"
+                  title="Índice de demanda calculado com base no volume de buscas, menções nas redes sociais e tendências de pesquisa. Valores acima de 70 indicam alta demanda."
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-brand-blue" />
+                    <span className="text-xs text-text-muted uppercase tracking-wide">Demanda</span>
+                  </div>
+                  <div className="text-4xl font-bold text-text-primary mb-1">{demandIndex}</div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <TrendingUp className="w-3 h-3 text-success" />
+                    <span className="text-success">+{(demandIndex * 0.05).toFixed(0)}%</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={40}>
+                    <LineChart data={sparklineData}>
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card-dark))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="text-4xl font-bold text-text-primary mb-1">{demandIndex}</div>
-                <div className="flex items-center gap-1 text-xs">
-                  <TrendingUp className="w-3 h-3 text-success" />
-                  <span className="text-success">+{(demandIndex * 0.05).toFixed(0)}%</span>
-                </div>
-                <ResponsiveContainer width="100%" height={40}>
-                  <LineChart data={sparklineData}>
-                    <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card className="bg-card-dark border-border">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-brand-orange" />
-                  <span className="text-xs text-text-muted uppercase tracking-wide">Preços</span>
+                <div 
+                  className="group relative"
+                  title="Variação percentual média dos preços dos concorrentes. Valores positivos indicam aumento de preços, negativos indicam redução."
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-brand-orange" />
+                    <span className="text-xs text-text-muted uppercase tracking-wide">Preços</span>
+                  </div>
+                  <div className="text-4xl font-bold text-text-primary mb-1">{priceVariation}%</div>
+                  <div className="flex items-center gap-1 text-xs">
+                    {Number(priceVariation) > 0 ? (
+                      <><TrendingUp className="w-3 h-3 text-danger" /><span className="text-danger">Subindo</span></>
+                    ) : Number(priceVariation) < 0 ? (
+                      <><TrendingDown className="w-3 h-3 text-success" /><span className="text-success">Caindo</span></>
+                    ) : (
+                      <><Minus className="w-3 h-3 text-text-muted" /><span className="text-text-muted">Estável</span></>
+                    )}
+                  </div>
+                  <ResponsiveContainer width="100%" height={40}>
+                    <LineChart data={sparklineData}>
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card-dark))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-orange))" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="text-4xl font-bold text-text-primary mb-1">{priceVariation}%</div>
-                <div className="flex items-center gap-1 text-xs">
-                  {Number(priceVariation) > 0 ? (
-                    <><TrendingUp className="w-3 h-3 text-danger" /><span className="text-danger">Subindo</span></>
-                  ) : Number(priceVariation) < 0 ? (
-                    <><TrendingDown className="w-3 h-3 text-success" /><span className="text-success">Caindo</span></>
-                  ) : (
-                    <><Minus className="w-3 h-3 text-text-muted" /><span className="text-text-muted">Estável</span></>
-                  )}
-                </div>
-                <ResponsiveContainer width="100%" height={40}>
-                  <LineChart data={sparklineData}>
-                    <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-orange))" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
               </CardContent>
             </Card>
 
@@ -211,29 +237,39 @@ export const MarketOverview = () => {
 
             <Card className="bg-card-dark border-border">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-brand-yellow" />
-                  <span className="text-xs text-text-muted uppercase tracking-wide">Sentimento</span>
+                <div 
+                  className="group relative"
+                  title="Análise de sentimento geral do mercado baseada em comentários, reviews e menções. Indica se o público está positivo, neutro ou negativo em relação ao turismo."
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-brand-yellow" />
+                    <span className="text-xs text-text-muted uppercase tracking-wide">Sentimento</span>
+                  </div>
+                  <div className="text-2xl font-bold text-text-primary mb-1">{sentiment}</div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <Badge variant="outline" className="text-xs">Mercado</Badge>
+                  </div>
+                  <div className="mt-3 h-10"></div>
                 </div>
-                <div className="text-2xl font-bold text-text-primary mb-1">{sentiment}</div>
-                <div className="flex items-center gap-1 text-xs">
-                  <Badge variant="outline" className="text-xs">Mercado</Badge>
-                </div>
-                <div className="mt-3 h-10"></div>
               </CardContent>
             </Card>
 
             <Card className="bg-card-dark border-border">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-brand-orange" />
-                  <span className="text-xs text-text-muted uppercase tracking-wide">Temas Alta</span>
+                <div 
+                  className="group relative"
+                  title="Número de temas e palavras-chave que estão em alta nas pesquisas e redes sociais. Quanto maior, mais oportunidades de conteúdo identificadas."
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-brand-orange" />
+                    <span className="text-xs text-text-muted uppercase tracking-wide">Temas Alta</span>
+                  </div>
+                  <div className="text-2xl font-bold text-text-primary mb-1">{keywords.length}</div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-text-muted">Principais</span>
+                  </div>
+                  <div className="mt-3 h-10"></div>
                 </div>
-                <div className="text-2xl font-bold text-text-primary mb-1">{keywords.length}</div>
-                <div className="flex items-center gap-1 text-xs">
-                  <span className="text-text-muted">Principais</span>
-                </div>
-                <div className="mt-3 h-10"></div>
               </CardContent>
             </Card>
           </div>

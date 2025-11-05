@@ -19,6 +19,7 @@ interface CanvaDesign {
 
 interface CanvaDesignsGalleryProps {
   campaignId: string;
+  designType?: string;
 }
 
 const getPlatformIcon = (designType: string) => {
@@ -55,7 +56,7 @@ const getPlatformName = (designType: string) => {
   }
 };
 
-export const CanvaDesignsGallery = ({ campaignId }: CanvaDesignsGalleryProps) => {
+export const CanvaDesignsGallery = ({ campaignId, designType }: CanvaDesignsGalleryProps) => {
   const [designs, setDesigns] = useState<CanvaDesign[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,11 +66,16 @@ export const CanvaDesignsGallery = ({ campaignId }: CanvaDesignsGalleryProps) =>
 
   const loadDesigns = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('canva_designs')
         .select('*')
-        .eq('campaign_id', campaignId)
-        .order('created_at', { ascending: false });
+        .eq('campaign_id', campaignId);
+      
+      if (designType) {
+        query = query.eq('design_type', designType);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setDesigns(data || []);

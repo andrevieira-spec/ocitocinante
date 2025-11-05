@@ -222,19 +222,19 @@ export const DailyCampaign = () => {
             </div>
             
             <TabsContent value="InstagramPost">
-              <CanvaDesignsGallery campaignId={campaign.id} />
+              <CanvaDesignsGallery campaignId={campaign.id} designType="InstagramPost" />
             </TabsContent>
             <TabsContent value="TwitterPost">
-              <CanvaDesignsGallery campaignId={campaign.id} />
+              <CanvaDesignsGallery campaignId={campaign.id} designType="TwitterPost" />
             </TabsContent>
             <TabsContent value="YouTubeThumbnail">
-              <CanvaDesignsGallery campaignId={campaign.id} />
+              <CanvaDesignsGallery campaignId={campaign.id} designType="YouTubeThumbnail" />
             </TabsContent>
             <TabsContent value="TikTokVideo">
-              <CanvaDesignsGallery campaignId={campaign.id} />
+              <CanvaDesignsGallery campaignId={campaign.id} designType="TikTokVideo" />
             </TabsContent>
             <TabsContent value="FacebookPost">
-              <CanvaDesignsGallery campaignId={campaign.id} />
+              <CanvaDesignsGallery campaignId={campaign.id} designType="FacebookPost" />
             </TabsContent>
           </Tabs>
         </CardContent>

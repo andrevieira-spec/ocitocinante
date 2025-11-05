@@ -221,6 +221,41 @@ Formato JSON:
     console.log('Textos gerados:', generatedTexts.texts.length);
 
     // Criar designs no Canva
+    const refreshAccessToken = async () => {
+      const clientId = Deno.env.get('CANVA_CLIENT_ID');
+      const clientSecret = Deno.env.get('CANVA_CLIENT_SECRET');
+      if (!clientId || !clientSecret || !canvaToken.refresh_token) {
+        throw new Error('Token do Canva expirado. Reconecte sua conta.');
+      }
+      const tokenResponse = await fetch('https://api.canva.com/rest/v1/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: canvaToken.refresh_token,
+          client_id: clientId,
+          client_secret: clientSecret,
+        }).toString(),
+      });
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('Erro ao renovar token (helper):', errorText);
+        throw new Error('Token do Canva expirado. Reconecte sua conta.');
+      }
+      const newTokenData = await tokenResponse.json();
+      const newExpiresAt = new Date(Date.now() + newTokenData.expires_in * 1000).toISOString();
+      await supabase
+        .from('canva_oauth_tokens')
+        .update({
+          access_token: newTokenData.access_token,
+          refresh_token: newTokenData.refresh_token || canvaToken.refresh_token,
+          expires_at: newExpiresAt,
+        })
+        .eq('user_id', adminRole.user_id);
+      accessToken = newTokenData.access_token;
+      canvaToken.refresh_token = newTokenData.refresh_token || canvaToken.refresh_token;
+    };
+
     const createdDesigns = [];
 
     for (const [index, textData] of generatedTexts.texts.entries()) {
@@ -239,13 +274,42 @@ Formato JSON:
         }),
       });
 
+      let designData: any;
       if (!createDesignResponse.ok) {
-        const errorText = await createDesignResponse.text();
-        console.error('Erro ao criar design no Canva:', createDesignResponse.status, errorText);
-        continue;
+        if (createDesignResponse.status === 401) {
+          console.log('Token inválido ao criar design, tentando renovar e repetir...');
+          try {
+            await refreshAccessToken();
+            const retryResponse = await fetch('https://api.canva.com/rest/v1/designs', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                design_type: designType,
+                title: `${specs.name} - ${textData.title} - ${campaign.campaign_date}`,
+              }),
+            });
+            if (!retryResponse.ok) {
+              const retryError = await retryResponse.text();
+              console.error('Falha após renovar token:', retryResponse.status, retryError);
+              continue;
+            }
+            designData = await retryResponse.json();
+          } catch (e) {
+            console.error('Erro ao renovar token e repetir:', e);
+            continue;
+          }
+        } else {
+          const errorText = await createDesignResponse.text();
+          console.error('Erro ao criar design no Canva:', createDesignResponse.status, errorText);
+          continue;
+        }
+      } else {
+        designData = await createDesignResponse.json();
       }
 
-      const designData = await createDesignResponse.json();
       console.log('Design criado:', designData.design.id);
 
       // Salvar no banco

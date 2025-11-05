@@ -269,7 +269,7 @@ Formato JSON:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          design_type: designType,
+          type: designType,
           title: `${specs.name} - ${textData.title} - ${campaign.campaign_date}`,
         }),
       });
@@ -287,7 +287,7 @@ Formato JSON:
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                design_type: designType,
+                type: designType,
                 title: `${specs.name} - ${textData.title} - ${campaign.campaign_date}`,
               }),
             });

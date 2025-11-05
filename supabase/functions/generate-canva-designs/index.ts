@@ -67,7 +67,7 @@ serve(async (req) => {
     // Buscar token do Canva do usuário
     const { data: canvaToken, error: tokenError } = await supabase
       .from('canva_oauth_tokens')
-      .select('access_token, expires_at')
+      .select('access_token, expires_at, refresh_token')
       .eq('user_id', adminRole.user_id)
       .single();
 
@@ -76,10 +76,57 @@ serve(async (req) => {
       throw new Error('Token do Canva não encontrado. Conecte sua conta primeiro.');
     }
 
-    // Verificar se token expirou
+    let accessToken = canvaToken.access_token;
+
+    // Verificar se token expirou e tentar renovar
     const expiresAt = new Date(canvaToken.expires_at);
     if (expiresAt < new Date()) {
-      throw new Error('Token do Canva expirado. Reconecte sua conta.');
+      console.log('Token expirado, tentando renovar...');
+      
+      const clientId = Deno.env.get('CANVA_CLIENT_ID');
+      const clientSecret = Deno.env.get('CANVA_CLIENT_SECRET');
+
+      if (!clientId || !clientSecret || !canvaToken.refresh_token) {
+        throw new Error('Token do Canva expirado. Reconecte sua conta.');
+      }
+
+      // Renovar access token
+      const tokenResponse = await fetch('https://api.canva.com/rest/v1/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: canvaToken.refresh_token,
+          client_id: clientId,
+          client_secret: clientSecret,
+        }).toString(),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('Erro ao renovar token:', errorText);
+        throw new Error('Token do Canva expirado. Reconecte sua conta.');
+      }
+
+      const newTokenData = await tokenResponse.json();
+      console.log('Token renovado com sucesso');
+
+      // Calcular nova data de expiração
+      const newExpiresAt = new Date(Date.now() + newTokenData.expires_in * 1000).toISOString();
+
+      // Atualizar tokens no banco
+      await supabase
+        .from('canva_oauth_tokens')
+        .update({
+          access_token: newTokenData.access_token,
+          refresh_token: newTokenData.refresh_token || canvaToken.refresh_token,
+          expires_at: newExpiresAt,
+        })
+        .eq('user_id', adminRole.user_id);
+
+      accessToken = newTokenData.access_token;
     }
 
     console.log('Token do Canva válido');
@@ -183,7 +230,7 @@ Formato JSON:
       const createDesignResponse = await fetch('https://api.canva.com/rest/v1/designs', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${canvaToken.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

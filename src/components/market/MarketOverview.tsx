@@ -42,16 +42,30 @@ export const MarketOverview = () => {
   };
 
   const extractKeywords = (text: string) => {
-    const lines = text.split('\n').filter(l => l.trim());
-    const keywords: string[] = [];
+    // Buscar keywords mais relevantes das análises
+    const allText = analyses
+      .filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends' || a.analysis_type === 'social_media')
+      .map(a => a.insights + ' ' + JSON.stringify(a.data))
+      .join(' ');
     
-    for (const line of lines) {
-      const match = line.match(/^[\d.•\-*]+\s*["']?([^"':]+?)["']?[:.]?\s*$/);
-      if (match && keywords.length < 5) {
-        keywords.push(match[1].trim());
+    const keywordPatterns = [
+      /\b(?:palavra-chave|keyword|termo|busca|trend|tendência):\s*["']?([^"'\n,]{3,30})["']?/gi,
+      /\b(turismo|viagem|férias|resort|hotel|praia|destino|pacote)\s+(?:em|de|para|com)\s+([a-záéíóúâêôãõç\s]{3,25})/gi,
+      /["']([^"']{5,30})["']\s*(?:está|estão|com|em)\s*(?:alta|crescimento|tendência)/gi
+    ];
+    
+    const keywords = new Set<string>();
+    for (const pattern of keywordPatterns) {
+      let match;
+      while ((match = pattern.exec(allText)) !== null && keywords.size < 8) {
+        const kw = (match[1] || match[2] || '').trim();
+        if (kw.length > 3 && kw.length < 30 && !kw.match(/^\d+$/)) {
+          keywords.add(kw);
+        }
       }
     }
-    return keywords;
+    
+    return Array.from(keywords).slice(0, 5);
   };
 
   const extractDestinations = () => {
@@ -218,20 +232,33 @@ export const MarketOverview = () => {
 
             <Card className="bg-card-dark border-border">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-4 h-4 text-brand-blue" />
-                  <span className="text-xs text-text-muted uppercase tracking-wide">Engajamento</span>
+                <div 
+                  className="group relative"
+                  title="Taxa média de engajamento dos concorrentes nas redes sociais (curtidas, comentários, compartilhamentos dividido por seguidores). Benchmark do setor para comparação."
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="w-4 h-4 text-brand-blue" />
+                    <span className="text-xs text-text-muted uppercase tracking-wide">Engajamento</span>
+                  </div>
+                  <div className="text-4xl font-bold text-text-primary mb-1">{avgEngagement}%</div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <TrendingUp className="w-3 h-3 text-success" />
+                    <span className="text-success">Médio do setor</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={40}>
+                    <LineChart data={sparklineData}>
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card-dark))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="text-4xl font-bold text-text-primary mb-1">{avgEngagement}%</div>
-                <div className="flex items-center gap-1 text-xs">
-                  <TrendingUp className="w-3 h-3 text-success" />
-                  <span className="text-success">Médio do setor</span>
-                </div>
-                <ResponsiveContainer width="100%" height={40}>
-                  <LineChart data={sparklineData}>
-                    <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
               </CardContent>
             </Card>
 
@@ -274,7 +301,7 @@ export const MarketOverview = () => {
             </Card>
           </div>
 
-          {/* Alertas Inteligentes */}
+          {/* Alertas Inteligentes - Dinâmicos das análises */}
           <Card className="bg-card-dark border-border">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
@@ -283,27 +310,33 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-success mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-text-primary font-medium">Aumento de buscas por "Gramado" (+35%)</p>
-                  <p className="text-xs text-text-muted mt-1">Oportunidade para campanhas de inverno</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                <AlertTriangle className="w-4 h-4 text-warning mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-text-primary font-medium">Concorrentes aumentando preços médios</p>
-                  <p className="text-xs text-text-muted mt-1">Considere ajuste estratégico</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                <Sparkles className="w-4 h-4 text-brand-blue mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-text-primary font-medium">Tendência: Viagens sustentáveis em alta</p>
-                  <p className="text-xs text-text-muted mt-1">Crescimento de 28% em menções</p>
-                </div>
-              </div>
+              {analyses.slice(0, 3).map((analysis, idx) => {
+                const insights = analysis.insights.split('\n').filter(l => l.trim())[0] || analysis.insights.substring(0, 120);
+                const iconMap = [TrendingUp, AlertTriangle, Sparkles];
+                const colorMap = ['text-success', 'text-warning', 'text-brand-blue'];
+                const Icon = iconMap[idx % 3];
+                
+                return (
+                  <div key={analysis.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                    <Icon className={`w-4 h-4 ${colorMap[idx % 3]} mt-0.5 flex-shrink-0`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-primary font-medium line-clamp-2">{insights}</p>
+                      <p className="text-xs text-text-muted mt-1">
+                        {analysis.analysis_type === 'pricing' && 'Oportunidade de precificação'}
+                        {analysis.analysis_type === 'social_media' && 'Insight de redes sociais'}
+                        {analysis.analysis_type === 'trends' && 'Tendência emergente'}
+                        {analysis.analysis_type === 'google_trends' && 'Busca em alta no Google'}
+                        {analysis.analysis_type === 'strategic_insights' && 'Insight estratégico'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              {analyses.length === 0 && (
+                <p className="text-sm text-text-muted text-center py-4">
+                  Execute uma análise para ver alertas inteligentes
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -374,37 +407,57 @@ export const MarketOverview = () => {
             </Card>
           </div>
 
-          {/* Insights Acionáveis */}
-          <Card className="bg-card-dark border-border">
+          {/* Insights do Dia - Visual mais dinâmico */}
+          <Card className="bg-gradient-to-br from-brand-blue/10 to-brand-purple/10 border-brand-blue/30">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-text-primary">
-                <Sparkles className="w-5 h-5 text-brand-yellow" />
-                Insights do Dia
+                <Sparkles className="w-5 h-5 text-brand-yellow animate-pulse" />
+                💡 Insights do Dia
               </CardTitle>
             </CardHeader>
             <CardContent>
               {latestStrategy ? (
                 <div className="space-y-4">
-                  <div className="prose prose-sm max-w-none">
-                    <div className="whitespace-pre-wrap text-text-primary">{latestStrategy.insights}</div>
-                  </div>
-                  {latestStrategy.recommendations && (
-                    <div className="border-t border-border pt-4 mt-4">
-                      <h4 className="font-semibold mb-2 text-text-primary flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-brand-blue" />
-                        Ação Recomendada
-                      </h4>
-                      <div className="p-4 bg-brand-blue/10 border border-brand-blue/20 rounded-lg">
-                        <p className="text-sm text-text-primary whitespace-pre-wrap">
-                          {latestStrategy.recommendations}
-                        </p>
-                      </div>
+                  <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border">
+                    <div className="prose prose-sm max-w-none">
+                      <p className="text-text-primary leading-relaxed">{latestStrategy.insights}</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12 text-text-muted">
                   Execute uma análise para gerar insights acionáveis.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Ações Recomendadas - Visual mais amigável */}
+          <Card className="bg-gradient-to-br from-success/10 to-brand-green/10 border-success/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-text-primary">
+                <TrendingUp className="w-5 h-5 text-success" />
+                🎯 Ações Recomendadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {latestStrategy?.recommendations ? (
+                <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border space-y-3">
+                  {latestStrategy.recommendations.split('\n').filter((line: string) => line.trim()).map((action: string, idx: number) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 bg-success/5 rounded-lg hover:bg-success/10 transition-colors">
+                      <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-success">{idx + 1}</span>
+                      </div>
+                      <p className="text-sm text-text-primary leading-relaxed flex-1">{action.replace(/^[\d.•\-*]+\s*/, '')}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <TrendingUp className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-sm text-text-muted">
+                    Execute uma análise estratégica para ver recomendações personalizadas
+                  </p>
                 </div>
               )}
             </CardContent>

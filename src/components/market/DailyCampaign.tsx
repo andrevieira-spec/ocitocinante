@@ -105,12 +105,9 @@ export const DailyCampaign = () => {
       if (error) throw error;
 
       toast({
-        title: 'Designs gerados!',
+        title: '✅ Designs gerados com sucesso!',
         description: `${data.designs?.length || 0} designs criados no Canva para ${getPlatformName(platform)}.`,
       });
-      
-      // Recarregar a galeria
-      window.location.reload();
     } catch (error: any) {
       toast({
         title: 'Erro ao gerar designs',

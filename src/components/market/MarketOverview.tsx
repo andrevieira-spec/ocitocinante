@@ -42,30 +42,57 @@ export const MarketOverview = () => {
   };
 
   const extractKeywords = (text: string) => {
-    // Buscar keywords mais relevantes das análises
+    // Consolidar e higienizar texto das análises (remove markdown, símbolos, barras)
     const allText = analyses
       .filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends' || a.analysis_type === 'social_media')
-      .map(a => a.insights + ' ' + JSON.stringify(a.data))
-      .join(' ');
-    
+      .map(a => `${a.insights} ${(a.data as any)?.raw_response || ''}`)
+      .join(' ')
+      .replace(/\*\*|__|`|\#/g, ' ') // remove markdown básico
+      .replace(/\\/g, '') // remove barras invertidas
+      .replace(/\s{2,}/g, ' ') // normaliza espaços
+      .trim();
+
     const keywordPatterns = [
-      /\b(?:palavra-chave|keyword|termo|busca|trend|tendência):\s*["']?([^"'\n,]{3,30})["']?/gi,
-      /\b(turismo|viagem|férias|resort|hotel|praia|destino|pacote)\s+(?:em|de|para|com)\s+([a-záéíóúâêôãõç\s]{3,25})/gi,
-      /["']([^"']{5,30})["']\s*(?:está|estão|com|em)\s*(?:alta|crescimento|tendência)/gi
+      /\b(?:palavra-chave|keyword|termo|busca|trend|tendência):\s*["']?([^"'\n,]{3,40})["']?/gi,
+      /\b(turismo|viagem|férias|resort|hotel|praia|destino|pacote)\s+(?:em|de|para|com)\s+([a-záéíóúâêôãõç\s]{3,30})/gi,
+      /["']([^"']{4,40})["']\s*(?:está|estão|com|em)\s*(?:alta|crescimento|tendência)/gi
     ];
-    
+
+    const blocklist = [/^nas últimas/i, /^a busca por/i, /^principais/i, /^tendências?/i, /^temas?/i];
+
+    const sanitize = (kw: string) => kw
+      .replace(/\*\*|__|`|\#/g, '')
+      .replace(/^[\-•\d.\s]+/, '')
+      .replace(/\\/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
     const keywords = new Set<string>();
     for (const pattern of keywordPatterns) {
       let match;
       while ((match = pattern.exec(allText)) !== null && keywords.size < 8) {
-        const kw = (match[1] || match[2] || '').trim();
-        if (kw.length > 3 && kw.length < 30 && !kw.match(/^\d+$/)) {
+        const raw = (match[1] || match[2] || '').slice(0, 40);
+        const kw = sanitize(raw);
+        if (
+          kw.length > 3 &&
+          kw.length < 40 &&
+          !kw.match(/^\d+$/) &&
+          !blocklist.some(r => r.test(kw))
+        ) {
           keywords.add(kw);
         }
       }
     }
-    
-    return Array.from(keywords).slice(0, 5);
+
+    let result = Array.from(keywords).slice(0, 5);
+
+    // Fallback: usar destinos em alta como keywords legíveis
+    if (result.length === 0) {
+      result = extractDestinations().map(d => d.split(' (')[0]).slice(0, 5);
+      if (result.length === 0) result = ['Turismo', 'Viagem', 'Promoções', 'Roteiros', 'Destinos'];
+    }
+
+    return result;
   };
 
   const extractDestinations = () => {

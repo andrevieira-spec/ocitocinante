@@ -80,8 +80,8 @@ export const CompetitiveRadar = () => {
         : channel === 'TikTok' ? 'tiktok.com'
         : '';
       contentUrl = site
-        ? `https://www.google.com/search?q=site%3A${site}+${query}`
-        : `https://www.google.com/search?q=${query}`;
+        ? `https://duckduckgo.com/?q=site%3A${site}+${query}`
+        : `https://duckduckgo.com/?q=${query}`;
     }
     
     return {

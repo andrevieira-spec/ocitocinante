@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { scheduled = false, include_trends = false, include_paa = false, is_automated = false } = body;
+    const { scheduled = false, include_trends = false, include_paa = false, is_automated = false, test_mode = false, test_api = '' } = body;
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -162,6 +162,91 @@ Deno.serve(async (req) => {
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY') || '';
     const xBearerToken = Deno.env.get('X_BEARER_TOKEN') || '';
     const metaUserToken = Deno.env.get('META_USER_TOKEN') || '';
+    const googleSearchApiKey = Deno.env.get('GOOGLE_API_KEY') || '';
+    const googleCxId = Deno.env.get('GOOGLE_CX_ID') || '';
+
+    // TEST MODE - Quick API health check
+    if (test_mode && test_api) {
+      console.log(`🧪 Test mode: checking ${test_api}`);
+      
+      if (test_api === 'google_ai') {
+        try {
+          const testPrompt = 'Responda apenas "OK" se você está funcionando.';
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: testPrompt }] }]
+              })
+            }
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Google AI API retornou status ${response.status}`);
+          }
+          
+          const result = await response.json();
+          const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          
+          return new Response(
+            JSON.stringify({
+              status: 'success',
+              api: 'Google AI (Gemini)',
+              response: text,
+              message: 'API Google AI está funcionando corretamente'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              status: 'error',
+              api: 'Google AI (Gemini)',
+              error: error instanceof Error ? error.message : 'Erro desconhecido',
+              message: 'Falha ao conectar com Google AI'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+      }
+      
+      if (test_api === 'google_search') {
+        try {
+          const testQuery = 'turismo brasil';
+          const response = await fetch(
+            `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${googleCxId}&q=${encodeURIComponent(testQuery)}&num=1`
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Google Search API retornou status ${response.status}`);
+          }
+          
+          const result = await response.json();
+          
+          return new Response(
+            JSON.stringify({
+              status: 'success',
+              api: 'Google Search API',
+              results: result.items?.length || 0,
+              message: 'API de busca do Google está funcionando corretamente'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              status: 'error',
+              api: 'Google Search API',
+              error: error instanceof Error ? error.message : 'Erro desconhecido',
+              message: 'Falha ao conectar com Google Search API'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+      }
+    }
 
     // Track API health status
     const apiHealthStatus = {

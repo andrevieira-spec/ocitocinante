@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, TrendingDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Product {
   id: string;
@@ -29,6 +30,8 @@ export const ProductPricing = () => {
   useEffect(() => {
     loadProducts();
   }, []);
+
+  const [scope, setScope] = useState<'Nacional' | 'Internacional'>('Nacional');
 
   const loadProducts = async () => {
     try {
@@ -185,9 +188,19 @@ export const ProductPricing = () => {
         <p className="text-sm text-muted-foreground mt-1">
           {products.length} produto(s) monitorado(s) | Última atualização: {new Date(products[0]?.scraped_at).toLocaleString('pt-BR')}
         </p>
+        <div className="mt-3">
+          <Tabs value={scope} onValueChange={(v) => setScope(v as 'Nacional' | 'Internacional')}>
+            <TabsList>
+              <TabsTrigger value="Nacional">Nacional</TabsTrigger>
+              <TabsTrigger value="Internacional">Internacional</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
-      {Object.entries(groupedByCategory).map(([category, categoryProducts]) => (
+      {Object.entries(groupedByCategory)
+        .filter(([category]) => category === scope)
+        .map(([category, categoryProducts]) => (
         <div key={category} className="space-y-4">
           <h3 className="text-xl font-semibold flex items-center gap-2">
             <Badge variant="outline">{category}</Badge>
@@ -255,14 +268,11 @@ export const ProductPricing = () => {
                       )}
                     </div>
 
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => window.open(product.url, '_blank')}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Ver Produto
+                    <Button asChild variant="outline" size="sm" className="w-full">
+                      <a href={product.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Ver Produto
+                      </a>
                     </Button>
                   </CardContent>
                 </Card>

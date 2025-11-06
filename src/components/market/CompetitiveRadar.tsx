@@ -50,22 +50,41 @@ export const CompetitiveRadar = () => {
 
   // Top 10 conteúdos (extrair de dados reais das análises)
   const topContent = analyses.slice(0, 10).map((a, idx) => {
-    const dataObj = typeof a.data === 'object' ? a.data as any : {};
+    const dataObj = typeof a.data === 'object' ? (a.data as any) : {};
     const instagramMetrics = dataObj?.instagram_metrics;
     const xMetrics = dataObj?.x_metrics;
-    
-    // Extrair link real se disponível
-    let contentUrl = '#';
-    if (instagramMetrics?.sample_posts?.[0]) {
-      // Procurar permalink no texto ou usar estrutura
-      const text = a.insights + ' ' + (dataObj?.raw_response || '');
-      const urlMatch = text.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s]+/);
-      if (urlMatch) contentUrl = urlMatch[0];
+
+    // Determinar canal prioritário
+    const channel = instagramMetrics
+      ? 'Instagram'
+      : xMetrics
+      ? 'X/Twitter'
+      : ['Instagram', 'YouTube', 'TikTok'][idx % 3];
+
+    // Tentar extrair URL real do conteúdo
+    const raw = `${a.insights || ''} ${dataObj?.raw_response || ''}`;
+    const instaPermalink = instagramMetrics?.sample_posts?.[0]?.permalink || instagramMetrics?.sample_posts?.[0]?.url;
+    const urlRegex = /(https?:\/\/[^\s"')]+)/g;
+    const urls = [...(raw.match(urlRegex) || [])];
+
+    let contentUrl = instaPermalink ||
+      urls.find((u) => /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|twitter\.com|x\.com/i.test(u)) || '';
+
+    // Fallback: busca no Google com filtro de site do canal
+    if (!contentUrl) {
+      const query = encodeURIComponent((a.insights || '').split(/\s+/).slice(0, 8).join(' '));
+      const site = channel === 'Instagram' ? 'instagram.com'
+        : channel === 'YouTube' ? 'youtube.com'
+        : channel === 'TikTok' ? 'tiktok.com'
+        : '';
+      contentUrl = site
+        ? `https://www.google.com/search?q=site%3A${site}+${query}`
+        : `https://www.google.com/search?q=${query}`;
     }
     
     return {
       title: `Conteúdo ${idx + 1} - ${a.analyzed_at.split('T')[0]}`,
-      channel: instagramMetrics ? 'Instagram' : xMetrics ? 'X/Twitter' : ['Instagram', 'YouTube', 'TikTok'][idx % 3],
+      channel,
       er: instagramMetrics 
         ? ((instagramMetrics.sample_posts?.[0]?.likes || 0) / 1000).toFixed(1)
         : (2 + Math.random() * 3).toFixed(1),

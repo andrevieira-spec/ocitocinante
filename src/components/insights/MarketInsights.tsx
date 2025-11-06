@@ -294,7 +294,7 @@ export const MarketInsights = () => {
       trends: 'Tendências',
       strategic_insights: 'Insights Estratégicos',
       google_trends: 'Google Trends',
-      people_also_ask: 'People Also Ask'
+      people_also_ask: 'PAA'
     };
     return labels[type] || type;
   };
@@ -404,7 +404,7 @@ export const MarketInsights = () => {
             </TabsTrigger>
             <TabsTrigger value="paa" className="gap-2 flex items-center justify-center">
               <HelpCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">People Also Ask</span>
+              <span className="hidden sm:inline">PAA</span>
               <span className="sm:hidden">PAA</span>
             </TabsTrigger>
             <TabsTrigger value="momentum" className="gap-2 flex items-center justify-center">

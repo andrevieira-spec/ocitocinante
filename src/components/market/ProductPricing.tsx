@@ -274,19 +274,12 @@ export const ProductPricing = () => {
                       variant="outline" 
                       size="sm" 
                       className="w-full"
-                      onClick={() => {
-                        const win = window.open(product.url, '_blank', 'noopener,noreferrer');
-                        if (!win) {
-                          try { navigator.clipboard?.writeText(product.url); } catch {}
-                          toast({
-                            title: 'Pop-up bloqueado',
-                            description: 'Habilite pop-ups para este site. Copiamos o link para você.',
-                          });
-                        }
-                      }}
+                      asChild
                     >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Ver Produto
+                      <a href={product.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Ver Produto
+                      </a>
                     </Button>
                   </CardContent>
                 </Card>

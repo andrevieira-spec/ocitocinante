@@ -185,16 +185,6 @@ export const CompetitiveRadar = () => {
                         onClick={(e) => {
                           if (content.url === '#') {
                             e.preventDefault();
-                            return;
-                          }
-                          e.preventDefault();
-                          const win = window.open(content.url, '_blank', 'noopener,noreferrer');
-                          if (!win) {
-                            try { navigator.clipboard?.writeText(content.url); } catch {}
-                            toast({
-                              title: 'Pop-up bloqueado',
-                              description: 'Habilite pop-ups para este site. Copiamos o link para sua área de transferência.',
-                            });
                           }
                         }}
                       >

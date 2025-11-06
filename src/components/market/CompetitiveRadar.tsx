@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Target, TrendingUp, Zap, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
+import { useToast } from '@/hooks/use-toast';
 
 interface Analysis {
   id: string;
@@ -14,6 +15,7 @@ interface Analysis {
 }
 
 export const CompetitiveRadar = () => {
+  const { toast } = useToast();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -180,7 +182,21 @@ export const CompetitiveRadar = () => {
                         target="_blank" 
                         rel="noopener noreferrer"
                         className={content.url === '#' ? 'cursor-not-allowed opacity-50' : ''}
-                        onClick={(e) => content.url === '#' && e.preventDefault()}
+                        onClick={(e) => {
+                          if (content.url === '#') {
+                            e.preventDefault();
+                            return;
+                          }
+                          e.preventDefault();
+                          const win = window.open(content.url, '_blank', 'noopener,noreferrer');
+                          if (!win) {
+                            try { navigator.clipboard?.writeText(content.url); } catch {}
+                            toast({
+                              title: 'Pop-up bloqueado',
+                              description: 'Habilite pop-ups para este site. Copiamos o link para sua área de transferência.',
+                            });
+                          }
+                        }}
                       >
                         <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer hover:text-brand-orange transition-colors" />
                       </a>

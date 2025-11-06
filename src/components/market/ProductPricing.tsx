@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ExternalLink, TrendingDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 
 interface Product {
   id: string;
@@ -24,6 +25,7 @@ interface Product {
 }
 
 export const ProductPricing = () => {
+  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -268,11 +270,23 @@ export const ProductPricing = () => {
                       )}
                     </div>
 
-                    <Button asChild variant="outline" size="sm" className="w-full">
-                      <a href={product.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Ver Produto
-                      </a>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => {
+                        const win = window.open(product.url, '_blank', 'noopener,noreferrer');
+                        if (!win) {
+                          try { navigator.clipboard?.writeText(product.url); } catch {}
+                          toast({
+                            title: 'Pop-up bloqueado',
+                            description: 'Habilite pop-ups para este site. Copiamos o link para você.',
+                          });
+                        }
+                      }}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Ver Produto
                     </Button>
                   </CardContent>
                 </Card>

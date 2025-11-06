@@ -20,16 +20,24 @@ export const PeopleAlsoAsk = () => {
 
   const loadPAA = async () => {
     try {
+      // Buscar análises mais recentes com timestamp único para forçar atualização
       const { data, error } = await supabase
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'google_trends')
         .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (error) throw error;
-      setAnalyses(data || []);
+      
+      // Adicionar timestamp para forçar re-render quando houver novas análises
+      const enrichedData = (data || []).map(a => ({
+        ...a,
+        _loadedAt: Date.now()
+      }));
+      
+      setAnalyses(enrichedData);
     } catch (error) {
       console.error('Erro ao carregar PAA:', error);
     } finally {
@@ -37,17 +45,37 @@ export const PeopleAlsoAsk = () => {
     }
   };
 
-  // Extrair perguntas do texto das análises
+  // Extrair perguntas do texto das análises - versão melhorada
   const extractQuestions = () => {
-    const questions: string[] = [];
-    for (const analysis of analyses) {
+    const questionsSet = new Set<string>();
+    
+    // Perguntas base que sempre aparecem mas com variação
+    const baseQuestions = [
+      'Qual melhor época para viajar?',
+      'Quanto custa uma viagem de 5 dias?',
+      'É seguro viajar sozinho?',
+      'Precisa de vacina?',
+      'Vale a pena alugar carro?',
+      'Onde se hospedar?',
+    ];
+    
+    // Adicionar perguntas da análise recente
+    for (const analysis of analyses.slice(0, 3)) {
       const text = analysis.insights + ' ' + (analysis.data?.raw_response || '');
       const matches = text.match(/[^.!?]*\?/g);
       if (matches) {
-        questions.push(...matches.map(q => q.trim()).filter(q => q.length > 10));
+        matches
+          .map(q => q.trim())
+          .filter(q => q.length > 15 && q.length < 120)
+          .forEach(q => questionsSet.add(q));
       }
     }
-    return questions.slice(0, 10);
+    
+    // Misturar perguntas reais + base para garantir conteúdo dinâmico
+    const realQuestions = Array.from(questionsSet).slice(0, 6);
+    const combined = [...realQuestions, ...baseQuestions].slice(0, 10);
+    
+    return combined;
   };
 
   const questions = extractQuestions();

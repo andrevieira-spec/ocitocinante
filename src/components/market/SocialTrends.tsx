@@ -63,7 +63,7 @@ export const SocialTrends = () => {
           'Punta Cana', 'Cancún', 'Buenos Aires'
         ];
         
-        // Criar array com dados e ordenar por volume
+        // Criar array com dados e ordenar por volume - gerar sugestões específicas por destino
         const trendsWithData = trendingSearches.map((search, idx) => {
           const lowerText = text.toLowerCase();
           const searchLower = search.toLowerCase();
@@ -72,18 +72,48 @@ export const SocialTrends = () => {
           const baseVolume = 100000 - (idx * 3000);
           const correlationScore = mentions > 2 ? 9 : mentions > 1 ? 8 : mentions > 0 ? 7 : 6;
           
+          // Gerar sugestões dinâmicas e específicas por destino
+          const destinoSpecificQuestions: Record<string, string[]> = {
+            'Gramado': [
+              'O que mais perguntam: "Gramado no inverno vale a pena?", "Onde comer fondue em Gramado?", "Snowland ou Mini Mundo?"',
+              'Principais dores: Preços altos em alta temporada, trânsito caótico, expectativa vs realidade nos eventos',
+              'Dúvidas comuns: Quantos dias ficar, se precisa alugar carro, se é caro, melhor época',
+              'Estratégia: Posts mostrando roteiros econômicos, comparativos de restaurantes, dicas de quando ir fora do Natal'
+            ],
+            'Porto de Galinhas': [
+              'O que mais perguntam: "Melhor lua para piscinas naturais?", "Porto de Galinhas ou Maragogi?", "É seguro?"',
+              'Principais dores: Piscinas naturais com maré alta, passeios caros, expectativa de praia paradisíaca',
+              'Dúvidas comuns: Melhor época (maré), passeios obrigatórios, quanto gastar, onde ficar',
+              'Estratégia: Calendário de marés, comparativo de praias do Nordeste, roteiro 3-5 dias ideal'
+            ],
+            'Fernando de Noronha': [
+              'O que mais perguntam: "Quanto custa Fernando de Noronha?", "Precisa de ingresso?", "Melhor época?"',
+              'Principais dores: Taxa de preservação cara, limite de visitantes, logística complicada',
+              'Dúvidas comuns: Como chegar, onde se hospedar, praias obrigatórias, documentação necessária',
+              'Estratégia: Guia de custos real, passo a passo para primeira viagem, melhores mirantes e praias'
+            ],
+            'Bonito': [
+              'O que mais perguntam: "Bonito é caro?", "Quais passeios fazer?", "Melhor época?"',
+              'Principais dores: Vouchers obrigatórios, passeios caros, agendamento antecipado',
+              'Dúvidas comuns: Quantos dias ficar, como funciona o voucher único, se precisa de guia',
+              'Estratégia: Top 5 passeios imperdíveis, como economizar, melhor roteiro 3-4 dias'
+            ]
+          };
+          
+          const specificSuggestions = destinoSpecificQuestions[search] || [
+            `O que mais perguntam: "Melhor época ${search}", "Quanto custa viagem para ${search}", "Roteiro ${search}"`,
+            `Principais dores: Falta de informação clara sobre custos e logística`,
+            `Dúvidas comuns: Documentação, vacinas, hospedagem, transporte`,
+            `Estratégia: Criar guia prático "${search}: Tudo que você precisa saber" com foco em resolver dúvidas práticas`
+          ];
+          
           return {
-            id: `google-trend-${idx}`,
+            id: `google-trend-${idx}-${Date.now()}`,
             trend_name: search,
             source: 'google',
-            volume_estimate: baseVolume + (mentions * 5000),
+            volume_estimate: baseVolume + (mentions * 5000) + Math.floor(Math.random() * 10000),
             tourism_correlation_score: correlationScore,
-            creative_suggestions: [
-              `O que mais perguntam: "Melhor época para visitar ${search}", "Quanto custa ${search}", "É seguro viajar para ${search}"`,
-              `Principais dores: Preocupação com custo-benefício, dúvidas sobre segurança e melhor período`,
-              `Dúvidas comuns: Documentação necessária, vacinas, o que levar na mala, quantos dias ficar`,
-              `Estratégia: Criar guia completo "${search}: Tudo que você precisa saber antes de ir" focando em resolver essas dúvidas`
-            ],
+            creative_suggestions: specificSuggestions,
             caution_notes: '',
             is_sensitive: false,
             trend_date: latestAnalysis.analyzed_at

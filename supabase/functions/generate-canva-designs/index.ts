@@ -141,6 +141,14 @@ serve(async (req) => {
     };
 
     const specs = platformSpecs[designType];
+    const canvaTypeMap: Record<string, string> = {
+      InstagramPost: 'INSTAGRAM_POST',
+      TwitterPost: 'TWITTER_POST',
+      YouTubeThumbnail: 'YOUTUBE_THUMBNAIL',
+      TikTokVideo: 'TIKTOK_VIDEO',
+      FacebookPost: 'FACEBOOK_POST',
+    };
+    const canvaDocType = canvaTypeMap[designType] ?? 'INSTAGRAM_POST';
 
     // Usar Lovable AI para gerar textos criativos baseados na campanha
     const aiPrompt = `
@@ -269,7 +277,7 @@ Formato JSON:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          design_type: designType,
+          type: canvaDocType,
           title: `${specs.name} - ${textData.title} - ${campaign.campaign_date}`,
         }),
       });
@@ -287,7 +295,7 @@ Formato JSON:
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                design_type: designType,
+                type: canvaDocType,
                 title: `${specs.name} - ${textData.title} - ${campaign.campaign_date}`,
               }),
             });

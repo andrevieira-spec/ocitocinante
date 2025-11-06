@@ -48,14 +48,73 @@ export const ProductPricing = () => {
 
       if (error) throw error;
 
-      // Extrair produtos das análises
+      // Extrair produtos REAIS das análises (com URLs reais dos concorrentes)
       const extractedProducts: Product[] = [];
       
       if (analyses && analyses.length > 0) {
         analyses.forEach((analysis) => {
-          const text = (analysis.insights || '') + ' ' + (analysis.recommendations || '');
+          const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
+          const text = (analysis.insights || '') + ' ' + (analysis.recommendations || '') + ' ' + (dataObj?.raw_response || '');
           
-          // Extrair pacotes mencionados com regex mais robusto
+          // 1. Tentar extrair produtos estruturados do campo data
+          if (dataObj?.products && Array.isArray(dataObj.products)) {
+            dataObj.products.forEach((prod: any) => {
+              if (prod.url && prod.url.startsWith('http')) {
+                extractedProducts.push({
+                  id: `prod-${analysis.id}-${prod.id || extractedProducts.length}`,
+                  name: prod.name || prod.title || 'Produto sem nome',
+                  description: prod.description || '',
+                  price: prod.price || prod.current_price || null,
+                  original_price: prod.original_price || null,
+                  discount_percentage: prod.discount_percentage || null,
+                  category: prod.category || 'Nacional',
+                  availability: prod.availability !== false,
+                  url: prod.url,
+                  image_url: prod.image_url || null,
+                  external_id: prod.external_id || prod.id || null,
+                  metadata: { source: 'competitor_analysis', competitor_id: analysis.competitor_id },
+                  created_at: analysis.analyzed_at,
+                  scraped_at: analysis.analyzed_at
+                });
+              }
+            });
+          }
+          
+          // 2. Extrair URLs de produtos mencionados no texto com regex
+          const urlRegex = /(https?:\/\/[^\s"')]+(?:produto|pacote|destino|offer|oferta)[^\s"')<]*)/gi;
+          let urlMatch;
+          while ((urlMatch = urlRegex.exec(text)) !== null) {
+            const productUrl = urlMatch[1];
+            
+            // Extrair nome do produto próximo à URL
+            const context = text.substring(Math.max(0, urlMatch.index - 100), urlMatch.index);
+            const nameMatch = context.match(/(?:Pacote|Produto)[:\s]+([^.]{5,50})/i);
+            const name = nameMatch ? nameMatch[1].trim() : 'Produto do concorrente';
+            
+            // Extrair preço próximo à URL
+            const priceContext = text.substring(urlMatch.index, Math.min(text.length, urlMatch.index + 200));
+            const priceMatch = priceContext.match(/R\$\s*([\d.,]+)/i);
+            const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) : null;
+            
+            extractedProducts.push({
+              id: `prod-url-${analysis.id}-${extractedProducts.length}`,
+              name,
+              description: 'Produto identificado na análise de concorrentes',
+              price,
+              original_price: null,
+              discount_percentage: null,
+              category: 'Nacional',
+              availability: true,
+              url: productUrl,
+              image_url: null,
+              external_id: null,
+              metadata: { source: 'competitor_url', competitor_id: analysis.competitor_id },
+              created_at: analysis.analyzed_at,
+              scraped_at: analysis.analyzed_at
+            });
+          }
+          
+          // 3. Fallback: pacotes mencionados SEM URL real (marcar como sem link)
           const packageRegex = /Pacote[:\s]+([^.]+?)[\s.]+Preço[:\s]+(?:A partir de\s+)?R\$\s*([\d.,]+)/gi;
           let match;
           
@@ -64,11 +123,10 @@ export const ProductPricing = () => {
             const priceStr = match[2].replace(/\./g, '').replace(',', '.');
             const price = parseFloat(priceStr);
             
-            if (!isNaN(price) && price > 0) {
-              const discount = Math.floor(Math.random() * 25) + 10;
-              const originalPrice = price / (1 - discount / 100);
-              
-              // Determinar categoria pelo nome
+            // Só adicionar se não tiver URL real já extraída para este produto
+            const alreadyExists = extractedProducts.some(p => p.name.toLowerCase().includes(name.toLowerCase()));
+            
+            if (!isNaN(price) && price > 0 && !alreadyExists) {
               let category = 'Nacional';
               if (name.toLowerCase().includes('internacional') || 
                   name.toLowerCase().includes('punta cana') ||
@@ -78,53 +136,22 @@ export const ProductPricing = () => {
               }
               
               extractedProducts.push({
-                id: `prod-${analysis.id}-${extractedProducts.length}`,
+                id: `prod-nourl-${analysis.id}-${extractedProducts.length}`,
                 name: name,
-                description: `Pacote completo com hospedagem e passeios inclusos`,
+                description: `Produto mencionado (link não disponível)`,
                 price: Math.round(price),
-                original_price: Math.round(originalPrice),
-                discount_percentage: discount,
+                original_price: null,
+                discount_percentage: null,
                 category: category,
                 availability: true,
-                url: `https://duckduckgo.com/?q=${encodeURIComponent(name + ' pacote turismo')}`,
+                url: '', // URL vazia = sem link
                 image_url: null,
                 external_id: null,
-                metadata: { source: 'competitor_analysis' },
+                metadata: { source: 'competitor_mention', competitor_id: analysis.competitor_id },
                 created_at: analysis.analyzed_at,
                 scraped_at: analysis.analyzed_at
               });
             }
-          }
-          
-          // Se não encontrou pacotes específicos, criar baseado em destinos mencionados
-          if (extractedProducts.length === 0) {
-            const destinations = ['Porto Seguro', 'Gramado', 'Caldas Novas', 'Porto de Galinhas', 
-                                 'Foz do Iguaçu', 'Bonito', 'Fernando de Noronha'];
-            
-            destinations.forEach((dest) => {
-              if (text.toLowerCase().includes(dest.toLowerCase())) {
-                const basePrice = Math.floor(Math.random() * 2000) + 1000;
-                const discount = Math.floor(Math.random() * 30) + 10;
-                const originalPrice = basePrice / (1 - discount / 100);
-                
-                extractedProducts.push({
-                  id: `prod-${analysis.id}-${dest}`,
-                  name: `Pacote ${dest}`,
-                  description: `Viagem completa para ${dest}`,
-                  price: Math.round(basePrice),
-                  original_price: Math.round(originalPrice),
-                  discount_percentage: discount,
-                  category: 'Nacional',
-                  availability: true,
-                  url: `https://duckduckgo.com/?q=${encodeURIComponent('Pacote ' + dest + ' turismo')}`,
-                  image_url: null,
-                  external_id: null,
-                  metadata: { source: 'competitor_analysis' },
-                  created_at: analysis.analyzed_at,
-                  scraped_at: analysis.analyzed_at
-                });
-              }
-            });
           }
         });
       }
@@ -270,17 +297,29 @@ export const ProductPricing = () => {
                       )}
                     </div>
 
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      asChild
-                    >
-                      <a href={product.url} target="_blank" rel="noopener noreferrer">
+                    {product.url ? (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        asChild
+                      >
+                        <a href={product.url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Ver Produto
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full cursor-not-allowed opacity-50"
+                        disabled
+                      >
                         <ExternalLink className="w-4 h-4 mr-2" />
-                        Ver Produto
-                      </a>
-                    </Button>
+                        Link Indisponível
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               );

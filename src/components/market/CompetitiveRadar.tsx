@@ -42,60 +42,146 @@ export const CompetitiveRadar = () => {
     }
   };
 
-  // Extrair canais e engajamento
-  const channelData = [
-    { name: 'Instagram', value: 3.2, color: 'hsl(var(--brand-orange))' },
-    { name: 'YouTube', value: 2.8, color: 'hsl(var(--brand-blue))' },
-    { name: 'TikTok', value: 4.5, color: 'hsl(var(--brand-yellow))' },
-    { name: 'Facebook', value: 2.1, color: 'hsl(var(--brand-orange))' },
-  ];
-
-  // Top 10 conteúdos (extrair de dados reais das análises)
-  const topContent = analyses.slice(0, 10).map((a, idx) => {
-    const dataObj = typeof a.data === 'object' ? (a.data as any) : {};
-    const instagramMetrics = dataObj?.instagram_metrics;
-    const xMetrics = dataObj?.x_metrics;
-
-    // Determinar canal prioritário
-    const channel = instagramMetrics
-      ? 'Instagram'
-      : xMetrics
-      ? 'X/Twitter'
-      : ['Instagram', 'YouTube', 'TikTok'][idx % 3];
-
-    // Tentar extrair URL real do conteúdo
-    const raw = `${a.insights || ''} ${dataObj?.raw_response || ''}`;
-    const instaPermalink = instagramMetrics?.sample_posts?.[0]?.permalink || instagramMetrics?.sample_posts?.[0]?.url;
-    const urlRegex = /(https?:\/\/[^\s"')]+)/g;
-    const urls = [...(raw.match(urlRegex) || [])];
-
-    let contentUrl = instaPermalink ||
-      urls.find((u) => /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|twitter\.com|x\.com/i.test(u)) || '';
-
-    // Fallback: busca no Google com filtro de site do canal
-    if (!contentUrl) {
-      const query = encodeURIComponent((a.insights || '').split(/\s+/).slice(0, 8).join(' '));
-      const site = channel === 'Instagram' ? 'instagram.com'
-        : channel === 'YouTube' ? 'youtube.com'
-        : channel === 'TikTok' ? 'tiktok.com'
-        : '';
-      contentUrl = site
-        ? `https://duckduckgo.com/?q=site%3A${site}+${query}`
-        : `https://duckduckgo.com/?q=${query}`;
-    }
+  // Extrair canais e engajamento REAL das análises
+  const channelData = (() => {
+    const channels: Record<string, { total: number; count: number }> = {};
     
-    return {
-      title: `Conteúdo ${idx + 1} - ${a.analyzed_at.split('T')[0]}`,
-      channel,
-      er: instagramMetrics 
-        ? ((instagramMetrics.sample_posts?.[0]?.likes || 0) / 1000).toFixed(1)
-        : (2 + Math.random() * 3).toFixed(1),
-      velocity: instagramMetrics 
-        ? (instagramMetrics.sample_posts?.[0]?.likes > 5000 ? 'Muito Alta' : instagramMetrics.sample_posts?.[0]?.likes > 2000 ? 'Alta' : 'Média')
-        : ['Alta', 'Média', 'Muito Alta'][idx % 3],
-      url: contentUrl
+    analyses.forEach(a => {
+      const data = typeof a.data === 'object' ? (a.data as any) : {};
+      
+      // Instagram
+      if (data.instagram_metrics) {
+        const er = data.instagram_metrics.engagement_rate || 0;
+        channels['Instagram'] = channels['Instagram'] || { total: 0, count: 0 };
+        channels['Instagram'].total += er;
+        channels['Instagram'].count += 1;
+      }
+      
+      // X/Twitter
+      if (data.x_metrics) {
+        const er = data.x_metrics.engagement_rate || 0;
+        channels['X/Twitter'] = channels['X/Twitter'] || { total: 0, count: 0 };
+        channels['X/Twitter'].total += er;
+        channels['X/Twitter'].count += 1;
+      }
+      
+      // TikTok (extrair se houver)
+      if (data.tiktok_metrics) {
+        const er = data.tiktok_metrics.engagement_rate || 0;
+        channels['TikTok'] = channels['TikTok'] || { total: 0, count: 0 };
+        channels['TikTok'].total += er;
+        channels['TikTok'].count += 1;
+      }
+      
+      // YouTube (extrair se houver)
+      if (data.youtube_metrics) {
+        const er = data.youtube_metrics.engagement_rate || 0;
+        channels['YouTube'] = channels['YouTube'] || { total: 0, count: 0 };
+        channels['YouTube'].total += er;
+        channels['YouTube'].count += 1;
+      }
+    });
+    
+    const colors: Record<string, string> = {
+      'Instagram': 'hsl(var(--brand-orange))',
+      'X/Twitter': 'hsl(var(--brand-blue))',
+      'TikTok': 'hsl(var(--brand-yellow))',
+      'YouTube': 'hsl(var(--destructive))',
     };
-  });
+    
+    return Object.entries(channels).map(([name, stats]) => ({
+      name,
+      value: stats.count > 0 ? (stats.total / stats.count) : 0,
+      color: colors[name] || 'hsl(var(--muted))'
+    }));
+  })();
+
+  // Top 10 conteúdos REAIS extraídos das análises
+  const topContent = analyses
+    .slice(0, 20)
+    .map((a) => {
+      const dataObj = typeof a.data === 'object' ? (a.data as any) : {};
+      const instagramMetrics = dataObj?.instagram_metrics;
+      const xMetrics = dataObj?.x_metrics;
+      const tiktokMetrics = dataObj?.tiktok_metrics;
+      const youtubeMetrics = dataObj?.youtube_metrics;
+
+      // Extrair posts reais com URLs
+      const posts: Array<{ channel: string; url: string; er: number; likes: number; title: string }> = [];
+
+      // Instagram posts
+      if (instagramMetrics?.sample_posts) {
+        instagramMetrics.sample_posts.forEach((post: any) => {
+          if (post.permalink || post.url) {
+            posts.push({
+              channel: 'Instagram',
+              url: post.permalink || post.url,
+              er: instagramMetrics.engagement_rate || 0,
+              likes: post.likes || post.like_count || 0,
+              title: post.caption?.substring(0, 50) || `Post Instagram - ${a.analyzed_at.split('T')[0]}`
+            });
+          }
+        });
+      }
+
+      // X/Twitter posts
+      if (xMetrics?.sample_posts) {
+        xMetrics.sample_posts.forEach((post: any) => {
+          if (post.url || post.tweet_url) {
+            posts.push({
+              channel: 'X/Twitter',
+              url: post.url || post.tweet_url,
+              er: xMetrics.engagement_rate || 0,
+              likes: post.likes || post.like_count || 0,
+              title: post.text?.substring(0, 50) || `Tweet - ${a.analyzed_at.split('T')[0]}`
+            });
+          }
+        });
+      }
+
+      // TikTok posts
+      if (tiktokMetrics?.sample_posts) {
+        tiktokMetrics.sample_posts.forEach((post: any) => {
+          if (post.url) {
+            posts.push({
+              channel: 'TikTok',
+              url: post.url,
+              er: tiktokMetrics.engagement_rate || 0,
+              likes: post.likes || 0,
+              title: post.description?.substring(0, 50) || `TikTok - ${a.analyzed_at.split('T')[0]}`
+            });
+          }
+        });
+      }
+
+      // YouTube videos
+      if (youtubeMetrics?.sample_videos) {
+        youtubeMetrics.sample_videos.forEach((video: any) => {
+          if (video.url) {
+            posts.push({
+              channel: 'YouTube',
+              url: video.url,
+              er: youtubeMetrics.engagement_rate || 0,
+              likes: video.likes || 0,
+              title: video.title?.substring(0, 50) || `Vídeo YouTube - ${a.analyzed_at.split('T')[0]}`
+            });
+          }
+        });
+      }
+
+      return posts;
+    })
+    .flat()
+    .filter(post => post.url && post.url.startsWith('http'))
+    .sort((a, b) => b.likes - a.likes)
+    .slice(0, 10)
+    .map((post, idx) => ({
+      title: post.title,
+      channel: post.channel,
+      er: (post.er).toFixed(1),
+      velocity: post.likes > 5000 ? 'Muito Alta' : post.likes > 2000 ? 'Alta' : 'Média',
+      url: post.url
+    }));
 
   if (loading) {
     return <div className="text-center py-8 text-text-muted">Carregando radar competitivo...</div>;

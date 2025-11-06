@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.generate-canva-designs]
 verify_jwt = true
+
+[functions.validate-google-cloud]
+verify_jwt = true

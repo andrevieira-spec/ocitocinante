@@ -9,11 +9,14 @@ interface ApiStatus {
   name: string;
   status: 'idle' | 'testing' | 'success' | 'error' | 'warning';
   message: string;
-  details?: string;
+  details?: any;
+  lastAuth?: string;
+  serviceAccount?: string;
 }
 
 export const GoogleApiHealthCheck = () => {
   const [apis, setApis] = useState<ApiStatus[]>([
+    { name: 'Google Cloud (Service Account)', status: 'idle', message: 'Não testado' },
     { name: 'Google AI (Gemini)', status: 'idle', message: 'Não testado' },
     { name: 'Google Search API', status: 'idle', message: 'Não testado' },
     { name: 'Google Trends (via Gemini)', status: 'idle', message: 'Não testado' },
@@ -26,8 +29,41 @@ export const GoogleApiHealthCheck = () => {
     ));
   };
 
-  const testGoogleAI = async () => {
+  const testGoogleCloud = async () => {
     const index = 0;
+    updateApiStatus(index, { status: 'testing', message: 'Validando credenciais...' });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('validate-google-cloud');
+
+      if (error) throw error;
+
+      if (data.status === 'success') {
+        updateApiStatus(index, {
+          status: 'success',
+          message: data.message,
+          details: data.details,
+          lastAuth: data.details.lastAuth,
+          serviceAccount: data.details.serviceAccount,
+        });
+      } else {
+        updateApiStatus(index, {
+          status: 'error',
+          message: data.error || 'Erro desconhecido',
+          details: data.details,
+        });
+      }
+    } catch (error: any) {
+      console.error('Erro ao validar Google Cloud:', error);
+      updateApiStatus(index, {
+        status: 'error',
+        message: error.message || 'Falha na validação',
+      });
+    }
+  };
+
+  const testGoogleAI = async () => {
+    const index = 1;
     updateApiStatus(index, { status: 'testing', message: 'Testando conexão...' });
     
     try {
@@ -55,7 +91,7 @@ export const GoogleApiHealthCheck = () => {
   };
 
   const testGoogleSearch = async () => {
-    const index = 1;
+    const index = 2;
     updateApiStatus(index, { status: 'testing', message: 'Testando busca...' });
     
     try {
@@ -83,7 +119,7 @@ export const GoogleApiHealthCheck = () => {
   };
 
   const testTrends = async () => {
-    const index = 2;
+    const index = 3;
     updateApiStatus(index, { status: 'testing', message: 'Analisando tendências...' });
     
     try {
@@ -127,7 +163,7 @@ export const GoogleApiHealthCheck = () => {
   };
 
   const testPAA = async () => {
-    const index = 3;
+    const index = 4;
     updateApiStatus(index, { status: 'testing', message: 'Testando PAA...' });
     
     try {
@@ -171,6 +207,8 @@ export const GoogleApiHealthCheck = () => {
   };
 
   const testAll = async () => {
+    await testGoogleCloud();
+    await new Promise(resolve => setTimeout(resolve, 1000));
     await testGoogleAI();
     await new Promise(resolve => setTimeout(resolve, 1000));
     await testGoogleSearch();
@@ -251,10 +289,11 @@ export const GoogleApiHealthCheck = () => {
                     size="sm"
                     disabled={api.status === 'testing'}
                     onClick={() => {
-                      if (index === 0) testGoogleAI();
-                      else if (index === 1) testGoogleSearch();
-                      else if (index === 2) testTrends();
-                      else if (index === 3) testPAA();
+                      if (index === 0) testGoogleCloud();
+                      else if (index === 1) testGoogleAI();
+                      else if (index === 2) testGoogleSearch();
+                      else if (index === 3) testTrends();
+                      else if (index === 4) testPAA();
                     }}
                   >
                     {api.status === 'testing' ? (
@@ -271,10 +310,22 @@ export const GoogleApiHealthCheck = () => {
             </CardHeader>
             {api.details && (
               <CardContent>
-                <div className="bg-muted p-3 rounded-lg">
-                  <pre className="text-xs overflow-auto max-h-32">
-                    {api.details}
-                  </pre>
+                <div className="space-y-2">
+                  {api.serviceAccount && (
+                    <div className="text-sm">
+                      <strong>Conta de Serviço:</strong> {api.serviceAccount}
+                    </div>
+                  )}
+                  {api.lastAuth && (
+                    <div className="text-sm">
+                      <strong>🔄 Última autenticação:</strong> {new Date(api.lastAuth).toLocaleString('pt-BR')}
+                    </div>
+                  )}
+                  <div className="bg-muted p-3 rounded-lg">
+                    <pre className="text-xs overflow-auto max-h-32">
+                      {typeof api.details === 'string' ? api.details : JSON.stringify(api.details, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               </CardContent>
             )}

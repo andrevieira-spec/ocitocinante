@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import RequestAccess from "./pages/RequestAccess";
 import CbosSetup from "./pages/CbosSetup";
+import Report from "./pages/Report";
 
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/cbos-setup" element={<CbosSetup />} />
           <Route path="/cbos" element={<CbosSetup />} />
           <Route path="/setup/cbos" element={<CbosSetup />} />
+          <Route path="/report" element={<Report />} />
           <Route path="/auth/callback" element={<CanvaCallbackHandler />} />
           <Route path="/canva/callback" element={<CanvaCallbackHandler />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

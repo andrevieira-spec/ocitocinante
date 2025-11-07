@@ -28,7 +28,6 @@ export const MarketOverview = () => {
         .from('market_analysis')
         .select('*')
         .in('analysis_type', ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends'])
-        .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
         .limit(15);
 

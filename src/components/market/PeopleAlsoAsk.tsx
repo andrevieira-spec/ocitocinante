@@ -25,7 +25,6 @@ export const PeopleAlsoAsk = () => {
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'google_trends')
-        .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
         .limit(10);
 

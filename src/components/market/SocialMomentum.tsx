@@ -27,7 +27,6 @@ export const SocialMomentum = () => {
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'social_media')
-        .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
         .limit(20);
 

@@ -30,7 +30,6 @@ export const CompetitiveRadar = () => {
         .from('market_analysis')
         .select('*')
         .in('analysis_type', ['social_media', 'pricing'])
-        .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
         .limit(20);
 

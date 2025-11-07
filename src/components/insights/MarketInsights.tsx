@@ -4,9 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, DollarSign, Users, Lightbulb, Archive, Sparkles, BarChart3, Target, HelpCircle, Zap, AlertTriangle, Clock } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Lightbulb, FileDown, Sparkles, BarChart3, Target, HelpCircle, Zap, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ArchiveModal } from './ArchiveModal';
+import { useNavigate } from 'react-router-dom';
 import { MarketOverview } from '@/components/market/MarketOverview';
 import { CompetitiveRadar } from '@/components/market/CompetitiveRadar';
 import { SocialTrends } from '@/components/market/SocialTrends';
@@ -34,11 +34,11 @@ interface Competitor {
 
 export const MarketInsights = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [showArchive, setShowArchive] = useState(false);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -97,7 +97,6 @@ export const MarketInsights = () => {
         supabase
           .from('market_analysis')
           .select('*')
-          .is('archived_at', null)
           .order('analyzed_at', { ascending: false })
           .limit(50),
         supabase
@@ -334,9 +333,13 @@ export const MarketInsights = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowArchive(true)}>
-            <Archive className="w-4 h-4 mr-2" />
-            Arquivos
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/report')}
+            disabled={analyses.length === 0}
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            Download da Pesquisa (PDF)
           </Button>
           <Button onClick={runAnalysis} disabled={analyzing}>
             {analyzing ? 'Analisando...' : 'Executar Nova Análise'}
@@ -370,8 +373,6 @@ export const MarketInsights = () => {
           </CardContent>
         </Card>
       )}
-
-      <ArchiveModal open={showArchive} onClose={() => setShowArchive(false)} />
 
       {analyses.length === 0 ? (
         <Card>

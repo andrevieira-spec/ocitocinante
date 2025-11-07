@@ -42,7 +42,6 @@ export const ProductPricing = () => {
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'pricing')
-        .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
         .limit(5);
 

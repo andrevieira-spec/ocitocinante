@@ -86,99 +86,99 @@ export const ProductPricing = () => {
             });
           }
           
-          // 2. SEGUNDO: Extrair do texto apenas se não houver produtos estruturados
-          if (extractedProducts.length === 0) {
-            const text = (analysis.insights || '') + ' ' + (analysis.recommendations || '') + ' ' + (dataObj?.raw_response || '');
+          // 2. SEGUNDO: Sempre extrair do texto também (raw_response)
+          const text = (dataObj?.raw_response || '') + ' ' + (analysis.insights || '') + ' ' + (analysis.recommendations || '');
+          
+          // Padrão específico do formato atual: "**Pacote:** Nome **Preço:** A partir de R$ valor **Destino:** local"
+          const specificPattern = /\*\*Pacote:\*\*\s+(.+?)\s+\*\*Preço:\*\*\s+A partir de\s+R\$\s+([\d.,]+)\s+(?:por pessoa\s+)?\*\*Destino:\*\*\s+(.+?)(?:\s+\*\*|$)/gi;
+          let match;
+          
+          while ((match = specificPattern.exec(text)) !== null) {
+            const productName = match[1].trim();
+            const destination = match[3].trim();
+            const priceStr = match[2].replace(/\./g, '').replace(',', '.');
+            const price = parseFloat(priceStr);
             
-            // Regex melhorado para capturar URLs de produtos/pacotes
-            const urlRegex = /(https?:\/\/[^\s"')<]+(?:\/produto|\/pacote|\/destino|\/offer|\/oferta|\/viagem|moblix\.com|cvc\.com|decolar\.com)[^\s"')<]*)/gi;
-            let urlMatch;
-            const foundUrls = new Set<string>();
+            let category = 'Nacional';
+            const fullName = `${productName} - ${destination}`;
             
-            while ((urlMatch = urlRegex.exec(text)) !== null) {
-              const productUrl = urlMatch[1].replace(/[.,;!?]+$/, ''); // Remove pontuação final
-              if (foundUrls.has(productUrl)) continue; // Evitar duplicatas
-              foundUrls.add(productUrl);
-              
-              // Extrair nome do produto próximo à URL
-              const context = text.substring(Math.max(0, urlMatch.index - 150), urlMatch.index);
-              const nameMatch = context.match(/(?:Pacote|Produto|Destino|Oferta)[:\s]+([^.\n]{5,60})/i) ||
-                                context.match(/([^.\n]{10,60})(?:\s+por|\s+a partir de)/i);
-              const name = nameMatch ? nameMatch[1].trim() : `Produto ${extractedProducts.length + 1}`;
-              
-              // Extrair preço próximo à URL
-              const priceContext = text.substring(Math.max(0, urlMatch.index - 100), Math.min(text.length, urlMatch.index + 200));
-              const priceMatch = priceContext.match(/(?:por|a partir de|de)?\s*R\$\s*([\d.,]+)/i);
-              const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) : null;
-              
-              let category = 'Nacional';
-              if (name.toLowerCase().includes('internacional') || 
-                  name.toLowerCase().includes('exterior') ||
-                  productUrl.toLowerCase().includes('internacional')) {
-                category = 'Internacional';
-              }
-              
-              extractedProducts.push({
-                id: `prod-url-${analysis.id}-${extractedProducts.length}`,
-                name: name.length > 80 ? name.substring(0, 77) + '...' : name,
-                description: 'Produto encontrado na análise',
-                price,
-                original_price: null,
-                discount_percentage: null,
-                category,
-                availability: true,
-                url: productUrl,
-                image_url: null,
-                external_id: null,
-                metadata: { source: 'text_url', competitor_id: analysis.competitor_id },
-                created_at: analysis.analyzed_at,
-                scraped_at: analysis.analyzed_at
-              });
+            if (destination.toLowerCase().includes('caribe') || 
+                destination.toLowerCase().includes('cancún') ||
+                destination.toLowerCase().includes('punta cana') ||
+                destination.toLowerCase().includes('buenos aires') ||
+                destination.toLowerCase().includes('europa') ||
+                destination.toLowerCase().includes('miami') ||
+                fullName.toLowerCase().includes('internacional')) {
+              category = 'Internacional';
             }
             
-            // 3. FALLBACK: Produtos mencionados sem URL (mostrar como "Link Indisponível")
-            const packageRegex = /(?:Pacote|Produto|Destino)[:\s]+([^.\n]+?)[\s.]+(?:por|a partir de|de)?\s*R\$\s*([\d.,]+)/gi;
-            let match;
-            
-            while ((match = packageRegex.exec(text)) !== null && extractedProducts.length < 15) {
-              const name = match[1].trim();
-              const priceStr = match[2].replace(/\./g, '').replace(',', '.');
-              const price = parseFloat(priceStr);
-              
-              // Só adicionar se não existir produto similar já
-              const alreadyExists = extractedProducts.some(p => 
-                p.name.toLowerCase().includes(name.toLowerCase().substring(0, 20))
-              );
-              
-              if (!isNaN(price) && price > 0 && !alreadyExists && name.length > 5) {
-                let category = 'Nacional';
-                if (name.toLowerCase().includes('internacional') || 
-                    name.toLowerCase().includes('punta cana') ||
-                    name.toLowerCase().includes('buenos aires') ||
-                    name.toLowerCase().includes('cancún') ||
-                    name.toLowerCase().includes('exterior')) {
-                  category = 'Internacional';
-                }
-                
-                extractedProducts.push({
-                  id: `prod-nourl-${analysis.id}-${extractedProducts.length}`,
-                  name: name.length > 80 ? name.substring(0, 77) + '...' : name,
-                  description: 'Análise de concorrente',
-                  price: Math.round(price),
-                  original_price: null,
-                  discount_percentage: null,
-                  category,
-                  availability: true,
-                  url: '',
-                  image_url: null,
-                  external_id: null,
-                  metadata: { source: 'text_mention', competitor_id: analysis.competitor_id },
-                  created_at: analysis.analyzed_at,
-                  scraped_at: analysis.analyzed_at
-                });
-              }
-            }
+            extractedProducts.push({
+              id: `prod-specific-${analysis.id}-${extractedProducts.length}`,
+              name: fullName,
+              description: `Análise de ${analysis.analyzed_at.split('T')[0]}`,
+              price: Math.round(price),
+              original_price: null,
+              discount_percentage: null,
+              category,
+              availability: true,
+              url: '', // Será preenchido na etapa de URLs
+              image_url: null,
+              external_id: null,
+              metadata: { source: 'text_specific', competitor_id: analysis.competitor_id },
+              created_at: analysis.analyzed_at,
+              scraped_at: analysis.analyzed_at
+            });
           }
+          
+          // Padrão alternativo para "**Produto:**"
+          const productPattern = /\*\*Produto:\*\*\s+(.+?)\s+\*\*Preço:\*\*\s+A partir de\s+R\$\s+([\d.,]+)\s+(?:por pessoa\s+)?\*\*Destino:\*\*\s+(.+?)(?:\s+\*\*|$)/gi;
+          
+          while ((match = productPattern.exec(text)) !== null) {
+            const productType = match[1].trim();
+            const destination = match[3].trim();
+            const priceStr = match[2].replace(/\./g, '').replace(',', '.');
+            const price = parseFloat(priceStr);
+            
+            let category = 'Nacional';
+            const fullName = `${productType} - ${destination}`;
+            
+            if (destination.toLowerCase().includes('internacional') || 
+                productType.toLowerCase().includes('internacional')) {
+              category = 'Internacional';
+            }
+            
+            extractedProducts.push({
+              id: `prod-type-${analysis.id}-${extractedProducts.length}`,
+              name: fullName,
+              description: `Análise de ${analysis.analyzed_at.split('T')[0]}`,
+              price: Math.round(price),
+              original_price: null,
+              discount_percentage: null,
+              category,
+              availability: true,
+              url: '',
+              image_url: null,
+              external_id: null,
+              metadata: { source: 'text_product', competitor_id: analysis.competitor_id },
+              created_at: analysis.analyzed_at,
+              scraped_at: analysis.analyzed_at
+            });
+          }
+          
+          // Buscar URLs do CVC e associar aos produtos
+          const urlRegex = /(https?:\/\/(?:www\.)?cvc\.com\.br\/[^\s"')<]+)/gi;
+          const foundUrls: string[] = [];
+          
+          while ((match = urlRegex.exec(text)) !== null) {
+            foundUrls.push(match[1]);
+          }
+          
+          // Associar URLs aos produtos (ordem de aparição)
+          foundUrls.forEach((url, idx) => {
+            if (extractedProducts[idx] && extractedProducts[idx].url === '') {
+              extractedProducts[idx].url = url;
+            }
+          });
         });
       }
       

@@ -18,8 +18,20 @@ serve(async (req) => {
     const githubRepo = Deno.env.get('GITHUB_REPO');
     const githubBranch = Deno.env.get('GITHUB_BRANCH_DEFAULT') || 'main';
 
+    console.log('GitHub Config:', {
+      hasToken: !!githubToken,
+      repo: githubRepo,
+      branch: githubBranch,
+      tokenLength: githubToken?.length
+    });
+
     if (!githubToken || !githubRepo) {
-      throw new Error('GitHub credentials not configured');
+      throw new Error('GitHub credentials not configured. Please set GITHUB_TOKEN and GITHUB_REPO secrets.');
+    }
+
+    // Validate repo format
+    if (!githubRepo.includes('/')) {
+      throw new Error(`Invalid GITHUB_REPO format: "${githubRepo}". Expected format: owner/repo`);
     }
 
     const authHeader = req.headers.get('Authorization');
@@ -49,19 +61,42 @@ serve(async (req) => {
 
     // Get current commit SHA
     const [owner, repo] = githubRepo.split('/');
-    const repoInfoResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/branches/${githubBranch}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${githubToken}`,
-          'Accept': 'application/vnd.github+json',
-          'User-Agent': 'CBOS-Export'
-        }
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/branches/${githubBranch}`;
+    
+    console.log('Fetching GitHub branch info:', { owner, repo, branch: githubBranch, url: apiUrl });
+
+    const repoInfoResponse = await fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${githubToken}`,
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'CBOS-Export',
+        'X-GitHub-Api-Version': '2022-11-28'
       }
-    );
+    });
+
+    console.log('GitHub API response status:', repoInfoResponse.status);
 
     if (!repoInfoResponse.ok) {
-      throw new Error(`Failed to get repository info: ${repoInfoResponse.statusText}`);
+      const errorBody = await repoInfoResponse.text();
+      console.error('GitHub API error:', {
+        status: repoInfoResponse.status,
+        statusText: repoInfoResponse.statusText,
+        body: errorBody
+      });
+      
+      if (repoInfoResponse.status === 404) {
+        throw new Error(
+          `Repository not found: ${githubRepo}. Please verify:\n` +
+          `1. Repository exists and is accessible\n` +
+          `2. GITHUB_REPO format is correct (owner/repo)\n` +
+          `3. GITHUB_TOKEN has 'repo' permissions\n` +
+          `4. Branch "${githubBranch}" exists`
+        );
+      } else if (repoInfoResponse.status === 401) {
+        throw new Error('GitHub authentication failed. Please check GITHUB_TOKEN permissions.');
+      } else {
+        throw new Error(`GitHub API error (${repoInfoResponse.status}): ${errorBody}`);
+      }
     }
 
     const repoInfo = await repoInfoResponse.json();

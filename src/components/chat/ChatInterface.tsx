@@ -84,32 +84,60 @@ export const ChatInterface = () => {
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
               <Bot className="w-12 h-12 text-primary" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-foreground">👋 Olá! Sou o CBOS AI</h3>
-              <p className="text-base text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Seu mega consultor especialista em todo o sistema CBOS. Posso ajudar com análises, insights, estratégias e muito mais!
+            <div className="space-y-3">
+              <h3 className="text-3xl font-bold text-foreground">🧠 CBOS AI PRO</h3>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                Inteligência Artificial Completa | Programador Sênior | Analista de TI | Estrategista de Negócios
               </p>
+              <div className="flex flex-wrap gap-2 justify-center mt-4">
+                <Badge variant="secondary" className="text-xs">React/TypeScript</Badge>
+                <Badge variant="secondary" className="text-xs">Supabase/PostgreSQL</Badge>
+                <Badge variant="secondary" className="text-xs">IA/ML</Badge>
+                <Badge variant="secondary" className="text-xs">APIs & Integrações</Badge>
+                <Badge variant="secondary" className="text-xs">DevOps</Badge>
+                <Badge variant="secondary" className="text-xs">Análise de Dados</Badge>
+              </div>
             </div>
-            <div className="mt-8 grid gap-2 max-w-sm mx-auto text-left">
-              <p className="text-sm font-semibold text-foreground mb-2">💡 Experimente perguntar:</p>
-              <button 
-                onClick={() => setInput('1. O que significa o índice de demanda?')}
-                className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
-              >
-                <span className="font-bold text-primary">1.</span> O que significa o índice de demanda?
-              </button>
-              <button 
-                onClick={() => setInput('2. Como estão as análises hoje?')}
-                className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
-              >
-                <span className="font-bold text-primary">2.</span> Como estão as análises hoje?
-              </button>
-              <button 
-                onClick={() => setInput('3. Que melhorias você sugere para o CBOS?')}
-                className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
-              >
-                <span className="font-bold text-primary">3.</span> Que melhorias você sugere?
-              </button>
+            <div className="mt-8 grid gap-2 max-w-2xl mx-auto text-left">
+              <p className="text-sm font-semibold text-foreground mb-3">💡 Capacidades Profissionais:</p>
+              <div className="grid md:grid-cols-2 gap-2">
+                <button 
+                  onClick={() => setInput('Analise profundamente os dados de mercado atuais e identifique oportunidades')}
+                  className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
+                >
+                  <span className="font-bold text-primary">📊</span> Análise de dados avançada
+                </button>
+                <button 
+                  onClick={() => setInput('Como posso otimizar a arquitetura do CBOS para melhor performance?')}
+                  className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
+                >
+                  <span className="font-bold text-primary">⚡</span> Otimização de arquitetura
+                </button>
+                <button 
+                  onClick={() => setInput('Detecte anomalias nos dados e sugira correções técnicas')}
+                  className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
+                >
+                  <span className="font-bold text-primary">🔍</span> Debug & troubleshooting
+                </button>
+                <button 
+                  onClick={() => setInput('Proponha uma feature completa com código React/TypeScript')}
+                  className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
+                >
+                  <span className="font-bold text-primary">💻</span> Desenvolvimento full-stack
+                </button>
+                <button 
+                  onClick={() => setInput('Crie uma estratégia de growth baseada em machine learning')}
+                  className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
+                >
+                  <span className="font-bold text-primary">🚀</span> Estratégia & IA
+                </button>
+                <button 
+                  onClick={() => setInput('Revise a segurança e RLS policies do banco de dados')}
+                  className="text-sm text-left p-3 rounded-lg bg-card hover:bg-card/80 border border-border transition-colors"
+                >
+                  <span className="font-bold text-primary">🔐</span> Segurança & compliance
+                </button>
+              </div>
             </div>
           </div>
         )}

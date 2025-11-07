@@ -542,7 +542,7 @@ Seja específico e acionável.`;
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'strategic_insights',
-          data: trendsStructuredData,
+          data: structuredData,
           insights: strategyAnalysis.insights,
           recommendations: strategyAnalysis.recommendations,
           confidence_score: 0.90,
@@ -588,7 +588,7 @@ Liste top 20 buscas reais do Brasil nos últimos 7 dias.`;
         
         await supabase.from('market_analysis').insert({
           analysis_type: 'google_trends',
-          data: structuredData,
+          data: trendsStructuredData,
           insights: trendsAnalysis.insights,
           recommendations: trendsAnalysis.recommendations,
           confidence_score: 0.85,

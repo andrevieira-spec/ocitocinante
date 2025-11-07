@@ -44,9 +44,9 @@ All colors MUST be HSL.
     --brand-yellow: 55 96% 59%;
     
     /* Ocitocina UI Colors */
-    --card-dark: 218 45% 8%;
-    --text-primary: 214 32% 91%;
-    --text-muted: 214 16% 66%;
+    --card-dark: 0 0% 100%;
+    --text-primary: 222.2 84% 4.9%;
+    --text-muted: 215.4 16.3% 46.9%;
     
     /* State Colors */
     --success: 142 76% 36%;

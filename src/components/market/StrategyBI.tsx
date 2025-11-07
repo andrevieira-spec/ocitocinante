@@ -25,7 +25,6 @@ export const StrategyBI = () => {
         .from('market_analysis')
         .select('*')
         .in('analysis_type', ['strategic_insights', 'trends', 'social_media', 'pricing'])
-        .is('archived_at', null)
         .order('analyzed_at', { ascending: false })
         .limit(10);
 

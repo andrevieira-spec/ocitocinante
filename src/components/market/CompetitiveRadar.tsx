@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Target, TrendingUp, Zap, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
-import { useToast } from '@/hooks/use-toast';
 
 interface Analysis {
   id: string;
@@ -16,7 +15,6 @@ interface Analysis {
 }
 
 export const CompetitiveRadar = () => {
-  const { toast } = useToast();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +40,7 @@ export const CompetitiveRadar = () => {
     }
   };
 
-  // Extrair engagement real dos dados reais (raw_response)
+  // Extrair engagement estruturado dos dados da API
   const channelData = (() => {
     const channels: Record<string, { total: number; count: number }> = {
       'Instagram': { total: 0, count: 0 },
@@ -52,48 +50,31 @@ export const CompetitiveRadar = () => {
     };
     
     analyses.forEach(a => {
-      const dataObj = typeof a.data === 'object' ? (a.data as any) : {};
-      const rawText = dataObj.raw_response || '';
-      const text = rawText + ' ' + (a.insights || '') + ' ' + (a.recommendations || '');
+      const data = a.data || {};
       
-      // Padrão 1: "Aproximadamente X.XXX curtidas, XXX comentários"
-      const instagramPattern = /aproximadamente\s+(\d+[.,]\d+)\s+curtidas.*?(\d+)\s+comentários/gi;
-      let match;
-      let instagramEngagements: number[] = [];
-      
-      while ((match = instagramPattern.exec(text)) !== null) {
-        const likes = parseFloat(match[1].replace(/[.,]/g, ''));
-        const comments = parseInt(match[2]);
-        // Assumindo ~100k seguidores para CVC
-        const er = ((likes + comments) / 100000) * 100;
-        instagramEngagements.push(er);
-      }
-      
-      if (instagramEngagements.length > 0) {
-        const avgER = instagramEngagements.reduce((a, b) => a + b, 0) / instagramEngagements.length;
-        channels['Instagram'].total += avgER;
-        channels['Instagram'].count += 1;
-      }
-      
-      // Padrão 2: Taxas de engajamento explícitas no texto
-      const erRegex = /(instagram|twitter|x\/twitter|tiktok|youtube)[\s:]+(?:taxa de )?engajamento.*?(\d+(?:[.,]\d+)?)\s*%/gi;
-      
-      while ((match = erRegex.exec(text)) !== null) {
-        const channel = match[1].toLowerCase();
-        const rate = parseFloat(match[2].replace(',', '.'));
-        
-        if (channel.includes('instagram')) {
-          channels['Instagram'].total += rate;
+      // Instagram estruturado
+      if (data.instagram_metrics) {
+        const followers = data.instagram_metrics.followers || data.instagram_metrics.account?.followers || 100000;
+        const totalEng = data.instagram_metrics.total_engagement || 0;
+        const posts = data.instagram_metrics.posts_analyzed || 1;
+        const avgEngPerPost = totalEng / posts;
+        const er = (avgEngPerPost / followers) * 100;
+        if (er > 0) {
+          channels['Instagram'].total += er;
           channels['Instagram'].count += 1;
-        } else if (channel.includes('twitter') || channel.includes('x')) {
-          channels['X/Twitter'].total += rate;
+        }
+      }
+      
+      // X/Twitter estruturado
+      if (data.x_metrics) {
+        const totalEng = data.x_metrics.total_engagement || 0;
+        const tweets = data.x_metrics.tweets_analyzed || 1;
+        const avgEngPerTweet = totalEng / tweets;
+        // Assumir 50k seguidores para X (sem API de seguidores)
+        const er = (avgEngPerTweet / 50000) * 100;
+        if (er > 0) {
+          channels['X/Twitter'].total += er;
           channels['X/Twitter'].count += 1;
-        } else if (channel.includes('tiktok')) {
-          channels['TikTok'].total += rate;
-          channels['TikTok'].count += 1;
-        } else if (channel.includes('youtube')) {
-          channels['YouTube'].total += rate;
-          channels['YouTube'].count += 1;
         }
       }
     });
@@ -112,79 +93,44 @@ export const CompetitiveRadar = () => {
     }));
   })();
 
-  // Top 10 conteúdos extraídos do texto (raw_response)
+  // Top 10 conteúdos estruturados
   const topContent = analyses
-    .slice(0, 20)
-    .map((a) => {
-      const dataObj = typeof a.data === 'object' ? (a.data as any) : {};
-      const text = (dataObj.raw_response || '') + ' ' + (a.insights || '') + ' ' + (a.recommendations || '');
+    .flatMap((a) => {
+      const data = a.data || {};
       const posts: Array<{ channel: string; url: string; er: number; title: string }> = [];
       
-      // Extrair engagement e descrição de posts do Instagram
-      const instagramPostRegex = /\*\*Post \d+:\*\*\s+Reel mostrando (.+?)\.\s+\*\*\(Aproximadamente\s+(\d+[.,]\d+)\s+curtidas,\s+(\d+)\s+comentários/gi;
-      let match;
-      
-      while ((match = instagramPostRegex.exec(text)) !== null) {
-        const description = match[1];
-        const likes = parseFloat(match[2].replace(/[.,]/g, ''));
-        const comments = parseInt(match[3]);
-        const er = ((likes + comments) / 100000) * 100; // Assumindo 100k seguidores
-        
-        posts.push({
-          channel: 'Instagram',
-          url: '#', // Não temos URL real no texto
-          er: er,
-          title: description.substring(0, 50)
+      // Instagram posts estruturados
+      if (data.instagram_metrics?.sample_posts) {
+        const followers = data.instagram_metrics.followers || data.instagram_metrics.account?.followers || 100000;
+        data.instagram_metrics.sample_posts.forEach((post: any) => {
+          const engagement = (post.likes || 0) + (post.comments || 0);
+          const er = (engagement / followers) * 100;
+          posts.push({
+            channel: 'Instagram',
+            url: post.permalink || '#',
+            er,
+            title: post.caption?.substring(0, 50) || 'Post Instagram'
+          });
         });
       }
       
-      // Instagram URLs diretas
-      const instagramUrlRegex = /(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[^\s"')<]+)/gi;
-      while ((match = instagramUrlRegex.exec(text)) !== null) {
-        posts.push({
-          channel: 'Instagram',
-          url: match[1],
-          er: 3.5 + Math.random() * 2,
-          title: `Post Instagram`
-        });
-      }
-      
-      // Twitter/X URLs
-      const twitterRegex = /(https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[^\s"')<]+\/status\/[^\s"')<]+)/gi;
-      while ((match = twitterRegex.exec(text)) !== null) {
-        posts.push({
-          channel: 'X/Twitter',
-          url: match[1],
-          er: 2.8 + Math.random() * 1.5,
-          title: `Tweet`
-        });
-      }
-      
-      // TikTok URLs
-      const tiktokRegex = /(https?:\/\/(?:www\.)?tiktok\.com\/@[^\s"')<]+\/video\/[^\s"')<]+)/gi;
-      while ((match = tiktokRegex.exec(text)) !== null) {
-        posts.push({
-          channel: 'TikTok',
-          url: match[1],
-          er: 4.0 + Math.random() * 3,
-          title: `Vídeo TikTok`
-        });
-      }
-      
-      // YouTube URLs
-      const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[^\s"')<]+)/gi;
-      while ((match = youtubeRegex.exec(text)) !== null) {
-        posts.push({
-          channel: 'YouTube',
-          url: match[1],
-          er: 3.0 + Math.random() * 2,
-          title: `Vídeo YouTube`
+      // X tweets estruturados
+      if (data.x_metrics?.sample_tweets) {
+        data.x_metrics.sample_tweets.forEach((tweet: any) => {
+          const metrics = tweet.metrics || {};
+          const engagement = (metrics.like_count || 0) + (metrics.retweet_count || 0) + (metrics.reply_count || 0);
+          const er = (engagement / 50000) * 100; // Assumir 50k seguidores
+          posts.push({
+            channel: 'X/Twitter',
+            url: '#',
+            er,
+            title: tweet.text?.substring(0, 50) || 'Tweet'
+          });
         });
       }
       
       return posts;
     })
-    .flat()
     .filter(post => post.er > 0)
     .sort((a, b) => b.er - a.er)
     .slice(0, 10)
@@ -281,19 +227,17 @@ export const CompetitiveRadar = () => {
                         </Badge>
                       </td>
                       <td className="py-3">
-                        <a 
-                          href={content.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className={content.url === '#' ? 'cursor-not-allowed opacity-50' : ''}
-                          onClick={(e) => {
-                            if (content.url === '#') {
-                              e.preventDefault();
-                            }
-                          }}
-                        >
-                          <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer hover:text-brand-orange transition-colors" />
-                        </a>
+                        {content.url !== '#' ? (
+                          <a 
+                            href={content.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer hover:text-brand-orange transition-colors" />
+                          </a>
+                        ) : (
+                          <ExternalLink className="w-4 h-4 text-text-muted opacity-30" />
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -306,7 +250,7 @@ export const CompetitiveRadar = () => {
         </CardContent>
       </Card>
 
-      {/* Estratégias Predominantes - Dados Reais */}
+      {/* Estratégias Predominantes */}
       <Card className="bg-card-dark border-border">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
@@ -333,51 +277,6 @@ export const CompetitiveRadar = () => {
                 </div>
               );
             })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Previsão de Movimento */}
-      <Card className="bg-card-dark border-border">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
-            <TrendingUp className="w-5 h-5 text-brand-blue" />
-            Previsão de Movimento
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-brand-blue/10 border border-brand-blue/20 rounded-lg">
-            <p className="text-text-primary font-medium mb-2">Tendência Identificada:</p>
-            <p className="text-sm text-text-muted">
-              Aumento previsto em vídeos com humor e trilhas retrô. Espera-se crescimento de 45% em engajamento 
-              para conteúdos nesse formato nos próximos 7 dias.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recomendações de Campanha */}
-      <Card className="bg-card-dark border-border">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
-            <Zap className="w-5 h-5 text-brand-orange" />
-            3 Recomendações de Campanha Rápida
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[
-              'Criar série de Reels com humor sobre "expectativa vs realidade" em destinos populares',
-              'Usar trilhas retrô (anos 80/90) em vídeos de destinos nostálgicos',
-              'Aproveitar trend "POV: você está em..." para destinos brasileiros'
-            ].map((rec, idx) => (
-              <div key={idx} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                <div className="w-6 h-6 rounded-full bg-brand-orange flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {idx + 1}
-                </div>
-                <p className="text-sm text-text-primary">{rec}</p>
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>

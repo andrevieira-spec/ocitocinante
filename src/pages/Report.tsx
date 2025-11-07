@@ -66,97 +66,120 @@ export default function Report() {
   const latestAnalysis = analyses[0];
   const reportDate = latestAnalysis ? new Date(latestAnalysis.analyzed_at) : new Date();
 
-  // Extrair dados por tipo
+  // Extrair dados estruturados
+  const latestStrategy = analyses.find(a => a.analysis_type === 'strategic_insights');
+  const strategyData = latestStrategy?.data || {};
+  const summary = strategyData.summary || {};
+  
   const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media');
   const pricingAnalyses = analyses.filter(a => a.analysis_type === 'pricing');
   const trendsAnalyses = analyses.filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
-  const strategicAnalyses = analyses.filter(a => a.analysis_type === 'strategic_insights');
 
-  // Extrair engagement por canal
+  // Extrair engagement estruturado
   const channelEngagement = (() => {
-    const channels: Record<string, number[]> = {
-      'Instagram': [],
-      'X/Twitter': [],
-      'TikTok': [],
-      'YouTube': []
+    const channels: Record<string, { total: number; count: number }> = {
+      'Instagram': { total: 0, count: 0 },
+      'X/Twitter': { total: 0, count: 0 },
+      'TikTok': { total: 0, count: 0 },
+      'YouTube': { total: 0, count: 0 }
     };
 
-    socialAnalyses.slice(0, 10).forEach(a => {
-      const text = (a.insights || '') + ' ' + JSON.stringify(a.data || {});
-      const erRegex = /(instagram|twitter|x\/twitter|tiktok|youtube)[\s:]+(?:taxa de )?engajamento.*?(\d+(?:[.,]\d+)?)\s*%/gi;
-      let match;
-
-      while ((match = erRegex.exec(text)) !== null) {
-        const channel = match[1].toLowerCase();
-        const rate = parseFloat(match[2].replace(',', '.'));
-
-        if (channel.includes('instagram')) channels['Instagram'].push(rate);
-        else if (channel.includes('twitter') || channel.includes('x')) channels['X/Twitter'].push(rate);
-        else if (channel.includes('tiktok')) channels['TikTok'].push(rate);
-        else if (channel.includes('youtube')) channels['YouTube'].push(rate);
+    socialAnalyses.forEach(a => {
+      const data = a.data || {};
+      
+      if (data.instagram_metrics) {
+        const followers = data.instagram_metrics.followers || data.instagram_metrics.account?.followers || 100000;
+        const totalEng = data.instagram_metrics.total_engagement || 0;
+        const posts = data.instagram_metrics.posts_analyzed || 1;
+        const er = (totalEng / posts / followers) * 100;
+        if (er > 0) {
+          channels['Instagram'].total += er;
+          channels['Instagram'].count += 1;
+        }
+      }
+      
+      if (data.x_metrics) {
+        const totalEng = data.x_metrics.total_engagement || 0;
+        const tweets = data.x_metrics.tweets_analyzed || 1;
+        const er = (totalEng / tweets / 50000) * 100;
+        if (er > 0) {
+          channels['X/Twitter'].total += er;
+          channels['X/Twitter'].count += 1;
+        }
       }
     });
 
-    return Object.entries(channels).map(([name, values]) => ({
+    return Object.entries(channels).map(([name, stats]) => ({
       name,
-      avg: values.length > 0 ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : '0'
+      avg: stats.count > 0 ? (stats.total / stats.count).toFixed(1) : '0'
     }));
   })();
 
-  // Extrair top conteúdos
-  const topContent = socialAnalyses.slice(0, 5).flatMap(a => {
-    const text = (a.insights || '') + ' ' + JSON.stringify(a.data || {});
+  // Extrair top conteúdos estruturados
+  const topContent = socialAnalyses.flatMap(a => {
+    const data = a.data || {};
     const posts: any[] = [];
 
-    const instagramPostRegex = /\*\*Post \d+:\*\*\s+Reel mostrando (.+?)\.\s+\*\*\(Aproximadamente\s+(\d+[.,]\d+)\s+curtidas/gi;
-    let match;
+    if (data.instagram_metrics?.sample_posts) {
+      const followers = data.instagram_metrics.followers || data.instagram_metrics.account?.followers || 100000;
+      data.instagram_metrics.sample_posts.forEach((post: any) => {
+        const engagement = (post.likes || 0) + (post.comments || 0);
+        const er = (engagement / followers) * 100;
+        posts.push({
+          title: post.caption?.substring(0, 80) || 'Post Instagram',
+          channel: 'Instagram',
+          er: er.toFixed(1)
+        });
+      });
+    }
 
-    while ((match = instagramPostRegex.exec(text)) !== null) {
-      const description = match[1];
-      posts.push({
-        title: description.substring(0, 80),
-        channel: 'Instagram',
-        er: ((Math.random() * 2) + 3).toFixed(1)
+    if (data.x_metrics?.sample_tweets) {
+      data.x_metrics.sample_tweets.forEach((tweet: any) => {
+        const metrics = tweet.metrics || {};
+        const engagement = (metrics.like_count || 0) + (metrics.retweet_count || 0);
+        const er = (engagement / 50000) * 100;
+        posts.push({
+          title: tweet.text?.substring(0, 80) || 'Tweet',
+          channel: 'X/Twitter',
+          er: er.toFixed(1)
+        });
       });
     }
 
     return posts;
   }).slice(0, 10);
 
-  // Extrair produtos
-  const products = pricingAnalyses.slice(0, 5).flatMap(a => {
-    const text = (a.insights || '') + ' ' + JSON.stringify(a.data || {});
-    const prods: any[] = [];
-
-    const productPattern = /\*\*Pacote:\*\*\s+(.+?)\s+\*\*Preço:\*\*\s+A partir de\s+R\$\s+([\d.,]+)\s+(?:por pessoa\s+)?\*\*Destino:\*\*\s+(.+?)(?:\s+\*\*|$)/gi;
-    let match;
-
-    while ((match = productPattern.exec(text)) !== null) {
-      prods.push({
-        name: `${match[1]} - ${match[3]}`,
-        price: parseFloat(match[2].replace(/\./g, '').replace(',', '.')),
-        currency: 'BRL',
-        origin: match[3].toLowerCase().includes('internacional') ? 'Internacional' : 'Nacional'
-      });
+  // Extrair produtos estruturados
+  const products = pricingAnalyses.flatMap(a => {
+    const data = a.data || {};
+    if (data.products && Array.isArray(data.products)) {
+      return data.products.map((p: any) => ({
+        name: p.name || 'Produto sem nome',
+        price: p.price || 0,
+        currency: p.currency || 'BRL',
+        origin: p.region || 'Nacional'
+      }));
     }
-
-    return prods;
+    return [];
   }).slice(0, 10);
 
-  // Extrair PAA
-  const paaQuestions = trendsAnalyses.slice(0, 3).flatMap(a => {
-    const text = (a.insights || '');
-    return text.split('\n')
+  // Extrair PAA estruturado
+  const paaQuestions = trendsAnalyses.flatMap(a => {
+    const data = a.data || {};
+    if (data.queries && Array.isArray(data.queries)) {
+      return data.queries.map((q: any) => q.question || '');
+    }
+    // Fallback para texto
+    return (a.insights || '').split('\n')
       .filter(line => line.includes('?'))
-      .map(q => q.replace(/^[-•*\d.]+\s*/, '').trim())
-      .slice(0, 5);
+      .map(q => q.replace(/^[-•*\d.]+\s*/, '').trim());
   }).slice(0, 10);
 
-  // Extrair estratégias
-  const strategies = strategicAnalyses.slice(0, 3).map(a => ({
-    insight: a.insights.split('\n').filter(l => l.trim())[0] || a.insights.substring(0, 150),
-    recommendation: a.recommendations?.split('\n')[0] || ''
-  }));
+  // Extrair estratégias estruturadas
+  const strategies = strategyData.insights_of_day?.slice(0, 3).map((insight: string, idx: number) => ({
+    insight,
+    recommendation: strategyData.recommended_actions?.[idx] || ''
+  })) || [];
 
   return (
     <div className="min-h-screen bg-white text-gray-900 print:p-0">
@@ -193,15 +216,17 @@ export default function Report() {
           <div className="grid grid-cols-3 gap-4">
             <div className="border border-gray-300 p-4 rounded">
               <p className="text-sm text-gray-600 mb-1">Índice de Demanda</p>
-              <p className="text-3xl font-bold">{analyses.length > 0 ? Math.min(85, 60 + analyses.length * 2) : 0}</p>
+              <p className="text-3xl font-bold">{summary.demand_index || 0}</p>
             </div>
             <div className="border border-gray-300 p-4 rounded">
               <p className="text-sm text-gray-600 mb-1">Variação de Preços</p>
-              <p className="text-3xl font-bold">{((Math.random() - 0.5) * 10).toFixed(1)}%</p>
+              <p className="text-3xl font-bold">{(summary.price_variation_pct || 0).toFixed(1)}%</p>
             </div>
             <div className="border border-gray-300 p-4 rounded">
               <p className="text-sm text-gray-600 mb-1">Sentimento Geral</p>
-              <p className="text-2xl font-bold">Positivo</p>
+              <p className="text-2xl font-bold">
+                {summary.sentiment === 'positive' ? 'Positivo' : summary.sentiment === 'negative' ? 'Negativo' : 'Neutro'}
+              </p>
             </div>
           </div>
         </section>

@@ -271,39 +271,49 @@ Deno.serve(async (req) => {
       const competitor = competitors?.[0];
 
       if (competitor) {
-        // 1) Análise de Preços e Produtos
-        const pricingPrompt = `Analise IMEDIATAMENTE os pacotes, preços e produtos da ${competitor.name} (${competitor.website_url}).
+        // 1) Análise de Preços e Produtos - ESTRUTURADA
+        const pricingPrompt = `Analise os pacotes, preços e produtos da ${competitor.name} (${competitor.website_url}).
 
-🎯 DADOS CONCRETOS OBRIGATÓRIOS:
+RETORNE UM JSON NO FORMATO EXATO:
+{
+  "products": [
+    {
+      "name": "Nome do Pacote - Destino",
+      "price": 2499.00,
+      "currency": "BRL",
+      "region": "Nacional",
+      "description": "Breve descrição",
+      "url": "https://..."
+    }
+  ],
+  "pricing_strategy": {
+    "positioning": "premium",
+    "price_range": "R$ 1500 - R$ 5000",
+    "payment_methods": ["Pix", "Cartão 12x"],
+    "active_promotions": ["Desconto 10% à vista"]
+  },
+  "top_destinations": ["Gramado", "Porto de Galinhas"]
+}
 
-📦 PRINCIPAIS PACOTES/PRODUTOS (3-5 exemplos):
-- Nome do pacote
-- Preço (se disponível)
-- Destino principal
-- Diferenciais
-
-💰 ESTRATÉGIA DE PRECIFICAÇÃO:
-- Faixa de preços praticada
-- Formas de pagamento destacadas
-- Promoções ativas
-
-📊 ANÁLISE ESTRATÉGICA:
-- Posicionamento de preço (premium/médio/econômico)
-- Destinos mais promovidos
-- Oportunidades identificadas
-
-Seja direto, use dados concretos do site/redes sociais.`;
+Seja específico e use dados reais.`;
 
         console.log('🔍 Starting pricing analysis...');
         const pricingAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, pricingPrompt)
+          analyzeWithGemini(googleApiKey, pricingPrompt, true)
         );
         console.log('✅ Pricing analysis completed');
+        
+        let pricingStructuredData = {};
+        try {
+          pricingStructuredData = JSON.parse(pricingAnalysis.data);
+        } catch {
+          pricingStructuredData = { products: [], pricing_strategy: {}, raw_response: pricingAnalysis.data };
+        }
         
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'pricing',
-          data: { raw_response: pricingAnalysis.data },
+          data: pricingStructuredData,
           insights: pricingAnalysis.insights,
           recommendations: pricingAnalysis.recommendations,
           confidence_score: 0.85,
@@ -482,35 +492,57 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
           console.log('Quick social media analysis inserted');
         }
 
-        // 3) Resumo Estratégico Integrado
-        const strategyPrompt = `Crie um RESUMO ESTRATÉGICO EXECUTIVO sobre ${competitor.name} integrando insights de preços, redes sociais e mercado.
-        
-        FORMATO (use emojis e seja direto):
-        
-        📊 PREÇOS & PRODUTOS:
-        [3-4 pontos sobre estratégia de precificação e produtos principais]
-        
-        📱 REDES SOCIAIS & ENGAJAMENTO:
-        [3-4 pontos sobre conteúdos que geram engajamento e público-alvo]
-        
-        💼 GERAÇÃO DE LEADS:
-        [2-3 pontos sobre estratégias de captura observadas]
-        
-        💡 AÇÕES RECOMENDADAS:
-        [2-3 recomendações concretas baseadas nos dados observados]
-        
-        Seja visual, prático e baseado em dados concretos.`;
+        // 3) Resumo Estratégico Integrado - ESTRUTURADO
+        const strategyPrompt = `Crie resumo estratégico sobre ${competitor.name}.
+
+RETORNE UM JSON NO FORMATO EXATO:
+{
+  "summary": {
+    "demand_index": 85,
+    "demand_change_pct": 4.0,
+    "price_variation_pct": -4.8,
+    "avg_engagement_pct": 3.3,
+    "sentiment": "positive"
+  },
+  "insights_of_day": [
+    "Clientes valorizam transparência de preços",
+    "Interesse crescente em turismo sustentável"
+  ],
+  "recommended_actions": [
+    "Rever comunicação de taxas no site",
+    "Criar landing page de ecoturismo"
+  ],
+  "smart_alerts": [
+    {
+      "title": "Aumento em buscas 'pacotes baratos'",
+      "description": "Consumidor mais sensível a preço",
+      "severity": "medium",
+      "category": "pricing"
+    }
+  ],
+  "opportunities": ["Pacotes temáticos de ecoturismo"],
+  "risks": ["Concorrentes reforçando transparência"]
+}
+
+Seja específico e acionável.`;
         
         console.log('🔍 Starting strategic summary...');
         const strategyAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, strategyPrompt)
+          analyzeWithGemini(googleApiKey, strategyPrompt, true)
         );
         console.log('✅ Strategic summary completed');
+        
+        let structuredData = {};
+        try {
+          structuredData = JSON.parse(strategyAnalysis.data);
+        } catch {
+          structuredData = { summary: {}, insights_of_day: [], raw_response: strategyAnalysis.data };
+        }
         
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'strategic_insights',
-          data: { raw_response: strategyAnalysis.data },
+          data: trendsStructuredData,
           insights: strategyAnalysis.insights,
           recommendations: strategyAnalysis.recommendations,
           confidence_score: 0.90,
@@ -519,32 +551,44 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
         console.log('Quick strategic summary inserted');
       }
 
-      // 2) Quick Google Trends (optional) - MANUAL: últimas 2h
+      // 2) Quick Google Trends (optional) - ESTRUTURADO
       if (include_trends) {
-        const trendsPrompt = `Analise as tendências do Google Trends para turismo no Brasil em TRÊS PERÍODOS + TOP ASSUNTOS (FOCO: ÚLTIMAS 2 HORAS):
-        
-        📈 ANÁLISE 30 DIAS:
-        [3-4 destinos/temas em alta, palavras-chave emergentes]
-        
-        ⚡ ANÁLISE ÚLTIMAS 2 HORAS (PRIORIDADE):
-        - Tendências de busca nas últimas 2 horas
-        - Picos de interesse AGORA
-        - Temas emergentes nas últimas 2h
-        
-        🔥 TOP 10 ASSUNTOS BRASIL (ÚLTIMAS 2H):
-        - Liste os 10 assuntos GERAIS mais pesquisados no Google Brasil nas últimas 2 horas
-        - Identifique quais podem ser aproveitados para campanhas de turismo (humor, oportunismo criativo)
-        
-        Seja direto e visual. PRIORIZE as últimas 2 horas para capturar o momento.`;
-        console.log('🔍 Starting Google Trends analysis (MANUAL: 2h focus)...');
+        const trendsPrompt = `Analise tendências do Google Trends para turismo no Brasil.
+
+RETORNE UM JSON NO FORMATO EXATO:
+{
+  "top_queries_brazil": [
+    { "query": "Gramado inverno", "category": "turismo", "relative_score": 100 },
+    { "query": "Fernando de Noronha", "category": "turismo", "relative_score": 87 }
+  ],
+  "top_keywords": [
+    { "keyword": "turismo sustentável", "score": 0.92 },
+    { "keyword": "viagens econômicas", "score": 0.87 }
+  ],
+  "hot_destinations": [
+    { "name": "Gramado", "mentions": 14, "score": 0.89 },
+    { "name": "Porto de Galinhas", "mentions": 11, "score": 0.84 }
+  ],
+  "period": { "from": "2025-11-01T00:00:00Z", "to": "2025-11-07T23:59:59Z" }
+}
+
+Liste top 20 buscas reais do Brasil nos últimos 7 dias.`;
+        console.log('🔍 Starting Google Trends analysis...');
         const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, trendsPrompt)
+          analyzeWithGemini(googleApiKey, trendsPrompt, true)
         );
         console.log('✅ Google Trends analysis completed');
         
+        let trendsStructuredData = {};
+        try {
+          trendsStructuredData = JSON.parse(trendsAnalysis.data);
+        } catch {
+          trendsStructuredData = { top_queries_brazil: [], raw_response: trendsAnalysis.data };
+        }
+        
         await supabase.from('market_analysis').insert({
           analysis_type: 'google_trends',
-          data: { raw_response: trendsAnalysis.data },
+          data: structuredData,
           insights: trendsAnalysis.insights,
           recommendations: trendsAnalysis.recommendations,
           confidence_score: 0.85,
@@ -1064,7 +1108,7 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
   }
 });
 
-async function analyzeWithGemini(apiKey: string, prompt: string): Promise<any> {
+async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutput = false): Promise<any> {
   const systemPrompt = 'Você é um analista estratégico sênior de mercado de turismo. Forneça análises COMPLETAS, DIDÁTICAS e CONCISAS baseadas em dados reais da web. USE ESTES CABEÇALHOS OBRIGATÓRIOS: "Insights Principais:" seguido de 5-7 pontos detalhados e "Recomendações Estratégicas:" seguido de 5-7 ações específicas e práticas. Seja executivo, use dados concretos, e mantenha tom profissional mas acessível.';
   
   const fullPrompt = `${systemPrompt}\n\n${prompt}`;

@@ -40,105 +40,47 @@ export const MarketOverview = () => {
     }
   };
 
-  const extractKeywords = (text: string) => {
-    // Consolidar e higienizar texto das análises (remove markdown, símbolos, barras)
-    const allText = analyses
-      .filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends' || a.analysis_type === 'social_media')
-      .map(a => `${a.insights} ${(a.data as any)?.raw_response || ''}`)
-      .join(' ')
-      .replace(/\*\*|__|`|\#/g, ' ') // remove markdown básico
-      .replace(/\\/g, '') // remove barras invertidas
-      .replace(/\s{2,}/g, ' ') // normaliza espaços
-      .trim();
-
-    const keywordPatterns = [
-      /\b(?:palavra-chave|keyword|termo|busca|trend|tendência):\s*["']?([^"'\n,]{3,40})["']?/gi,
-      /\b(turismo|viagem|férias|resort|hotel|praia|destino|pacote)\s+(?:em|de|para|com)\s+([a-záéíóúâêôãõç\s]{3,30})/gi,
-      /["']([^"']{4,40})["']\s*(?:está|estão|com|em)\s*(?:alta|crescimento|tendência)/gi
-    ];
-
-    const blocklist = [/^nas últimas/i, /^a busca por/i, /^principais/i, /^tendências?/i, /^temas?/i];
-
-    const sanitize = (kw: string) => kw
-      .replace(/\*\*|__|`|\#/g, '')
-      .replace(/^[\-•\d.\s]+/, '')
-      .replace(/\\/g, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-
-    const keywords = new Set<string>();
-    for (const pattern of keywordPatterns) {
-      let match;
-      while ((match = pattern.exec(allText)) !== null && keywords.size < 8) {
-        const raw = (match[1] || match[2] || '').slice(0, 40);
-        const kw = sanitize(raw);
-        if (
-          kw.length > 3 &&
-          kw.length < 40 &&
-          !kw.match(/^\d+$/) &&
-          !blocklist.some(r => r.test(kw))
-        ) {
-          keywords.add(kw);
-        }
-      }
+  const extractKeywords = () => {
+    // Usar dados estruturados top_keywords do backend
+    const trendsAnalysis = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
+    if (trendsAnalysis?.data?.top_keywords) {
+      return trendsAnalysis.data.top_keywords
+        .sort((a: any, b: any) => b.score - a.score)
+        .slice(0, 5)
+        .map((kw: any) => kw.keyword);
     }
-
-    let result = Array.from(keywords).slice(0, 5);
-
-    // Fallback: usar destinos em alta como keywords legíveis
-    if (result.length === 0) {
-      result = extractDestinations().map(d => d.split(' (')[0]).slice(0, 5);
-      if (result.length === 0) result = ['Turismo', 'Viagem', 'Promoções', 'Roteiros', 'Destinos'];
+    
+    // Fallback: usar destinos em alta
+    const destinations = extractDestinations();
+    if (destinations.length > 0) {
+      return destinations.map(d => d.split(' (')[0]).slice(0, 5);
     }
-
-    return result;
+    
+    return ['Turismo', 'Viagem', 'Destinos', 'Pacotes', 'Roteiros'];
   };
 
   const extractDestinations = () => {
-    const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media');
-    const destinationMap = new Map<string, number>();
-    
-    for (const analysis of socialAnalyses) {
-      const text = analysis.insights + ' ' + (analysis.data as any)?.raw_response || '';
-      const brazilianDestinations = [
-        'Gramado', 'Canela', 'Beto Carrero', 'Foz do Iguaçu', 'Bonito', 
-        'Fernando de Noronha', 'Jericoacoara', 'Chapada dos Veadeiros',
-        'Lençóis Maranhenses', 'Pantanal', 'Amazônia', 'Porto de Galinhas',
-        'Maragogi', 'Arraial do Cabo', 'Búzios', 'Paraty', 'Ilhabela',
-        'Campos do Jordão', 'Monte Verde', 'Rio de Janeiro', 'São Paulo',
-        'Salvador', 'Recife', 'Fortaleza', 'Natal', 'João Pessoa'
-      ];
-      
-      for (const dest of brazilianDestinations) {
-        if (text.toLowerCase().includes(dest.toLowerCase())) {
-          destinationMap.set(dest, (destinationMap.get(dest) || 0) + 1);
-        }
-      }
+    // Usar dados estruturados hot_destinations do backend
+    const trendsAnalysis = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
+    if (trendsAnalysis?.data?.hot_destinations) {
+      return trendsAnalysis.data.hot_destinations
+        .sort((a: any, b: any) => b.score - a.score)
+        .slice(0, 5)
+        .map((dest: any) => `${dest.name} (${dest.mentions || 0} menções)`);
     }
     
-    return Array.from(destinationMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([dest, count]) => `${dest} (${count} menções)`);
+    return [];
   };
 
   const extractOpportunity = () => {
-    const trendAnalysis = analyses.find(a => a.analysis_type === 'trends');
-    if (!trendAnalysis) return null;
-    
-    const dataObj = typeof trendAnalysis.data === 'object' ? trendAnalysis.data as any : {};
-    const text = dataObj?.raw_response || '';
-    const oppMatch = text.match(/🎯\s*\*\*OPORTUNIDADE:\*\*\s*\n\s*\*\s*(.+?)(?=\n\n|---|\*\*|$)/s);
-    if (oppMatch) {
-      return oppMatch[1].trim();
+    // Usar dados estruturados opportunities do backend
+    if (strategyData.opportunities && strategyData.opportunities.length > 0) {
+      return strategyData.opportunities[0];
     }
-    
-    return trendAnalysis.insights?.split('\n')[0]?.replace(/[-•\d.]/g, '').trim();
+    return null;
   };
 
-  const latestTrend = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
-  const latestStrategy = analyses.find(a => a.analysis_type === 'strategic_insights');
-  const keywords = latestTrend ? extractKeywords(latestTrend.insights) : [];
+  const keywords = extractKeywords();
   const destinations = extractDestinations();
   const opportunity = extractOpportunity();
 
@@ -146,18 +88,25 @@ export const MarketOverview = () => {
     return <div className="text-center py-8">Carregando visão geral...</div>;
   }
 
-  // KPIs simulados baseados nas análises
-  const demandIndex = analyses.length > 0 ? Math.min(85, 60 + analyses.length * 3) : 0;
-  const priceVariation = analyses.length > 0 ? ((Math.random() - 0.5) * 10).toFixed(1) : '0';
-  const avgEngagement = analyses.length > 0 ? (2.5 + Math.random() * 1.5).toFixed(1) : '0';
-  const sentiment = analyses.length > 0 
-    ? ['Positivo', 'Neutro', 'Ligeiramente Positivo'][Math.floor(Math.random() * 3)]
+  // KPIs estruturados vindos do backend
+  const strategyAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights');
+  const strategyData = strategyAnalysis?.data || {};
+  const summary = strategyData.summary || {};
+  
+  const demandIndex = summary.demand_index || 0;
+  const priceVariation = (summary.price_variation_pct || 0).toFixed(1);
+  const avgEngagement = (summary.avg_engagement_pct || 0).toFixed(1);
+  const sentiment = summary.sentiment === 'positive' ? 'Positivo' 
+    : summary.sentiment === 'negative' ? 'Negativo'
+    : summary.sentiment === 'slightly_positive' ? 'Ligeiramente Positivo'
+    : summary.sentiment === 'slightly_negative' ? 'Ligeiramente Negativo'
     : 'Neutro';
   
-  // Gerar dados para sparkline (últimos 7 dias) com variação mais acentuada
-  const sparklineData = Array.from({ length: 7 }, (_, i) => ({
-    value: 40 + (Math.sin(i) * 25) + Math.random() * 30 // Curvas mais acentuadas
-  }));
+  // Sparkline estático representando histórico
+  const sparklineData = [
+    { value: 65 }, { value: 72 }, { value: 68 }, { value: 75 }, 
+    { value: 80 }, { value: 78 }, { value: demandIndex || 75 }
+  ];
 
   return (
     <div className="space-y-6">
@@ -327,7 +276,7 @@ export const MarketOverview = () => {
             </Card>
           </div>
 
-          {/* Alertas Inteligentes - Dinâmicos das análises */}
+          {/* Alertas Inteligentes - Estruturados */}
           <Card className="bg-card-dark border-border">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
@@ -336,29 +285,31 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {analyses.slice(0, 3).map((analysis, idx) => {
-                const insights = analysis.insights.split('\n').filter(l => l.trim())[0] || analysis.insights.substring(0, 120);
-                const iconMap = [TrendingUp, AlertTriangle, Sparkles];
-                const colorMap = ['text-success', 'text-warning', 'text-brand-blue'];
-                const Icon = iconMap[idx % 3];
-                
-                return (
-                  <div key={analysis.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-                    <Icon className={`w-4 h-4 ${colorMap[idx % 3]} mt-0.5 flex-shrink-0`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-primary font-medium line-clamp-2">{insights}</p>
-                      <p className="text-xs text-text-muted mt-1">
-                        {analysis.analysis_type === 'pricing' && 'Oportunidade de precificação'}
-                        {analysis.analysis_type === 'social_media' && 'Insight de redes sociais'}
-                        {analysis.analysis_type === 'trends' && 'Tendência emergente'}
-                        {analysis.analysis_type === 'google_trends' && 'Busca em alta no Google'}
-                        {analysis.analysis_type === 'strategic_insights' && 'Insight estratégico'}
-                      </p>
+              {strategyData.smart_alerts && strategyData.smart_alerts.length > 0 ? (
+                strategyData.smart_alerts.map((alert: any, idx: number) => {
+                  const iconMap: Record<string, any> = {
+                    'pricing': TrendingUp,
+                    'product': Sparkles,
+                    'engagement': TrendingUp
+                  };
+                  const Icon = iconMap[alert.category] || AlertTriangle;
+                  const colorMap: Record<string, string> = {
+                    'high': 'text-danger',
+                    'medium': 'text-warning',
+                    'low': 'text-brand-blue'
+                  };
+                  
+                  return (
+                    <div key={idx} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                      <Icon className={`w-4 h-4 ${colorMap[alert.severity] || 'text-brand-blue'} mt-0.5 flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-text-primary font-medium line-clamp-2">{alert.title}</p>
+                        <p className="text-xs text-text-muted mt-1">{alert.description}</p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              {analyses.length === 0 && (
+                  );
+                })
+              ) : (
                 <p className="text-sm text-text-muted text-center py-4">
                   Execute uma análise para ver alertas inteligentes
                 </p>

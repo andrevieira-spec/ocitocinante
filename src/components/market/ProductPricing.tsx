@@ -48,85 +48,135 @@ export const ProductPricing = () => {
 
       if (error) throw error;
 
-      // Extrair produtos das análises - do texto
+      // Extrair produtos das análises - priorizar dados estruturados da API
       const extractedProducts: Product[] = [];
       
       if (analyses && analyses.length > 0) {
         analyses.forEach((analysis) => {
           const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
-          const text = (analysis.insights || '') + ' ' + (analysis.recommendations || '') + ' ' + (dataObj?.raw_response || '');
           
-          // 1. Extrair URLs de produtos mencionados no texto
-          const urlRegex = /(https?:\/\/[^\s"')]+(?:produto|pacote|destino|offer|oferta|viagem)[^\s"')<]*)/gi;
-          let urlMatch;
-          while ((urlMatch = urlRegex.exec(text)) !== null) {
-            const productUrl = urlMatch[1];
-            
-            // Extrair nome do produto próximo à URL
-            const context = text.substring(Math.max(0, urlMatch.index - 100), urlMatch.index);
-            const nameMatch = context.match(/(?:Pacote|Produto|Destino)[:\s]+([^.]{5,50})/i);
-            const name = nameMatch ? nameMatch[1].trim() : 'Produto do concorrente';
-            
-            // Extrair preço próximo à URL
-            const priceContext = text.substring(urlMatch.index, Math.min(text.length, urlMatch.index + 200));
-            const priceMatch = priceContext.match(/R\$\s*([\d.,]+)/i);
-            const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) : null;
-            
-            extractedProducts.push({
-              id: `prod-url-${analysis.id}-${extractedProducts.length}`,
-              name,
-              description: 'Produto identificado na análise de concorrentes',
-              price,
-              original_price: null,
-              discount_percentage: null,
-              category: 'Nacional',
-              availability: true,
-              url: productUrl,
-              image_url: null,
-              external_id: null,
-              metadata: { source: 'competitor_url', competitor_id: analysis.competitor_id },
-              created_at: analysis.analyzed_at,
-              scraped_at: analysis.analyzed_at
-            });
-          }
-          
-          // 3. Fallback: pacotes mencionados SEM URL real (marcar como sem link)
-          const packageRegex = /Pacote[:\s]+([^.]+?)[\s.]+Preço[:\s]+(?:A partir de\s+)?R\$\s*([\d.,]+)/gi;
-          let match;
-          
-          while ((match = packageRegex.exec(text)) !== null) {
-            const name = match[1].trim();
-            const priceStr = match[2].replace(/\./g, '').replace(',', '.');
-            const price = parseFloat(priceStr);
-            
-            // Só adicionar se não tiver URL real já extraída para este produto
-            const alreadyExists = extractedProducts.some(p => p.name.toLowerCase().includes(name.toLowerCase()));
-            
-            if (!isNaN(price) && price > 0 && !alreadyExists) {
+          // 1. PRIMEIRO: Verificar se há produtos estruturados da API
+          if (dataObj.products && Array.isArray(dataObj.products)) {
+            dataObj.products.forEach((prod: any) => {
               let category = 'Nacional';
+              const name = prod.name || 'Produto sem nome';
               if (name.toLowerCase().includes('internacional') || 
-                  name.toLowerCase().includes('punta cana') ||
-                  name.toLowerCase().includes('buenos aires') ||
-                  name.toLowerCase().includes('cancún')) {
+                  name.toLowerCase().includes('exterior') ||
+                  name.toLowerCase().includes('europa') ||
+                  name.toLowerCase().includes('eua')) {
                 category = 'Internacional';
               }
               
               extractedProducts.push({
-                id: `prod-nourl-${analysis.id}-${extractedProducts.length}`,
-                name: name,
-                description: `Produto mencionado (link não disponível)`,
-                price: Math.round(price),
-                original_price: null,
-                discount_percentage: null,
-                category: category,
-                availability: true,
-                url: '', // URL vazia = sem link
-                image_url: null,
-                external_id: null,
-                metadata: { source: 'competitor_mention', competitor_id: analysis.competitor_id },
+                id: `prod-api-${analysis.id}-${extractedProducts.length}`,
+                name,
+                description: prod.description || 'Produto coletado via API',
+                price: prod.price ? parseFloat(prod.price) : null,
+                original_price: prod.original_price ? parseFloat(prod.original_price) : null,
+                discount_percentage: prod.discount_percentage || null,
+                category,
+                availability: prod.availability !== false,
+                url: prod.url || '',
+                image_url: prod.image_url || null,
+                external_id: prod.external_id || null,
+                metadata: { source: 'api', competitor_id: analysis.competitor_id },
                 created_at: analysis.analyzed_at,
                 scraped_at: analysis.analyzed_at
               });
+            });
+          }
+          
+          // 2. SEGUNDO: Extrair do texto apenas se não houver produtos estruturados
+          if (extractedProducts.length === 0) {
+            const text = (analysis.insights || '') + ' ' + (analysis.recommendations || '') + ' ' + (dataObj?.raw_response || '');
+            
+            // Regex melhorado para capturar URLs de produtos/pacotes
+            const urlRegex = /(https?:\/\/[^\s"')<]+(?:\/produto|\/pacote|\/destino|\/offer|\/oferta|\/viagem|moblix\.com|cvc\.com|decolar\.com)[^\s"')<]*)/gi;
+            let urlMatch;
+            const foundUrls = new Set<string>();
+            
+            while ((urlMatch = urlRegex.exec(text)) !== null) {
+              const productUrl = urlMatch[1].replace(/[.,;!?]+$/, ''); // Remove pontuação final
+              if (foundUrls.has(productUrl)) continue; // Evitar duplicatas
+              foundUrls.add(productUrl);
+              
+              // Extrair nome do produto próximo à URL
+              const context = text.substring(Math.max(0, urlMatch.index - 150), urlMatch.index);
+              const nameMatch = context.match(/(?:Pacote|Produto|Destino|Oferta)[:\s]+([^.\n]{5,60})/i) ||
+                                context.match(/([^.\n]{10,60})(?:\s+por|\s+a partir de)/i);
+              const name = nameMatch ? nameMatch[1].trim() : `Produto ${extractedProducts.length + 1}`;
+              
+              // Extrair preço próximo à URL
+              const priceContext = text.substring(Math.max(0, urlMatch.index - 100), Math.min(text.length, urlMatch.index + 200));
+              const priceMatch = priceContext.match(/(?:por|a partir de|de)?\s*R\$\s*([\d.,]+)/i);
+              const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.')) : null;
+              
+              let category = 'Nacional';
+              if (name.toLowerCase().includes('internacional') || 
+                  name.toLowerCase().includes('exterior') ||
+                  productUrl.toLowerCase().includes('internacional')) {
+                category = 'Internacional';
+              }
+              
+              extractedProducts.push({
+                id: `prod-url-${analysis.id}-${extractedProducts.length}`,
+                name: name.length > 80 ? name.substring(0, 77) + '...' : name,
+                description: 'Produto encontrado na análise',
+                price,
+                original_price: null,
+                discount_percentage: null,
+                category,
+                availability: true,
+                url: productUrl,
+                image_url: null,
+                external_id: null,
+                metadata: { source: 'text_url', competitor_id: analysis.competitor_id },
+                created_at: analysis.analyzed_at,
+                scraped_at: analysis.analyzed_at
+              });
+            }
+            
+            // 3. FALLBACK: Produtos mencionados sem URL (mostrar como "Link Indisponível")
+            const packageRegex = /(?:Pacote|Produto|Destino)[:\s]+([^.\n]+?)[\s.]+(?:por|a partir de|de)?\s*R\$\s*([\d.,]+)/gi;
+            let match;
+            
+            while ((match = packageRegex.exec(text)) !== null && extractedProducts.length < 15) {
+              const name = match[1].trim();
+              const priceStr = match[2].replace(/\./g, '').replace(',', '.');
+              const price = parseFloat(priceStr);
+              
+              // Só adicionar se não existir produto similar já
+              const alreadyExists = extractedProducts.some(p => 
+                p.name.toLowerCase().includes(name.toLowerCase().substring(0, 20))
+              );
+              
+              if (!isNaN(price) && price > 0 && !alreadyExists && name.length > 5) {
+                let category = 'Nacional';
+                if (name.toLowerCase().includes('internacional') || 
+                    name.toLowerCase().includes('punta cana') ||
+                    name.toLowerCase().includes('buenos aires') ||
+                    name.toLowerCase().includes('cancún') ||
+                    name.toLowerCase().includes('exterior')) {
+                  category = 'Internacional';
+                }
+                
+                extractedProducts.push({
+                  id: `prod-nourl-${analysis.id}-${extractedProducts.length}`,
+                  name: name.length > 80 ? name.substring(0, 77) + '...' : name,
+                  description: 'Análise de concorrente',
+                  price: Math.round(price),
+                  original_price: null,
+                  discount_percentage: null,
+                  category,
+                  availability: true,
+                  url: '',
+                  image_url: null,
+                  external_id: null,
+                  metadata: { source: 'text_mention', competitor_id: analysis.competitor_id },
+                  created_at: analysis.analyzed_at,
+                  scraped_at: analysis.analyzed_at
+                });
+              }
             }
           }
         });

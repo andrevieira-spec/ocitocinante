@@ -40,6 +40,11 @@ export const MarketOverview = () => {
     }
   };
 
+  // KPIs estruturados vindos do backend
+  const strategyAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights');
+  const strategyData = strategyAnalysis?.data || {};
+  const summary = strategyData.summary || {};
+
   const extractKeywords = () => {
     // Usar dados estruturados top_keywords do backend
     const trendsAnalysis = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
@@ -88,11 +93,6 @@ export const MarketOverview = () => {
     return <div className="text-center py-8">Carregando visão geral...</div>;
   }
 
-  // KPIs estruturados vindos do backend
-  const strategyAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights');
-  const strategyData = strategyAnalysis?.data || {};
-  const summary = strategyData.summary || {};
-  
   const demandIndex = summary.demand_index || 0;
   const priceVariation = (summary.price_variation_pct || 0).toFixed(1);
   const avgEngagement = (summary.avg_engagement_pct || 0).toFixed(1);

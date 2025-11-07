@@ -131,7 +131,7 @@ export const CompetitiveRadar = () => {
           const engagement = ((post.likes + post.comments) / followers) * 100;
           posts.push({
             channel: 'Instagram',
-            url: '#', // API do Instagram Business não retorna permalink público diretamente
+            url: post.permalink || '#',
             er: engagement,
             title: post.caption?.substring(0, 50) || 'Post Instagram'
           });
@@ -144,9 +144,10 @@ export const CompetitiveRadar = () => {
           const m = tweet.metrics;
           const totalEng = (m.like_count + m.retweet_count + m.reply_count);
           const engagement = (totalEng / 1000) * 100; // Assumindo ~1k seguidores
+          const username = dataObj.x_metrics?.username;
           posts.push({
             channel: 'X/Twitter',
-            url: '#', // Seria possível construir URL se tivéssemos tweet_id
+            url: (username && tweet.id) ? `https://x.com/${username}/status/${tweet.id}` : '#',
             er: engagement,
             title: tweet.text?.substring(0, 50) || 'Tweet'
           });
@@ -217,17 +218,21 @@ export const CompetitiveRadar = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={channelData} layout="vertical">
-              <XAxis type="number" stroke="hsl(var(--text-muted))" />
-              <YAxis type="category" dataKey="name" stroke="hsl(var(--text-muted))" />
-              <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                {channelData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {channelData.some(c => c.value > 0) ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={channelData} layout="vertical">
+                <XAxis type="number" stroke="hsl(var(--text-muted))" />
+                <YAxis type="category" dataKey="name" stroke="hsl(var(--text-muted))" />
+                <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                  {channelData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-8 text-text-muted">Sem dados de engajamento disponíveis</div>
+          )}
         </CardContent>
       </Card>
 
@@ -240,60 +245,64 @@ export const CompetitiveRadar = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 text-text-muted font-medium">#</th>
-                  <th className="text-left py-2 text-text-muted font-medium">Título</th>
-                  <th className="text-left py-2 text-text-muted font-medium">Canal</th>
-                  <th className="text-left py-2 text-text-muted font-medium">ER%</th>
-                  <th className="text-left py-2 text-text-muted font-medium">Velocidade</th>
-                  <th className="text-left py-2 text-text-muted font-medium">Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topContent.map((content, idx) => (
-                  <tr key={idx} className="border-b border-border/50">
-                    <td className="py-3 text-brand-orange font-bold">{idx + 1}</td>
-                    <td className="py-3 text-text-primary">{content.title}</td>
-                    <td className="py-3">
-                      <Badge variant="outline" className="text-xs">{content.channel}</Badge>
-                    </td>
-                    <td className="py-3 text-text-primary font-semibold">{content.er}%</td>
-                    <td className="py-3">
-                      <Badge 
-                        className={
-                          content.velocity === 'Muito Alta' 
-                            ? 'bg-success/20 text-success' 
-                            : content.velocity === 'Alta'
-                            ? 'bg-brand-orange/20 text-brand-orange'
-                            : 'bg-warning/20 text-warning'
-                        }
-                      >
-                        {content.velocity}
-                      </Badge>
-                    </td>
-                    <td className="py-3">
-                      <a 
-                        href={content.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className={content.url === '#' ? 'cursor-not-allowed opacity-50' : ''}
-                        onClick={(e) => {
-                          if (content.url === '#') {
-                            e.preventDefault();
-                          }
-                        }}
-                      >
-                        <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer hover:text-brand-orange transition-colors" />
-                      </a>
-                    </td>
+          {topContent.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 text-text-muted font-medium">#</th>
+                    <th className="text-left py-2 text-text-muted font-medium">Título</th>
+                    <th className="text-left py-2 text-text-muted font-medium">Canal</th>
+                    <th className="text-left py-2 text-text-muted font-medium">ER%</th>
+                    <th className="text-left py-2 text-text-muted font-medium">Velocidade</th>
+                    <th className="text-left py-2 text-text-muted font-medium">Link</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {topContent.map((content, idx) => (
+                    <tr key={idx} className="border-b border-border/50">
+                      <td className="py-3 text-brand-orange font-bold">{idx + 1}</td>
+                      <td className="py-3 text-text-primary">{content.title}</td>
+                      <td className="py-3">
+                        <Badge variant="outline" className="text-xs">{content.channel}</Badge>
+                      </td>
+                      <td className="py-3 text-text-primary font-semibold">{content.er}%</td>
+                      <td className="py-3">
+                        <Badge 
+                          className={
+                            content.velocity === 'Muito Alta' 
+                              ? 'bg-success/20 text-success' 
+                              : content.velocity === 'Alta'
+                              ? 'bg-brand-orange/20 text-brand-orange'
+                              : 'bg-warning/20 text-warning'
+                          }
+                        >
+                          {content.velocity}
+                        </Badge>
+                      </td>
+                      <td className="py-3">
+                        <a 
+                          href={content.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={content.url === '#' ? 'cursor-not-allowed opacity-50' : ''}
+                          onClick={(e) => {
+                            if (content.url === '#') {
+                              e.preventDefault();
+                            }
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4 text-brand-blue cursor-pointer hover:text-brand-orange transition-colors" />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-text-muted">Nenhum conteúdo identificado nesta análise</div>
+          )}
         </CardContent>
       </Card>
 

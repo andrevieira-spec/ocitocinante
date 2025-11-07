@@ -182,7 +182,22 @@ export const ProductPricing = () => {
         });
       }
       
-      setProducts(extractedProducts);
+      // Tentar carregar produtos reais do scraper
+      const { data: scraped, error: scrapedError } = await supabase
+        .from('products')
+        .select('*')
+        .order('scraped_at', { ascending: false })
+        .limit(30);
+
+      if (scrapedError) {
+        console.warn('Falha ao buscar produtos do scraper, usando extraídos do texto');
+      }
+
+      if (scraped && scraped.length > 0) {
+        setProducts(scraped as Product[]);
+      } else {
+        setProducts(extractedProducts);
+      }
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
     } finally {
@@ -253,9 +268,10 @@ export const ProductPricing = () => {
         </div>
       </div>
 
-      {Object.entries(groupedByCategory)
-        .filter(([category]) => category === scope)
-        .map(([category, categoryProducts]) => (
+      {(Object.entries(groupedByCategory).filter(([category]) => category === scope).length > 0 
+        ? Object.entries(groupedByCategory).filter(([category]) => category === scope)
+        : Object.entries(groupedByCategory)
+      ).map(([category, categoryProducts]) => (
         <div key={category} className="space-y-4">
           <h3 className="text-xl font-semibold flex items-center gap-2">
             <Badge variant="outline">{category}</Badge>

@@ -447,8 +447,10 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
           const analysisData: any = { raw_response: socialAnalysis.data };
           if (xData) {
             analysisData.x_metrics = {
+              username: xData.user?.username,
               tweets_analyzed: xData.tweets.length,
               sample_tweets: xData.tweets.slice(0, 3).map((t: any) => ({
+                id: t.id,
                 text: t.text.substring(0, 100),
                 metrics: t.public_metrics
               }))
@@ -462,7 +464,8 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
                 caption: p.caption?.substring(0, 100),
                 likes: p.like_count,
                 comments: p.comments_count,
-                type: p.media_type
+                type: p.media_type,
+                permalink: p.permalink
               }))
             };
           }

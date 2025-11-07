@@ -199,7 +199,20 @@ export const ChatInterface = () => {
                 ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-primary' 
                 : 'bg-card border-border'
             }`}>
-              <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
+              {(() => {
+                try {
+                  const parsed = JSON.parse(msg.content);
+                  return (
+                    <pre className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium overflow-x-auto">
+                      {JSON.stringify(parsed, null, 2)}
+                    </pre>
+                  );
+                } catch {
+                  return (
+                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
+                  );
+                }
+              })()}
             </Card>
             {msg.role === 'user' && (
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-secondary to-secondary/80 flex items-center justify-center flex-shrink-0 shadow-lg">

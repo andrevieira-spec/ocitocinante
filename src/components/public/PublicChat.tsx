@@ -127,7 +127,18 @@ export const PublicChat = () => {
                   : 'bg-background border'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              {(() => {
+                try {
+                  const parsed = JSON.parse(msg.content);
+                  return (
+                    <pre className="text-xs whitespace-pre-wrap overflow-x-auto">
+                      {JSON.stringify(parsed, null, 2)}
+                    </pre>
+                  );
+                } catch {
+                  return <p className="text-sm whitespace-pre-wrap">{msg.content}</p>;
+                }
+              })()}
             </div>
             {msg.role === 'user' && (
               <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">

@@ -47,6 +47,19 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom design system tokens
+        "card-dark": "hsl(var(--card-dark))",
+        text: {
+          primary: "hsl(var(--text-primary))",
+          muted: "hsl(var(--text-muted))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
+        "brand-orange": "hsl(var(--brand-orange))",
+        "brand-blue": "hsl(var(--brand-blue))",
+        "brand-yellow": "hsl(var(--brand-yellow))",
+        "brand-purple": "hsl(var(--brand-purple))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

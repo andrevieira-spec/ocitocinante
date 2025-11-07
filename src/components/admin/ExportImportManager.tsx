@@ -244,15 +244,28 @@ export function ExportImportManager() {
               <Alert>
                 <Database className="h-4 w-4" />
                 <AlertDescription>
-                  O export inclui:
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Dados de todas as tabelas principais</li>
-                    <li>Configurações de Edge Functions</li>
-                    <li>Manifest com checksum e metadados</li>
-                    <li>Template de secrets (sem valores reais)</li>
+                  <strong>O export gera um manifest.json completo com:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                    <li>Dados de 8 tabelas: competitors, campaigns, daily_campaigns, canva_designs, etc</li>
+                    <li>Metadados de 13 edge functions do sistema</li>
+                    <li>Schema do banco com contagens de registros</li>
+                    <li>Configurações (auth, storage buckets)</li>
+                    <li>Template de secrets (sem valores sensíveis)</li>
+                    <li>Checksum SHA-256 para validação de integridade</li>
+                    <li>Informações de compatibilidade e dependências</li>
                   </ul>
                 </AlertDescription>
               </Alert>
+
+              <div className="bg-muted/50 border rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-sm">Formato do Arquivo</h4>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <div>• <strong>Nome:</strong> cbos-export-YYYY-MM-DD.json</div>
+                  <div>• <strong>Tipo:</strong> JSON (manifest completo)</div>
+                  <div>• <strong>Uso:</strong> Backup, migração, auditoria</div>
+                  <div>• <strong>Segurança:</strong> Não contém secrets reais</div>
+                </div>
+              </div>
 
               <Button
                 onClick={handleExport}
@@ -263,12 +276,12 @@ export function ExportImportManager() {
                 {exporting ? (
                   <>
                     <Clock className="w-4 h-4 mr-2 animate-spin" />
-                    Exportando...
+                    Exportando CBOS...
                   </>
                 ) : (
                   <>
                     <Download className="w-4 h-4 mr-2" />
-                    Download CBOS (.json)
+                    Download CBOS (manifest.json)
                   </>
                 )}
               </Button>
@@ -288,11 +301,23 @@ export function ExportImportManager() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">Processo de Import</h4>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                  <li>Validação do manifest (checksum, versão, estrutura)</li>
+                  <li>Dry Run mostra o que será alterado</li>
+                  <li>Backup automático do estado atual</li>
+                  <li>Aplicação das mudanças nas tabelas</li>
+                  <li>Health check pós-import</li>
+                  <li>Rollback automático em caso de erro</li>
+                </ol>
+              </div>
+
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>ATENÇÃO:</strong> Esta operação substituirá completamente os dados atuais.
-                  Um backup automático será criado antes da aplicação.
+                  <strong>ATENÇÃO:</strong> Esta operação substituirá todos os dados das tabelas incluídas no manifest.
+                  Um backup automático será criado e disponibilizado para rollback se necessário.
                 </AlertDescription>
               </Alert>
 

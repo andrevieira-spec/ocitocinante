@@ -90,18 +90,26 @@ Deno.serve(async (req) => {
 
       // 2. Verify checksum
       validationReport.checks.push('Verifying checksum');
-      const { checksum: providedChecksum, signature, ...dataToHash } = manifest;
-      const dataString = JSON.stringify(dataToHash, null, 2);
-      const dataBytes = new TextEncoder().encode(dataString);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const calculatedChecksum = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      let checksumValid = false;
+      let providedChecksum = '';
+      
+      if (manifest.checksum) {
+        const { checksum, signature, ...dataToHash } = manifest;
+        providedChecksum = checksum;
+        const dataString = JSON.stringify(dataToHash, null, 2);
+        const dataBytes = new TextEncoder().encode(dataString);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const calculatedChecksum = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const checksumValid = calculatedChecksum === providedChecksum;
-      if (!checksumValid && !force) {
-        validationReport.errors.push('Checksum mismatch - data may be corrupted');
-      } else if (!checksumValid && force) {
-        validationReport.warnings.push('Checksum mismatch - proceeding due to force flag');
+        checksumValid = calculatedChecksum === providedChecksum;
+        if (!checksumValid && !force) {
+          validationReport.errors.push('Checksum mismatch - data may be corrupted');
+        } else if (!checksumValid && force) {
+          validationReport.warnings.push('Checksum mismatch - proceeding due to force flag');
+        }
+      } else {
+        validationReport.warnings.push('No checksum provided in manifest');
       }
 
       // 3. Version compatibility check
@@ -270,8 +278,9 @@ Deno.serve(async (req) => {
             validationReport.info.push(`Imported ${records.length} records to ${table}`);
           }
         } catch (error) {
-          importResults[table] = { success: false, error: error.message };
-          validationReport.errors.push(`Error importing ${table}: ${error.message}`);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          importResults[table] = { success: false, error: errorMessage };
+          validationReport.errors.push(`Error importing ${table}: ${errorMessage}`);
         }
       }
 
@@ -339,11 +348,12 @@ Deno.serve(async (req) => {
 
     } catch (error) {
       const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await supabase
         .from('cbos_operations')
         .update({
           status: 'failed',
-          error_message: error.message,
+          error_message: errorMessage,
           validation_report: validationReport,
           completed_at: new Date().toISOString(),
           duration_ms: duration,
@@ -355,8 +365,9 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Import error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

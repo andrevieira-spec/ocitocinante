@@ -132,6 +132,12 @@ Deno.serve(async (req) => {
           CANVA_CLIENT_SECRET: 'YOUR_CANVA_CLIENT_SECRET',
           LOVABLE_API_KEY: 'YOUR_LOVABLE_API_KEY',
         },
+        dependencies: {
+          node: '>=20',
+          deno: '>=1.37',
+          supabase: '>=2.0',
+        },
+        changelog: 'Export automático do CBOS para backup e migração entre sistemas',
       };
 
       // Calculate checksum
@@ -223,11 +229,12 @@ Por: ${user.email}
 
     } catch (error) {
       // Update operation as failed
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await supabase
         .from('cbos_operations')
         .update({
           status: 'failed',
-          error_message: error.message,
+          error_message: errorMessage,
           completed_at: new Date().toISOString(),
           duration_ms: Date.now() - startTime,
         })
@@ -238,8 +245,9 @@ Por: ${user.email}
 
   } catch (error) {
     console.error('Export error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

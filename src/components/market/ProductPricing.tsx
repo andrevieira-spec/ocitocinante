@@ -48,7 +48,7 @@ export const ProductPricing = () => {
 
       if (error) throw error;
 
-      // Extrair produtos REAIS das análises (com URLs reais dos concorrentes)
+      // Extrair produtos das análises - do texto
       const extractedProducts: Product[] = [];
       
       if (analyses && analyses.length > 0) {
@@ -56,39 +56,15 @@ export const ProductPricing = () => {
           const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
           const text = (analysis.insights || '') + ' ' + (analysis.recommendations || '') + ' ' + (dataObj?.raw_response || '');
           
-          // 1. Tentar extrair produtos estruturados do campo data
-          if (dataObj?.products && Array.isArray(dataObj.products)) {
-            dataObj.products.forEach((prod: any) => {
-              if (prod.url && prod.url.startsWith('http')) {
-                extractedProducts.push({
-                  id: `prod-${analysis.id}-${prod.id || extractedProducts.length}`,
-                  name: prod.name || prod.title || 'Produto sem nome',
-                  description: prod.description || '',
-                  price: prod.price || prod.current_price || null,
-                  original_price: prod.original_price || null,
-                  discount_percentage: prod.discount_percentage || null,
-                  category: prod.category || 'Nacional',
-                  availability: prod.availability !== false,
-                  url: prod.url,
-                  image_url: prod.image_url || null,
-                  external_id: prod.external_id || prod.id || null,
-                  metadata: { source: 'competitor_analysis', competitor_id: analysis.competitor_id },
-                  created_at: analysis.analyzed_at,
-                  scraped_at: analysis.analyzed_at
-                });
-              }
-            });
-          }
-          
-          // 2. Extrair URLs de produtos mencionados no texto com regex
-          const urlRegex = /(https?:\/\/[^\s"')]+(?:produto|pacote|destino|offer|oferta)[^\s"')<]*)/gi;
+          // 1. Extrair URLs de produtos mencionados no texto
+          const urlRegex = /(https?:\/\/[^\s"')]+(?:produto|pacote|destino|offer|oferta|viagem)[^\s"')<]*)/gi;
           let urlMatch;
           while ((urlMatch = urlRegex.exec(text)) !== null) {
             const productUrl = urlMatch[1];
             
             // Extrair nome do produto próximo à URL
             const context = text.substring(Math.max(0, urlMatch.index - 100), urlMatch.index);
-            const nameMatch = context.match(/(?:Pacote|Produto)[:\s]+([^.]{5,50})/i);
+            const nameMatch = context.match(/(?:Pacote|Produto|Destino)[:\s]+([^.]{5,50})/i);
             const name = nameMatch ? nameMatch[1].trim() : 'Produto do concorrente';
             
             // Extrair preço próximo à URL

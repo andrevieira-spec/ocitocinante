@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Send, Bot, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { ConversationsList } from './ConversationsList';
 
 const messageSchema = z.object({
   message: z.string()
@@ -25,6 +26,7 @@ export const ChatInterface = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [refreshConversations, setRefreshConversations] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -33,6 +35,40 @@ export const ChatInterface = () => {
   };
 
   useEffect(scrollToBottom, [messages]);
+
+  const loadConversationMessages = useCallback(async (convId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const loadedMessages: Message[] = (data || []).map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      }));
+
+      setMessages(loadedMessages);
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar as mensagens',
+        variant: 'destructive'
+      });
+    }
+  }, [toast]);
+
+  const handleSelectConversation = useCallback((convId: string | null) => {
+    setConversationId(convId);
+    if (convId) {
+      loadConversationMessages(convId);
+    } else {
+      setMessages([]);
+    }
+  }, [loadConversationMessages]);
 
   const sendMessage = useCallback(async () => {
     if (loading) return;
@@ -63,6 +99,7 @@ export const ChatInterface = () => {
 
       setConversationId(data.conversationId);
       setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+      setRefreshConversations(prev => prev + 1);
     } catch (error: any) {
       const userMessage = error.message?.includes('auth')
         ? 'Sua sessão expirou. Faça login novamente.'
@@ -78,7 +115,15 @@ export const ChatInterface = () => {
   }, [input, loading, conversationId, toast]);
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-background to-muted/20">
+    <div className="flex h-full bg-gradient-to-b from-background to-muted/20">
+      <div className="w-64 flex-shrink-0">
+        <ConversationsList
+          currentConversationId={conversationId}
+          onSelectConversation={handleSelectConversation}
+          onConversationsChange={() => setRefreshConversations(prev => prev + 1)}
+        />
+      </div>
+      <div className="flex flex-col flex-1">
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-12 space-y-4">
@@ -201,6 +246,7 @@ export const ChatInterface = () => {
             <Send className="w-5 h-5" />
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );

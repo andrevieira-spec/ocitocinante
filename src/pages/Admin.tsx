@@ -9,10 +9,11 @@ import { CompetitorForm } from '@/components/competitors/CompetitorForm';
 import { CompetitorsList } from '@/components/competitors/CompetitorsList';
 import { AccessRequestsManager } from '@/components/admin/AccessRequestsManager';
 import { GoogleApiHealthCheck } from '@/components/admin/GoogleApiHealthCheck';
+import { ExportImportManager } from '@/components/admin/ExportImportManager';
 import { CanvaIntegration } from '@/components/canva/CanvaIntegration';
 import { BackToHomeButton } from '@/components/navigation/BackToHomeButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users, Palette, Activity } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users, Palette, Activity, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
@@ -125,6 +126,10 @@ export default function Admin() {
               <Activity className="w-4 h-4" />
               APIs Google
             </TabsTrigger>
+            <TabsTrigger value="export-import" className="gap-2">
+              <Package className="w-4 h-4" />
+              Export/Import
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="dashboard" className="flex-1 m-0 overflow-y-auto">
@@ -153,6 +158,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="health" className="flex-1 m-0 overflow-y-auto p-6">
           <GoogleApiHealthCheck />
+        </TabsContent>
+        <TabsContent value="export-import" className="flex-1 m-0 overflow-y-auto p-6">
+          <ExportImportManager />
         </TabsContent>
       </Tabs>
     </div>

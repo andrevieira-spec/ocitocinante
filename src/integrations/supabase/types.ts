@@ -318,6 +318,161 @@ export type Database = {
         }
         Relationships: []
       }
+      cbos_operations: {
+        Row: {
+          backup_id: string | null
+          backup_path: string | null
+          checksum: string | null
+          completed_at: string | null
+          components_count: number | null
+          created_at: string | null
+          dry_run: boolean | null
+          duration_ms: number | null
+          error_message: string | null
+          execution_log: Json | null
+          file_path: string | null
+          file_size: number | null
+          forced: boolean | null
+          health_check_passed: boolean | null
+          health_check_report: Json | null
+          id: string
+          manifest: Json | null
+          operation_type: string
+          signature_valid: boolean | null
+          started_at: string | null
+          status: string
+          user_email: string
+          user_id: string
+          user_name: string | null
+          validation_report: Json | null
+          version: string | null
+        }
+        Insert: {
+          backup_id?: string | null
+          backup_path?: string | null
+          checksum?: string | null
+          completed_at?: string | null
+          components_count?: number | null
+          created_at?: string | null
+          dry_run?: boolean | null
+          duration_ms?: number | null
+          error_message?: string | null
+          execution_log?: Json | null
+          file_path?: string | null
+          file_size?: number | null
+          forced?: boolean | null
+          health_check_passed?: boolean | null
+          health_check_report?: Json | null
+          id?: string
+          manifest?: Json | null
+          operation_type: string
+          signature_valid?: boolean | null
+          started_at?: string | null
+          status: string
+          user_email: string
+          user_id: string
+          user_name?: string | null
+          validation_report?: Json | null
+          version?: string | null
+        }
+        Update: {
+          backup_id?: string | null
+          backup_path?: string | null
+          checksum?: string | null
+          completed_at?: string | null
+          components_count?: number | null
+          created_at?: string | null
+          dry_run?: boolean | null
+          duration_ms?: number | null
+          error_message?: string | null
+          execution_log?: Json | null
+          file_path?: string | null
+          file_size?: number | null
+          forced?: boolean | null
+          health_check_passed?: boolean | null
+          health_check_report?: Json | null
+          id?: string
+          manifest?: Json | null
+          operation_type?: string
+          signature_valid?: boolean | null
+          started_at?: string | null
+          status?: string
+          user_email?: string
+          user_id?: string
+          user_name?: string | null
+          validation_report?: Json | null
+          version?: string | null
+        }
+        Relationships: []
+      }
+      cbos_snapshots: {
+        Row: {
+          checksum: string
+          compressed_size: number | null
+          configurations: Json
+          created_at: string | null
+          created_by: string | null
+          database_schema: Json
+          description: string | null
+          edge_functions: Json
+          expires_at: string | null
+          id: string
+          operation_id: string | null
+          secrets_template: Json | null
+          snapshot_type: string
+          table_data: Json
+          tags: string[] | null
+          uncompressed_size: number | null
+          version: string
+        }
+        Insert: {
+          checksum: string
+          compressed_size?: number | null
+          configurations: Json
+          created_at?: string | null
+          created_by?: string | null
+          database_schema: Json
+          description?: string | null
+          edge_functions: Json
+          expires_at?: string | null
+          id?: string
+          operation_id?: string | null
+          secrets_template?: Json | null
+          snapshot_type: string
+          table_data: Json
+          tags?: string[] | null
+          uncompressed_size?: number | null
+          version: string
+        }
+        Update: {
+          checksum?: string
+          compressed_size?: number | null
+          configurations?: Json
+          created_at?: string | null
+          created_by?: string | null
+          database_schema?: Json
+          description?: string | null
+          edge_functions?: Json
+          expires_at?: string | null
+          id?: string
+          operation_id?: string | null
+          secrets_template?: Json | null
+          snapshot_type?: string
+          table_data?: Json
+          tags?: string[] | null
+          uncompressed_size?: number | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbos_snapshots_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "cbos_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitors: {
         Row: {
           category: string | null
@@ -1033,6 +1188,7 @@ export type Database = {
     Functions: {
       archive_old_manual_analyses: { Args: never; Returns: undefined }
       cleanup_expired_oauth_states: { Args: never; Returns: undefined }
+      cleanup_old_cbos_snapshots: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

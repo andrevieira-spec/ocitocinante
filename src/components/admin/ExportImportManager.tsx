@@ -11,11 +11,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function ExportImportManager() {
   const [exporting, setExporting] = useState(false);
+  const [exportingGithub, setExportingGithub] = useState(false);
   const [importing, setImporting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [manifest, setManifest] = useState<any>(null);
   const [validationReport, setValidationReport] = useState<any>(null);
   const [operations, setOperations] = useState<any[]>([]);
+  const [githubBranch, setGithubBranch] = useState('main');
+  const [githubCommitSha, setGithubCommitSha] = useState('');
   const { toast } = useToast();
 
   const handleExport = async () => {
@@ -54,6 +57,88 @@ export function ExportImportManager() {
       });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportGithub = async () => {
+    try {
+      setExportingGithub(true);
+      
+      const { data, error } = await supabase.functions.invoke('export-github', {
+        method: 'GET',
+      });
+
+      if (error) throw error;
+
+      // Create blob and download
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cbos-github-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: '✅ Export GitHub Concluído',
+        description: 'Manifest com dados + metadados do repositório exportado',
+      });
+
+      loadOperations();
+    } catch (error: any) {
+      console.error('Export GitHub error:', error);
+      toast({
+        title: '❌ Erro no Export GitHub',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setExportingGithub(false);
+    }
+  };
+
+  const handleGithubImport = async (dryRun: boolean, apply: boolean) => {
+    try {
+      setValidating(dryRun);
+      setImporting(apply);
+
+      const { data, error } = await supabase.functions.invoke('import-github', {
+        body: {
+          branch: githubBranch,
+          commit_sha: githubCommitSha || undefined,
+          dry_run: dryRun,
+          apply: apply,
+        },
+      });
+
+      if (error) throw error;
+
+      if (dryRun) {
+        setValidationReport(data.report);
+        toast({
+          title: '✅ Validação GitHub Concluída',
+          description: `Branch: ${data.report.branch}, Commit: ${data.report.commit_sha.substring(0, 8)}`,
+        });
+      } else if (apply) {
+        toast({
+          title: '✅ Deploy Registrado',
+          description: data.message,
+        });
+      }
+
+      loadOperations();
+    } catch (error: any) {
+      console.error('GitHub import error:', error);
+      toast({
+        title: '❌ Erro no GitHub Import',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setValidating(false);
+      setImporting(false);
     }
   };
 
@@ -223,8 +308,9 @@ export function ExportImportManager() {
       </div>
 
       <Tabs defaultValue="export" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="export">Export</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="export">Export Dados</TabsTrigger>
+          <TabsTrigger value="export-github">Export GitHub</TabsTrigger>
           <TabsTrigger value="import">Import</TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
@@ -285,6 +371,166 @@ export function ExportImportManager() {
                   </>
                 )}
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="export-github" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Exportar CBOS via GitHub API
+              </CardTitle>
+              <CardDescription>
+                Gera manifest JSON enriquecido com metadados do repositório GitHub
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Database className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Export GitHub inclui tudo do export padrão MAIS:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                    <li>Informações do repositório (URL, branch, commit SHA)</li>
+                    <li>Lista de edge functions detectadas no GitHub</li>
+                    <li>Metadados de compatibilidade e dependências</li>
+                    <li>Checksum de integridade dos dados</li>
+                    <li>Changelog e versão do sistema</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <div className="bg-muted/50 border rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-sm">Como funciona</h4>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <div>1. Sistema se conecta ao repositório GitHub configurado</div>
+                  <div>2. Lê o commit SHA atual da branch principal</div>
+                  <div>3. Detecta edge functions via GitHub API</div>
+                  <div>4. Exporta dados das tabelas (igual ao export padrão)</div>
+                  <div>5. Gera manifest JSON enriquecido com metadados Git</div>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleExportGithub}
+                disabled={exportingGithub}
+                className="w-full"
+                size="lg"
+              >
+                {exportingGithub ? (
+                  <>
+                    <Clock className="w-4 h-4 mr-2 animate-spin" />
+                    Exportando via GitHub...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download CBOS GitHub (manifest.json)
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Import/Deploy via GitHub
+              </CardTitle>
+              <CardDescription>
+                Validar branch/commit e registrar deploy no sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">Processo GitHub Import</h4>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                  <li>Validar que branch/commit existem no repositório</li>
+                  <li>Buscar detalhes do commit (autor, data, arquivos alterados)</li>
+                  <li>Dry Run mostra informações do commit</li>
+                  <li>Apply registra deploy no histórico (CI/CD externo faz deploy real)</li>
+                </ol>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block mb-2 font-medium text-sm">Branch</label>
+                  <input
+                    type="text"
+                    value={githubBranch}
+                    onChange={(e) => setGithubBranch(e.target.value)}
+                    placeholder="main"
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 font-medium text-sm">Commit SHA (opcional)</label>
+                  <input
+                    type="text"
+                    value={githubCommitSha}
+                    onChange={(e) => setGithubCommitSha(e.target.value)}
+                    placeholder="abc123... (deixe vazio para usar HEAD da branch)"
+                    className="w-full px-3 py-2 border rounded-md bg-background"
+                  />
+                </div>
+
+                {validationReport && (
+                  <Card className="bg-muted">
+                    <CardContent className="pt-6">
+                      <div className="space-y-2 text-sm">
+                        <div><strong>Branch:</strong> {validationReport.branch}</div>
+                        <div><strong>Commit:</strong> {validationReport.commit_sha?.substring(0, 8)}</div>
+                        <div><strong>Mensagem:</strong> {validationReport.commit_message}</div>
+                        <div><strong>Autor:</strong> {validationReport.commit_author}</div>
+                        <div><strong>Data:</strong> {new Date(validationReport.commit_date).toLocaleString('pt-BR')}</div>
+                        <div><strong>Arquivos:</strong> {validationReport.files_changed} alterados (+{validationReport.additions} -{validationReport.deletions})</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleGithubImport(true, false)}
+                    disabled={!githubBranch || validating}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {validating ? (
+                      <>
+                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                        Dry Run (Validar)
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={() => handleGithubImport(false, true)}
+                    disabled={!githubBranch || importing}
+                    className="flex-1"
+                  >
+                    {importing ? (
+                      <>
+                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                        Registrando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Aplicar Deploy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

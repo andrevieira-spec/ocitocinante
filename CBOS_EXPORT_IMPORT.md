@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Sistema completo de exportação e importação do CBOS, permitindo backup, migração e restauração segura de todos os dados e configurações.
+Sistema completo de exportação e importação do CBOS, permitindo backup, migração e restauração segura de todos os dados e configurações. Inclui integração com GitHub API para metadados de código.
 
 ## Arquitetura
 
@@ -255,9 +255,97 @@ Função `cleanup_old_cbos_snapshots()` roda periodicamente:
 
 5. **Migrations**: SQL migrations não são exportadas/importadas automaticamente. O schema é descrito mas não há replay de migrations.
 
+## GitHub API Integration
+
+### Export GitHub
+
+**Endpoint:** `export-github` (Edge Function)
+
+**Formato de Saída:** JSON (manifest.json enriquecido)
+
+**Funcionalidade:**
+- Conecta ao repositório GitHub configurado via `GITHUB_TOKEN` e `GITHUB_REPO`
+- Lê o commit SHA atual da branch principal
+- Detecta edge functions via GitHub API
+- Exporta dados das tabelas (igual ao export padrão)
+- Gera manifest JSON enriquecido com metadados Git
+
+**Campos adicionais no manifest:**
+```json
+{
+  "repo": {
+    "provider": "github",
+    "url": "https://github.com/USUARIO/REPO",
+    "default_branch": "main",
+    "current_commit_sha": "abc123..."
+  },
+  "integrity": {
+    "data_checksum": "sha256_hash",
+    "schema_version": "1.0.0"
+  }
+}
+```
+
+### Import GitHub
+
+**Endpoint:** `import-github` (Edge Function)
+
+**Parâmetros:**
+```json
+{
+  "branch": "main",
+  "commit_sha": "abc123...",  // opcional
+  "dry_run": true,            // validação
+  "apply": false              // registrar deploy
+}
+```
+
+**Funcionalidade:**
+- Valida que branch/commit existem no repositório
+- Busca detalhes do commit (autor, data, arquivos alterados, estatísticas)
+- Dry Run retorna relatório detalhado com informações do commit
+- Apply registra operação de deploy no histórico do sistema
+- **Nota:** Deploy real do código acontece via CI/CD externo (GitHub Actions)
+
+**Relatório de Validação:**
+```json
+{
+  "branch": "main",
+  "commit_sha": "abc123...",
+  "commit_message": "feat: nova funcionalidade",
+  "commit_author": "Andre Vieira",
+  "commit_date": "2025-11-07T10:30:00Z",
+  "files_changed": 12,
+  "additions": 245,
+  "deletions": 89,
+  "validation_status": "valid"
+}
+```
+
+### Configuração Necessária
+
+**Secrets no Supabase:**
+- `GITHUB_TOKEN`: Personal Access Token com permissões `repo` (leitura)
+- `GITHUB_REPO`: Nome do repositório no formato `owner/repo`
+- `GITHUB_BRANCH_DEFAULT`: Branch principal (padrão: `main`)
+
+**Permissões necessárias:**
+- Apenas administradores com role `admin`
+- MFA recomendado para operações de apply
+
+**Como obter GitHub Token:**
+1. Acesse GitHub → Settings → Developer settings → Personal access tokens
+2. Generate new token (classic)
+3. Selecione scopes: `repo` (Full control of private repositories)
+4. Copie o token e adicione aos secrets do Supabase
+
 ## Roadmap Futuro
 
-- [ ] Export em formato ZIP com código fonte (via integração Git)
+- [x] Integração com GitHub API para metadados de código
+- [x] Validação de branches e commits via GitHub API
+- [x] Registro de deploys no histórico do sistema
+- [ ] Export em formato ZIP com código fonte completo
+- [ ] Criação automática de PRs via GitHub API
 - [ ] Assinatura digital RSA/PGP completa
 - [ ] Scheduler automático para exports periódicos
 - [ ] Diff visual entre versões antes do import

@@ -41,3 +41,18 @@ verify_jwt = true
 
 [functions.validate-google-cloud]
 verify_jwt = true
+
+[functions.export-cbos]
+verify_jwt = true
+
+[functions.import-cbos]
+verify_jwt = true
+
+[functions.export-github]
+verify_jwt = true
+
+[functions.import-github]
+verify_jwt = true
+
+[functions.check-api-tokens]
+verify_jwt = true

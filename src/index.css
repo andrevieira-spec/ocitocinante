@@ -113,3 +113,14 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Fallback utility classes to ensure visibility even if Tailwind tokens are missing */
+@layer utilities {
+  .text-text-primary { color: hsl(var(--text-primary)); }
+  .text-text-muted { color: hsl(var(--text-muted)); }
+  .bg-card-dark { background-color: hsl(var(--card-dark)); }
+  .text-success { color: hsl(var(--success)); }
+  .text-warning { color: hsl(var(--warning)); }
+  .text-danger { color: hsl(var(--danger)); }
+}
+

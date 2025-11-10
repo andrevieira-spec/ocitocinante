@@ -1,5 +1,7 @@
 # Welcome to your Lovable project
 
+Teste de integração GPT + GitHub
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/62965e9e-7836-46d9-9cc2-ca6912c0d4ff

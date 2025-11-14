@@ -177,7 +177,28 @@ export const CompetitiveRadar = () => {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="text-center py-8 text-text-muted">Sem dados de engajamento disponíveis</div>
+            <div className="space-y-3 py-4">
+              <div className="text-center text-text-muted">Sem dados de engajamento estruturados. Exibindo insights recentes:</div>
+              {analyses.slice(0, 3).map((analysis, idx) => {
+                const bullets = (analysis.insights || '')
+                  .split('\n')
+                  .map((l) => l.trim())
+                  .filter((l) => l && l.length > 20)
+                  .slice(0, 3);
+                return (
+                  <div key={`fallback-engagement-${idx}`} className="rounded-md border border-border/50 p-3">
+                    <div className="text-sm text-text-muted mb-2">
+                      {new Date(analysis.analyzed_at as any).toLocaleDateString('pt-BR')} · {(analysis.analysis_type || '').replace(/_/g, ' ')}
+                    </div>
+                    <ul className="list-disc pl-5 space-y-1 text-text-primary">
+                      {bullets.map((b, i) => (
+                        <li key={i}>{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -245,7 +266,28 @@ export const CompetitiveRadar = () => {
               </table>
             </div>
           ) : (
-            <div className="text-center py-8 text-text-muted">Nenhum conteúdo identificado nesta análise</div>
+            <div className="space-y-3 py-4">
+              <div className="text-center text-text-muted">Sem posts estruturados. Exibindo destaques textuais recentes:</div>
+              {analyses.slice(0, 3).map((analysis, idx) => {
+                const bullets = (analysis.insights || '')
+                  .split('\n')
+                  .map((l) => l.trim())
+                  .filter((l) => l && l.length > 20)
+                  .slice(0, 3);
+                return (
+                  <div key={`fallback-top-${idx}`} className="rounded-md border border-border/50 p-3">
+                    <div className="text-sm text-text-muted mb-2">
+                      {new Date(analysis.analyzed_at as any).toLocaleDateString('pt-BR')} · {(analysis.analysis_type || '').replace(/_/g, ' ')}
+                    </div>
+                    <ul className="list-disc pl-5 space-y-1 text-text-primary">
+                      {bullets.map((b, i) => (
+                        <li key={i}>{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

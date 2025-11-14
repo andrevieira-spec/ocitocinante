@@ -13,7 +13,7 @@ async function sha256(message: string) {
 }
 
 function base64UrlEncode(buf: Uint8Array) {
-  let str = btoa(String.fromCharCode(...buf));
+  const str = btoa(String.fromCharCode(...buf));
   return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 

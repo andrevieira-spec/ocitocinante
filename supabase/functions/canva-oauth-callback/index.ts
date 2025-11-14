@@ -20,7 +20,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     // Usar a mesma redirect URI do passo de autorização
-    const appUrl = Deno.env.get('APP_URL') || 'https://62965e9e-7836-46d9-9cc2-ca6912c0d4ff.lovableproject.com';
+    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:5173';
     const redirectUri = `${appUrl}/canva/callback`;
 
     const supabase = createClient(supabaseUrl, supabaseKey);

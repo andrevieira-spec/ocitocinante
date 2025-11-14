@@ -15,6 +15,10 @@ import { PeopleAlsoAsk } from '@/components/market/PeopleAlsoAsk';
 import { SocialMomentum } from '@/components/market/SocialMomentum';
 import { StrategyBI } from '@/components/market/StrategyBI';
 import { AnomaliesLogs } from '@/components/market/AnomaliesLogs';
+import { ArchiveModal } from '@/components/insights/ArchiveModal';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Analysis {
   id: string;
@@ -32,6 +36,34 @@ interface Competitor {
   name: string;
 }
 
+interface ArchivePrompt {
+  id: string;
+  analysis_date: string;
+  analyses: any;
+  deletion_scheduled_for: string | null;
+  deletion_prompt_sent_at: string | null;
+}
+
+const BRT_OFFSET_MINUTES = 3 * 60;
+
+const computeNextMondayCleanupIso = (reference?: Date) => {
+  const baseUtc = reference ?? new Date();
+  const brtReference = new Date(baseUtc.getTime() - BRT_OFFSET_MINUTES * 60 * 1000);
+  const candidate = new Date(brtReference);
+  candidate.setUTCHours(5, 55, 0, 0);
+
+  if (brtReference.getUTCDay() === 1 && brtReference.getTime() <= candidate.getTime()) {
+    return new Date(candidate.getTime() + BRT_OFFSET_MINUTES * 60 * 1000).toISOString();
+  }
+
+  const day = brtReference.getUTCDay();
+  const daysUntilMonday = ((8 - day) % 7) || 7;
+  const next = new Date(brtReference);
+  next.setUTCDate(brtReference.getUTCDate() + daysUntilMonday);
+  next.setUTCHours(5, 55, 0, 0);
+  return new Date(next.getTime() + BRT_OFFSET_MINUTES * 60 * 1000).toISOString();
+};
+
 export const MarketInsights = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -40,6 +72,9 @@ export const MarketInsights = () => {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [pendingArchivePrompt, setPendingArchivePrompt] = useState<ArchivePrompt | null>(null);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [ackLoading, setAckLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -47,6 +82,10 @@ export const MarketInsights = () => {
     // Check API health every 5 minutes
     const healthCheckInterval = setInterval(checkApiHealth, 5 * 60 * 1000);
     return () => clearInterval(healthCheckInterval);
+  }, []);
+
+  useEffect(() => {
+    checkArchivePrompt();
   }, []);
 
   const checkApiHealth = async () => {
@@ -117,6 +156,93 @@ export const MarketInsights = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkArchivePrompt = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('archived_analyses')
+        .select('id, analysis_date, analyses, deletion_scheduled_for, deletion_prompt_sent_at')
+        .not('deletion_prompt_sent_at', 'is', null)
+        .is('deletion_confirmed_at', null)
+        .order('deletion_scheduled_for', { ascending: true })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setPendingArchivePrompt(data[0] as ArchivePrompt);
+      } else {
+        setPendingArchivePrompt(null);
+      }
+    } catch (error) {
+      console.error('Error checking archive prompt:', error);
+    }
+  };
+
+  const confirmArchiveDeletion = async () => {
+    if (!pendingArchivePrompt) return;
+    setAckLoading(true);
+    try {
+      const { error } = await supabase
+        .from('archived_analyses')
+        .update({ deletion_confirmed_at: new Date().toISOString() })
+        .eq('id', pendingArchivePrompt.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Limpeza confirmada',
+        description: 'As pesquisas serão removidas automaticamente na próxima janela de limpeza.',
+      });
+      await checkArchivePrompt();
+    } catch (error: any) {
+      toast({
+        title: 'Não foi possível confirmar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setAckLoading(false);
+    }
+  };
+
+  const postponeArchiveDeletion = async () => {
+    if (!pendingArchivePrompt) return;
+    setAckLoading(true);
+    try {
+      const nextSchedule = pendingArchivePrompt.deletion_scheduled_for
+        ? (() => {
+            const base = new Date(pendingArchivePrompt.deletion_scheduled_for!);
+            base.setUTCDate(base.getUTCDate() + 7);
+            return base.toISOString();
+          })()
+        : computeNextMondayCleanupIso();
+
+      const { error } = await supabase
+        .from('archived_analyses')
+        .update({
+          deletion_scheduled_for: nextSchedule,
+          deletion_prompt_sent_at: null,
+        })
+        .eq('id', pendingArchivePrompt.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Vamos lembrar depois',
+        description: 'Voltaremos a perguntar na próxima semana antes da exclusão automática.',
+      });
+      await checkArchivePrompt();
+    } catch (error: any) {
+      toast({
+        title: 'Não foi possível reagendar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setAckLoading(false);
     }
   };
 
@@ -311,6 +437,47 @@ export const MarketInsights = () => {
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={!!pendingArchivePrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja baixar as pesquisas arquivadas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Encontramos pesquisas com mais de 7 dias. Elas serão removidas automaticamente assim que confirmadas, sempre 5 minutos antes da coleta de segunda-feira às 6h.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingArchivePrompt && (
+            <div className="space-y-2 text-sm">
+              <p>
+                Última data arquivada: {format(new Date(pendingArchivePrompt.analysis_date), "dd 'de' MMMM", { locale: ptBR })}
+              </p>
+              <p>
+                Registros guardados: {Array.isArray(pendingArchivePrompt.analyses) ? pendingArchivePrompt.analyses.length : 0}
+              </p>
+              {pendingArchivePrompt.deletion_scheduled_for && (
+                <p>
+                  Próxima janela de limpeza: {format(new Date(pendingArchivePrompt.deletion_scheduled_for), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              )}
+            </div>
+          )}
+          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setArchiveModalOpen(true)}>
+              Baixar agora
+            </Button>
+            <Button variant="secondary" onClick={postponeArchiveDeletion} disabled={ackLoading}>
+              Lembrar depois
+            </Button>
+            <Button
+              onClick={confirmArchiveDeletion}
+              disabled={ackLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Já baixei, pode excluir
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Mercado</h2>
@@ -524,6 +691,13 @@ export const MarketInsights = () => {
           ))}
         </Tabs>
       )}
+      <ArchiveModal
+        open={archiveModalOpen}
+        onClose={() => {
+          setArchiveModalOpen(false);
+          checkArchivePrompt();
+        }}
+      />
     </div>
   );
 };

@@ -146,6 +146,115 @@ async function fetchInstagramData(instagramUrl: string, userToken: string) {
   }
 }
 
+type SearchResult = {
+  title: string;
+  link: string;
+  snippet: string;
+};
+
+type SearchEvidence = {
+  platform: string;
+  query: string;
+  results: SearchResult[];
+};
+
+async function searchLikeHumanOnGoogle(
+  apiKey: string,
+  cxId: string,
+  query: string,
+  options: { maxResults?: number; site?: string } = {}
+): Promise<SearchResult[]> {
+  if (!apiKey || !cxId) {
+    console.warn('Google Search API key ou CX ID ausente — ignorando busca.');
+    return [];
+  }
+
+  const maxResults = Math.min(options.maxResults ?? 5, 10);
+  const url = new URL('https://www.googleapis.com/customsearch/v1');
+  url.searchParams.set('key', apiKey);
+  url.searchParams.set('cx', cxId);
+  url.searchParams.set('q', query);
+  url.searchParams.set('num', `${maxResults}`);
+  if (options.site) {
+    url.searchParams.set('siteSearch', options.site);
+  }
+
+  console.log(`🔎 Buscando sinais públicos: ${query}`);
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Erro na busca Google:', response.status, errorText);
+    return [];
+  }
+
+  const data = await response.json();
+  return (data.items || []).map((item: any) => ({
+    title: item.title,
+    link: item.link,
+    snippet: item.snippet,
+  }));
+}
+
+async function gatherSocialSearchEvidence(
+  competitor: any,
+  apiKey: string,
+  cxId: string
+): Promise<SearchEvidence[]> {
+  const evidence: SearchEvidence[] = [];
+  if (!apiKey || !cxId) {
+    return evidence;
+  }
+
+  const baseName = competitor?.name?.trim() || '';
+  const targets = [
+    { platform: 'Instagram', url: competitor?.instagram_url, site: 'instagram.com' },
+    { platform: 'YouTube', url: competitor?.youtube_url, site: 'youtube.com' },
+    { platform: 'TikTok', url: competitor?.tiktok_url, site: 'tiktok.com' },
+    { platform: 'X (Twitter)', url: competitor?.x_url, site: 'x.com' },
+  ];
+
+  for (const target of targets) {
+    const hasUrl = typeof target.url === 'string' && target.url.length > 0;
+    const handle = hasUrl ? extractHandleFromUrl(target.url as string) : '';
+    const queryPieces = [baseName, target.platform.replace(/\s*\(.*\)/, '')]
+      .filter(Boolean)
+      .map(part => part.trim());
+    if (handle) {
+      queryPieces.unshift(handle);
+    }
+    if (!queryPieces.length) {
+      continue;
+    }
+
+    const query = queryPieces.join(' ');
+    try {
+      const results = await searchLikeHumanOnGoogle(apiKey, cxId, query, {
+        maxResults: 6,
+        site: target.site,
+      });
+      if (results.length > 0) {
+        evidence.push({ platform: target.platform, query, results });
+      }
+    } catch (error) {
+      console.error('Erro ao coletar sinais públicos:', error);
+    }
+  }
+
+  return evidence;
+}
+
+function extractHandleFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.split('/').filter(Boolean);
+    return path[0] || '';
+  } catch (error) {
+    console.warn('Não foi possível extrair handle da URL:', url, error);
+    return '';
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -263,11 +372,28 @@ Deno.serve(async (req) => {
     }
 
     // Track API health status
+    const hasGoogleSearch = Boolean(googleSearchApiKey && googleCxId);
     const apiHealthStatus = {
-      x_api: { healthy: true, error: null as string | null },
-      instagram_api: { healthy: true, error: null as string | null },
-      google_search: { healthy: true, error: null as string | null }
+      google_search: {
+        healthy: hasGoogleSearch,
+        error: hasGoogleSearch ? null as string | null : 'Configure GOOGLE_API_KEY e GOOGLE_CX_ID para habilitar a busca pública',
+      },
+      x_api: {
+        healthy: Boolean(xBearerToken),
+        error: xBearerToken ? null as string | null : 'Token não configurado — usando modo search like human via Google',
+      },
+      instagram_api: {
+        healthy: Boolean(metaUserToken),
+        error: metaUserToken ? null as string | null : 'Token não configurado — usando modo search like human via Google',
+      },
     };
+
+    await supabase.from('api_tokens').upsert({
+      api_name: 'GOOGLE_API_KEY',
+      is_healthy: hasGoogleSearch,
+      last_error: apiHealthStatus.google_search.error,
+      last_health_check: new Date().toISOString()
+    });
 
     console.log('Request flags:', { scheduled, include_trends, include_paa });
     // Manual (rápido) vs Agendado (completo)
@@ -344,7 +470,7 @@ Seja específico e use dados reais.`;
         ].filter(Boolean).join(', ');
 
         if (socialUrls) {
-          // Fetch real X data with health check
+          // Fetch real X data when token is available, otherwise mark fallback usage
           let xData = null;
           if (competitor.x_url && xBearerToken) {
             const xUsername = competitor.x_url.split('/').pop();
@@ -352,11 +478,12 @@ Seja específico e use dados reais.`;
               try {
                 xData = await fetchXUserData(xUsername, xBearerToken);
                 apiHealthStatus.x_api.healthy = true;
+                apiHealthStatus.x_api.error = null;
               } catch (error) {
                 console.error('X API failed:', error);
                 apiHealthStatus.x_api.healthy = false;
                 apiHealthStatus.x_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do X/Twitter';
-                
+
                 await supabase.from('api_tokens').upsert({
                   api_name: 'X_BEARER_TOKEN',
                   is_healthy: false,
@@ -365,15 +492,25 @@ Seja específico e use dados reais.`;
                 });
               }
             }
+          } else if (competitor.x_url && !xBearerToken) {
+            apiHealthStatus.x_api.healthy = false;
+            apiHealthStatus.x_api.error = 'Token não configurado — usando busca pública via Google';
+            await supabase.from('api_tokens').upsert({
+              api_name: 'X_BEARER_TOKEN',
+              is_healthy: false,
+              last_error: apiHealthStatus.x_api.error,
+              last_health_check: new Date().toISOString()
+            });
           }
 
-          // Fetch real Instagram data with health check
+          // Fetch real Instagram data with health check when available
           let instagramData = null;
           if (competitor.instagram_url && metaUserToken) {
             try {
               instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
               apiHealthStatus.instagram_api.healthy = true;
-              
+              apiHealthStatus.instagram_api.error = null;
+
               await supabase.from('api_tokens').upsert({
                 api_name: 'META_USER_TOKEN',
                 is_healthy: true,
@@ -384,7 +521,7 @@ Seja específico e use dados reais.`;
               console.error('Instagram API failed:', error);
               apiHealthStatus.instagram_api.healthy = false;
               apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do Instagram';
-              
+
               await supabase.from('api_tokens').upsert({
                 api_name: 'META_USER_TOKEN',
                 is_healthy: false,
@@ -392,7 +529,22 @@ Seja específico e use dados reais.`;
                 last_health_check: new Date().toISOString()
               });
             }
+          } else if (competitor.instagram_url && !metaUserToken) {
+            apiHealthStatus.instagram_api.healthy = false;
+            apiHealthStatus.instagram_api.error = 'Token não configurado — usando busca pública via Google';
+            await supabase.from('api_tokens').upsert({
+              api_name: 'META_USER_TOKEN',
+              is_healthy: false,
+              last_error: apiHealthStatus.instagram_api.error,
+              last_health_check: new Date().toISOString()
+            });
           }
+
+          const socialSearchEvidence = await gatherSocialSearchEvidence(
+            competitor,
+            googleSearchApiKey,
+            googleCxId
+          );
 
           let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
 
@@ -421,7 +573,6 @@ Seja específico e use dados reais.`;
 - Promoções/ofertas exclusivas para redes sociais
 - Estratégias de remarketing visíveis`;
 
-          // Add real X data to prompt if available
           if (xData && xData.tweets.length > 0) {
             const tweetsInfo = xData.tweets.slice(0, 5).map((tweet: any) => {
               const metrics = tweet.public_metrics;
@@ -437,7 +588,6 @@ ${tweetsInfo}
 Use estes dados concretos do X para enriquecer sua análise de engajamento.`;
           }
 
-          // Add real Instagram data to prompt if available
           if (instagramData && instagramData.media.length > 0) {
             const postsInfo = instagramData.media.slice(0, 5).map((post: any) => {
               return `
@@ -460,14 +610,29 @@ ${postsInfo}
 Use estes dados concretos do Instagram para enriquecer sua análise de engajamento e público-alvo.`;
           }
 
-          socialPrompt += `\n\nSeja CONCRETO, use DADOS REAIS observados nas redes sociais.`;
+          if (socialSearchEvidence.length > 0) {
+            const searchSummary = socialSearchEvidence.map((entry) => {
+              const snippets = entry.results.slice(0, 3).map((result) => {
+                const cleanSnippet = (result.snippet || '').replace(/\s+/g, ' ').trim();
+                return `• ${result.title} — ${cleanSnippet} (${result.link})`;
+              }).join('\n');
+              return `${entry.platform} — consulta "${entry.query}":\n${snippets}`;
+            }).join('\n\n');
+
+            socialPrompt += `\n\n🌐 SINAIS REAIS VIA BUSCA HUMANA (GOOGLE):
+${searchSummary}
+
+Essas evidências foram coletadas via Google Custom Search simulando pesquisa humana para redes com ou sem API disponível. Utilize-as para validar tendências, temas e engajamento.`;
+          }
+
+          socialPrompt += `\n\nSeja CONCRETO, use DADOS REAIS observados nas redes sociais e nos resultados da busca.`;
 
           console.log('🔍 Starting social media analysis...');
-          const socialAnalysis = await retryWithBackoff(() => 
+          const socialAnalysis = await retryWithBackoff(() =>
             analyzeWithGemini(googleApiKey, socialPrompt)
           );
           console.log('✅ Social media analysis completed');
-          
+
           const analysisData: any = { raw_response: socialAnalysis.data };
           if (xData) {
             analysisData.x_metrics = {
@@ -493,14 +658,32 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
               }))
             };
           }
-          
+          if (socialSearchEvidence.length > 0) {
+            analysisData.search_evidence = socialSearchEvidence.map((entry) => ({
+              platform: entry.platform,
+              query: entry.query,
+              results: entry.results.slice(0, 5).map((result) => ({
+                title: result.title,
+                link: result.link,
+                snippet: (result.snippet || '').replace(/\s+/g, ' ').trim(),
+              })),
+              source: 'google_custom_search'
+            }));
+          }
+
+          const socialConfidence = xData || instagramData
+            ? 0.95
+            : socialSearchEvidence.length > 0
+              ? 0.9
+              : 0.8;
+
           await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
             analysis_type: 'social_media',
             data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: (xData || instagramData) ? 0.95 : 0.85,
+            confidence_score: socialConfidence,
             is_automated
           });
           console.log('Quick social media analysis inserted');
@@ -749,11 +932,12 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
             try {
               xData = await fetchXUserData(xUsername, xBearerToken);
               apiHealthStatus.x_api.healthy = true;
+              apiHealthStatus.x_api.error = null;
             } catch (error) {
               console.error(`X API failed for ${competitor.name}:`, error);
               apiHealthStatus.x_api.healthy = false;
               apiHealthStatus.x_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do X/Twitter';
-              
+
               await supabase.from('api_tokens').upsert({
                 api_name: 'X_BEARER_TOKEN',
                 is_healthy: false,
@@ -762,6 +946,15 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
               });
             }
           }
+        } else if (competitor.x_url && !xBearerToken) {
+          apiHealthStatus.x_api.healthy = false;
+          apiHealthStatus.x_api.error = 'Token não configurado — usando busca pública via Google';
+          await supabase.from('api_tokens').upsert({
+            api_name: 'X_BEARER_TOKEN',
+            is_healthy: false,
+            last_error: apiHealthStatus.x_api.error,
+            last_health_check: new Date().toISOString()
+          });
         }
 
         // Fetch real Instagram data with health check
@@ -770,7 +963,8 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
           try {
             instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
             apiHealthStatus.instagram_api.healthy = true;
-            
+            apiHealthStatus.instagram_api.error = null;
+
             await supabase.from('api_tokens').upsert({
               api_name: 'META_USER_TOKEN',
               is_healthy: true,
@@ -781,7 +975,7 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
             console.error(`Instagram API failed for ${competitor.name}:`, error);
             apiHealthStatus.instagram_api.healthy = false;
             apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do Instagram';
-            
+
             await supabase.from('api_tokens').upsert({
               api_name: 'META_USER_TOKEN',
               is_healthy: false,
@@ -789,7 +983,22 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
               last_health_check: new Date().toISOString()
             });
           }
+        } else if (competitor.instagram_url && !metaUserToken) {
+          apiHealthStatus.instagram_api.healthy = false;
+          apiHealthStatus.instagram_api.error = 'Token não configurado — usando busca pública via Google';
+          await supabase.from('api_tokens').upsert({
+            api_name: 'META_USER_TOKEN',
+            is_healthy: false,
+            last_error: apiHealthStatus.instagram_api.error,
+            last_health_check: new Date().toISOString()
+          });
         }
+
+        const socialSearchEvidence = await gatherSocialSearchEvidence(
+          competitor,
+          googleSearchApiKey,
+          googleCxId
+        );
 
         let socialPrompt = `Analise PROFUNDAMENTE as redes sociais da ${competitor.name}: ${socialUrls}
 
@@ -890,7 +1099,19 @@ ${postsInfo}
 Use estes dados concretos do Instagram para enriquecer sua análise de engajamento, identificar formatos que performam melhor e entender o público-alvo.`;
         }
 
-        socialPrompt += `\n\nSeja EXTREMAMENTE CONCRETO, use DADOS REAIS e EXEMPLOS ESPECÍFICOS observados nas redes sociais.`;
+        if (socialSearchEvidence.length > 0) {
+          const searchSummary = socialSearchEvidence.map((entry) => {
+            const snippets = entry.results.slice(0, 3).map((result) => {
+              const cleanSnippet = (result.snippet || '').replace(/\s+/g, ' ').trim();
+              return `• ${result.title} — ${cleanSnippet} (${result.link})`;
+            }).join('\n');
+            return `${entry.platform} — consulta "${entry.query}":\n${snippets}`;
+          }).join('\n\n');
+
+          socialPrompt += `\n\n🌐 SINAIS REAIS VIA BUSCA HUMANA (GOOGLE):\n${searchSummary}\n\nAs evidências acima foram coletadas via Google Custom Search simulando uma pesquisa humana para redes com ou sem API disponível. Utilize-as para confirmar temas quentes, engajamento e sentimento do público.`;
+        }
+
+        socialPrompt += `\n\nSeja EXTREMAMENTE CONCRETO, use DADOS REAIS, EXEMPLOS ESPECÍFICOS e as evidências coletadas nas redes sociais e na busca.`;
 
         try {
           const socialAnalysis = await retryWithBackoff(() => 
@@ -933,14 +1154,32 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
               }))
             };
           }
-          
+          if (socialSearchEvidence.length > 0) {
+            analysisData.search_evidence = socialSearchEvidence.map((entry) => ({
+              platform: entry.platform,
+              query: entry.query,
+              results: entry.results.slice(0, 6).map((result) => ({
+                title: result.title,
+                link: result.link,
+                snippet: (result.snippet || '').replace(/\s+/g, ' ').trim(),
+              })),
+              source: 'google_custom_search'
+            }));
+          }
+
+          const socialConfidence = xData || instagramData
+            ? 0.95
+            : socialSearchEvidence.length > 0
+              ? 0.88
+              : 0.78;
+
           const { error: socialError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
             analysis_type: 'social_media',
             data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: (xData || instagramData) ? 0.95 : 0.80,
+            confidence_score: socialConfidence,
             is_automated
           });
           if (socialError) console.error('Error inserting social analysis:', socialError);
@@ -1124,9 +1363,11 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
 
 async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutput = false): Promise<any> {
   const systemPrompt = 'Você é um analista estratégico sênior de mercado de turismo. Forneça análises COMPLETAS, DIDÁTICAS e CONCISAS baseadas em dados reais da web. USE ESTES CABEÇALHOS OBRIGATÓRIOS: "Insights Principais:" seguido de 5-7 pontos detalhados e "Recomendações Estratégicas:" seguido de 5-7 ações específicas e práticas. Seja executivo, use dados concretos, e mantenha tom profissional mas acessível.';
-  
+
   const fullPrompt = `${systemPrompt}\n\n${prompt}`;
-  
+
+  const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI'));
+
   // Tentar Google AI primeiro (se apiKey existir), com fallback automático para Lovable AI
   const tryGoogle = async () => {
     if (!apiKey) throw new Error('GOOGLE_API_KEY ausente, pulando Google AI');
@@ -1168,6 +1409,9 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
   };
 
   const tryLovable = async () => {
+    if (!lovableEnabled) {
+      throw new Error('Lovable AI desativada pelo ambiente.');
+    }
     const lovableKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableKey) {
       throw new Error('Fallback AI indisponível: LOVABLE_API_KEY não configurada.');
@@ -1210,6 +1454,48 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
     return await tryGoogle();
   } catch (err) {
     console.warn('Google AI indisponível, usando fallback Lovable AI:', err instanceof Error ? err.message : String(err));
-    return await tryLovable();
+    if (!lovableEnabled) {
+      console.warn('Lovable AI desativada, retornando análise simplificada.');
+      return buildLocalAnalysisFallback(fullPrompt);
+    }
+
+    try {
+      return await tryLovable();
+    } catch (lovableErr) {
+      console.error('Lovable AI fallback falhou:', lovableErr instanceof Error ? lovableErr.message : String(lovableErr));
+      return buildLocalAnalysisFallback(fullPrompt);
+    }
   }
+}
+
+function buildLocalAnalysisFallback(prompt: string) {
+  const insights = [
+    'Revise manualmente as métricas mais recentes registradas em market_analysis para identificar mudanças relevantes.',
+    'Cruze os dados de social_trends com os destinos prioritários definidos nas políticas administrativas.',
+    'Avalie alertas marcados como críticos nas últimas 24 horas e classifique-os por severidade.',
+    'Monitore menções orgânicas de concorrentes nas redes sociais cadastradas para detectar movimentos promocionais.',
+    'Utilize o histórico de campanhas para reaproveitar mensagens que performaram bem em contextos similares.',
+  ];
+
+  const recommendations = [
+    'Atualize os registros dos concorrentes com novas ofertas e preços coletados manualmente.',
+    'Documente oportunidades relevantes diretamente no módulo de alertas para compartilhar com o time.',
+    'Priorize destinos com alta procura nos últimos relatórios ao planejar a próxima campanha.',
+    'Ajuste rapidamente políticas internas caso identifique riscos reputacionais em tendência.',
+    'Programe uma nova coleta automatizada assim que o conector de IA estiver reativado.',
+  ];
+
+  return {
+    data: `Insights Principais:\n- ${insights.join('\n- ')}\n\nRecomendações Estratégicas:\n- ${recommendations.join('\n- ')}`,
+    insights: `- ${insights.join('\n- ')}`,
+    recommendations: `- ${recommendations.join('\n- ')}`,
+    fallback: true,
+    originalPrompt: prompt,
+  };
+}
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
 }

@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type',
+  'Access-Control-Allow-Headers': 'content-type, authorization, apikey',
 };
 
 Deno.serve(async (req) => {
@@ -11,10 +11,26 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+    const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI')) && Boolean(lovableKey);
+
+    if (!supabaseUrl || !supabaseAnonKey || (lovableEnabled && !lovableKey)) {
+      console.error('Missing environment configuration for public chat', {
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasAnonKey: Boolean(supabaseAnonKey),
+        hasLovableKey: Boolean(lovableKey),
+        lovableEnabled,
+      });
+
+      return new Response(
+        JSON.stringify({ error: 'Configuração do servidor ausente. Contate o administrador.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const { message, sessionId, conversationId, clientInfo } = await req.json();
     
@@ -114,27 +130,33 @@ Lembre-se: você está aqui para ajudar o cliente a realizar seus sonhos de viag
     ];
 
     // Chamar IA
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: messages,
-        temperature: 0.7,
-      }),
-    });
+    let assistantMessage: string;
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI Error:', errorText);
-      throw new Error(`AI API error: ${aiResponse.statusText}`);
+    if (lovableEnabled) {
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: messages,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('AI Error:', errorText);
+        throw new Error(`AI API error: ${aiResponse.statusText}`);
+      }
+
+      const aiData = await aiResponse.json();
+      assistantMessage = aiData.choices[0].message.content;
+    } else {
+      assistantMessage = buildFallbackReply(message, products ?? []);
     }
-
-    const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices[0].message.content;
 
     // Salvar resposta
     await supabase.from('public_messages').insert({
@@ -167,7 +189,8 @@ Lembre-se: você está aqui para ajudar o cliente a realizar seus sonhos de viag
       JSON.stringify({
         conversationId: conversation.id,
         message: assistantMessage,
-        intent: intent
+        intent: intent,
+        lovableEnabled,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -204,4 +227,40 @@ function analyzeIntent(userMessage: string, botResponse: string) {
     level: isHighIntent ? 'high' : isMediumIntent ? 'medium' : 'low',
     products: []
   };
+}
+
+function buildFallbackReply(userMessage: string, products: Array<{ name: string; description: string | null; price: number | null; url: string | null; category: string | null; }>) {
+  const normalized = userMessage.toLowerCase();
+  const sanitizedProducts = products.filter((product) => Boolean(product.name));
+
+  const relevantProducts = sanitizedProducts.filter((product) => {
+    const terms = [product.name, product.category].filter(Boolean).map((term) => term!.toLowerCase());
+    return terms.some((term) => normalized.includes(term));
+  });
+
+  const candidates = (relevantProducts.length ? relevantProducts : sanitizedProducts).slice(0, 3);
+
+  const suggestions = candidates
+    .map((product) => {
+      const priceInfo = typeof product.price === 'number' ? ` - a partir de R$ ${product.price.toFixed(2)}` : '';
+      const teaser = product.description?.slice(0, 120) || 'Experiência sob medida para sua viagem.';
+      const link = product.url ? ` Confira: ${product.url}` : '';
+      return `• ${product.name}${priceInfo}\n  ${teaser}${link}`;
+    })
+    .join('\n\n');
+
+  const closing = 'Se preferir falar com nossa equipe humana, é só avisar que retornamos pelo WhatsApp.';
+
+  return [
+    'Olá! Nosso assistente inteligente está funcionando em modo simplificado no momento.',
+    'Separei algumas sugestões com base no que você escreveu:',
+    suggestions || 'Conte-nos mais sobre a viagem dos seus sonhos e indicaremos as melhores opções disponíveis.',
+    closing,
+  ].join('\n\n');
+}
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
 }

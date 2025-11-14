@@ -17,7 +17,7 @@ function extractBullets(analysis: any, max: number): string[] {
 
   // Quebrar por linhas e marcadores comuns
   const lines = combined
-    .split(/\r?\n|\•|\*\s|\-\s/g)
+    .split(/\r?\n|•|\*\s|-\s/g)
     .map((l) => l.replace(/^\s*[-*•]\s*/, '').trim())
     .filter((l) => l && l.length > 20 && /[a-zA-Zá-úÁ-Ú0-9]/.test(l));
 

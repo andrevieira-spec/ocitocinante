@@ -122,6 +122,9 @@ export type Database = {
           analysis_date: string
           archived_at: string | null
           created_at: string | null
+          deletion_confirmed_at: string | null
+          deletion_prompt_sent_at: string | null
+          deletion_scheduled_for: string | null
           id: string
         }
         Insert: {
@@ -129,6 +132,9 @@ export type Database = {
           analysis_date: string
           archived_at?: string | null
           created_at?: string | null
+          deletion_confirmed_at?: string | null
+          deletion_prompt_sent_at?: string | null
+          deletion_scheduled_for?: string | null
           id?: string
         }
         Update: {
@@ -136,6 +142,9 @@ export type Database = {
           analysis_date?: string
           archived_at?: string | null
           created_at?: string | null
+          deletion_confirmed_at?: string | null
+          deletion_prompt_sent_at?: string | null
+          deletion_scheduled_for?: string | null
           id?: string
         }
         Relationships: []

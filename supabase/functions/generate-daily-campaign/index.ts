@@ -14,9 +14,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI'));
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!lovableApiKey) {
+    if (lovableEnabled && !lovableApiKey) {
       return new Response(
         JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -75,7 +76,7 @@ serve(async (req) => {
       date: today
     };
 
-    // Generate campaign with AI
+    // Generate campaign with AI or fallback
     const prompt = `Você é um especialista em marketing de turismo. Baseado nas seguintes análises de mercado e políticas, crie uma campanha estratégica para hoje (${today}).
 
 ANÁLISES RECENTES:
@@ -95,54 +96,54 @@ Crie uma campanha completa com:
 5. CHECKLIST: 10-15 itens de execução
 
 Retorne em JSON estruturado.`;
-
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um especialista em marketing de turismo de lazer no Brasil. Seja estratégico, criativo e focado em resultados mensuráveis.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI API error:', errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const content = aiData.choices[0].message.content;
-
     let campaignData;
-    try {
-      // Try to parse as JSON
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        campaignData = JSON.parse(jsonMatch[0]);
-      } else {
-        // Fallback to text content
-        campaignData = {
-          raw_content: content
-        };
+    let rawContent: string | undefined;
+
+    if (lovableEnabled) {
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'Você é um especialista em marketing de turismo de lazer no Brasil. Seja estratégico, criativo e focado em resultados mensuráveis.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('AI API error:', errorText);
+        throw new Error(`AI API error: ${aiResponse.status}`);
       }
-    } catch (e) {
-      campaignData = {
-        raw_content: content
-      };
+
+      const aiData = await aiResponse.json();
+      rawContent = aiData.choices[0].message.content;
+
+      try {
+        const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          campaignData = JSON.parse(jsonMatch[0]);
+        } else {
+          campaignData = { raw_content: rawContent };
+        }
+      } catch (e) {
+        campaignData = { raw_content: rawContent };
+      }
+    } else {
+      campaignData = buildFallbackCampaign(context);
+      rawContent = JSON.stringify(campaignData);
     }
 
     // Calculate visible_until (tomorrow at 05:55 BRT)
@@ -160,7 +161,7 @@ Retorne em JSON estruturado.`;
         campaign_plan: campaignData.campaign_plan || campaignData.plano || {},
         ab_tests: campaignData.ab_tests || campaignData.testes || {},
         checklist: campaignData.checklist || [],
-        evidence: { context, ai_response: content },
+        evidence: { context, ai_response: rawContent },
         status: 'active',
         visible_until: visibleUntil.toISOString()
       })
@@ -184,3 +185,57 @@ Retorne em JSON estruturado.`;
     );
   }
 });
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+function buildFallbackCampaign(context: {
+  analyses: any[];
+  policies: any[];
+  destinations: any[];
+  alerts: any[];
+  date: string;
+}) {
+  const topDestinations = context.destinations.slice(0, 3).map((dest) => dest.name || dest.destination);
+  const alerts = context.alerts.slice(0, 3).map((alert) => alert.title || alert.summary || 'Acompanhar novidades de mercado');
+
+  return {
+    diagnosis: [
+      'Mercado monitorado a partir das últimas coletas internas',
+      alerts.length ? `Alertas prioritários: ${alerts.join('; ')}` : 'Sem alertas críticos nas últimas 24h',
+      `Destinos em foco: ${topDestinations.join(', ') || 'defina destinos prioritários na área administrativa'}`,
+    ],
+    strategic_directive: {
+      tone: 'Empolgante, confiante e acolhedor',
+      claim: 'Transforme sonhos de viagem em memórias inesquecíveis',
+      priorities: topDestinations,
+    },
+    campaign_plan: {
+      theme: 'Descobertas personalizadas para a sua próxima viagem',
+      hook: 'Pacotes selecionados com base nas últimas tendências do mercado',
+      cta: 'Fale com nossa equipe para montar o roteiro perfeito',
+      channels: ['Instagram', 'TikTok', 'YouTube', 'X'],
+    },
+    ab_tests: {
+      variation_a: 'Criativo com foco em experiências exclusivas e storytelling',
+      variation_b: 'Criativo com foco em condições especiais e urgência moderada',
+    },
+    checklist: [
+      'Validar destinos prioritários no dashboard',
+      'Atualizar preços dos pacotes em destaque',
+      'Preparar roteiros personalizados para leads quentes',
+      'Programar posts orgânicos nos canais sociais',
+      'Sincronizar campanhas pagas com a equipe de mídia',
+      'Enviar newsletter segmentada para contatos recentes',
+      'Monitorar respostas no chat público e escalonar leads',
+      'Garantir material de apoio para atendimento humano',
+      'Registrar insights relevantes em market_analysis',
+      'Revisar alertas críticos antes de publicar a campanha',
+    ],
+    fallback: true,
+    generated_at: context.date,
+  };
+}

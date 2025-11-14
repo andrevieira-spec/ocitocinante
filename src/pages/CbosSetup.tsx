@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BackToHomeButton } from "@/components/navigation/BackToHomeButton";
+import { lovableEnabled } from "@/config/lovable";
 import { FileText, Download, CheckCircle, Clock, Shield, AlertTriangle } from "lucide-react";
 
 const CbosSetup = () => {
@@ -19,6 +20,28 @@ const CbosSetup = () => {
   const handlePrint = () => {
     window.print();
   };
+
+  const featureSummary = (() => {
+    const coreFeatures = [
+      'Ciclo de vida de campanhas (visível até 05:55, arquivamento automático)',
+      'Retenção de 7 dias com confirmação antes da limpeza automática',
+      'Exportação de campanhas em JSON',
+      'Sistema de alertas com severidade',
+      'Válvulas de segurança (modo crise, aprovação manual)'
+    ];
+
+    if (lovableEnabled) {
+      return [
+        ...coreFeatures,
+        'Integração com Lovable AI (sem necessidade de API keys externa)'
+      ];
+    }
+
+    return [
+      ...coreFeatures,
+      'Assistente IA operando em modo simplificado (Lovable desativado — conecte outro provedor se necessário)'
+    ];
+  })();
 
   return (
     <div className="min-h-screen bg-background">
@@ -137,14 +160,7 @@ const CbosSetup = () => {
             <div>
               <h3 className="text-2xl font-semibold text-primary mb-4">4. Funcionalidades</h3>
               <ul className="space-y-2 ml-6">
-                {[
-                  'Ciclo de vida de campanhas (visível até 05:55, arquivamento automático)',
-                  'Retenção de 30 dias',
-                  'Exportação de campanhas em JSON',
-                  'Sistema de alertas com severidade',
-                  'Válvulas de segurança (modo crise, aprovação manual)',
-                  'Integração com Lovable AI (sem necessidade de API keys externa)'
-                ].map((item, i) => (
+                {featureSummary.map((item, i) => (
                   <li key={i} className="flex gap-2">
                     <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
                     <span>{item}</span>
@@ -161,14 +177,19 @@ const CbosSetup = () => {
             🔧 CONFIGURAÇÃO NECESSÁRIA
           </h2>
 
-          <h3 className="text-2xl font-semibold text-primary mb-4">APIs Externas (Pendentes)</h3>
-          <p className="mb-6">Para o sistema funcionar 100%, você precisa configurar as seguintes APIs no Lovable Cloud:</p>
+          <h3 className="text-2xl font-semibold text-primary mb-4">APIs Externas (Google obrigatório, demais opcionais)</h3>
+          <p className="mb-6">
+            Configure as variáveis abaixo diretamente no seu ambiente (variáveis locais para desenvolvimento e Secrets do Supabase em produção).
+            Apenas as chaves do <strong>Google</strong> são obrigatórias — as demais integrações são opcionais. Quando ausentes, as Edge Functions usam o modo
+            <em>"search like human"</em> para buscar sinais públicos via Google.
+          </p>
 
           <div className="space-y-6">
             {[
               {
-                title: '1. Google APIs',
+                title: '1. Google APIs (obrigatório)',
                 code: 'GOOGLE_API_KEY=sua_chave_aqui\nGOOGLE_CX_ID=seu_cx_id_aqui',
+                description: 'Obrigatório. Habilita Google Custom Search e alimenta a coleta "search like human".',
                 steps: [
                   'Acesse Google Cloud Console',
                   'Ative: Google Custom Search API, Google Trends API',
@@ -176,8 +197,9 @@ const CbosSetup = () => {
                 ]
               },
               {
-                title: '2. YouTube',
+                title: '2. YouTube (opcional)',
                 code: 'YOUTUBE_API_KEY=sua_chave_aqui',
+                description: 'Opcional. Reutilize a chave do Google caso queira chamadas diretas à YouTube Data API v3; sem ela, buscamos vídeos via Google.',
                 steps: [
                   'Acesse Google Cloud Console',
                   'Ative: YouTube Data API v3',
@@ -185,8 +207,9 @@ const CbosSetup = () => {
                 ]
               },
               {
-                title: '3. X (Twitter)',
+                title: '3. X (Twitter) — opcional',
                 code: 'X_BEARER_TOKEN=seu_token_aqui',
+                description: 'Opcional. Sem o token, coletamos sinais públicos do X com pesquisas Google.',
                 steps: [
                   'Acesse X Developer Portal',
                   'Crie um App',
@@ -194,8 +217,9 @@ const CbosSetup = () => {
                 ]
               },
               {
-                title: '4. Meta / Instagram',
+                title: '4. Meta / Instagram — opcional',
                 code: 'META_APP_ID=seu_app_id_aqui\nMETA_APP_SECRET=seu_secret_aqui\nMETA_ACCESS_TOKEN=seu_token_aqui',
+                description: 'Opcional. Sem esses dados, usamos Google Custom Search para extrair posts e sinais públicos do Instagram.',
                 steps: [
                   'Acesse Meta for Developers',
                   'Crie um App',
@@ -204,8 +228,9 @@ const CbosSetup = () => {
                 ]
               },
               {
-                title: '5. TikTok',
+                title: '5. TikTok — opcional',
                 code: 'TIKTOK_APP_ID=seu_app_id_aqui\nTIKTOK_APP_SECRET=seu_secret_aqui\nTIKTOK_ACCESS_TOKEN=seu_token_aqui',
+                description: 'Opcional. Sem token, os conteúdos do TikTok são coletados via pesquisas Google em modo "search like human".',
                 steps: [
                   'Acesse TikTok for Developers',
                   'Crie um App',
@@ -218,6 +243,9 @@ const CbosSetup = () => {
                 <pre className="bg-muted p-4 rounded-lg mb-4 overflow-x-auto text-sm">
                   {api.code}
                 </pre>
+                {api.description && (
+                  <p className="text-sm text-muted-foreground mb-3">{api.description}</p>
+                )}
                 <p className="font-semibold mb-2">Como obter:</p>
                 <ul className="space-y-1 ml-6">
                   {api.steps.map((step, j) => (
@@ -229,10 +257,19 @@ const CbosSetup = () => {
           </div>
 
           <Card className="bg-info/10 border-info p-6 mt-6">
+            <h4 className="font-semibold text-lg mb-2">ℹ️ Dica</h4>
+            <p>
+              Não tem tokens das redes sociais? Sem problema: as Edge Functions ativam automaticamente o modo
+              <strong> "search like human"</strong>, usando Google Custom Search para simular pesquisas humanas e capturar dados públicos.
+            </p>
+          </Card>
+
+          <Card className="bg-info/10 border-info p-6 mt-6">
             <h4 className="font-semibold text-lg mb-2">💡 Como Adicionar as APIs no Projeto</h4>
-            <p className="mb-2"><strong>Via Interface Lovable Cloud:</strong></p>
-            <p>→ Vá em Settings → Secrets</p>
-            <p>→ Adicione cada variável de ambiente acima</p>
+            <p className="mb-2"><strong>Via Dashboard do Supabase:</strong></p>
+            <p>→ Vá em Project Settings → API → Edge Functions → Manage Secrets</p>
+            <p>→ Adicione cada variável de ambiente listada acima</p>
+            <p>→ Repita o deploy das funções caso necessário</p>
           </Card>
         </section>
 
@@ -391,8 +428,8 @@ SELECT * FROM cron.job;`}
                   { time: '06:00-06:10', action: 'Coleta', desc: 'Analisa preços, redes sociais, tendências' },
                   { time: '06:10-06:15', action: 'IA', desc: 'Processa dados e gera Campanha do Dia' },
                   { time: '06:15', action: 'Publicação', desc: 'Campanha fica visível no dashboard' },
-                  { time: '05:55 (dia seguinte)', action: 'Arquivamento', desc: 'Campanha anterior é arquivada automaticamente' },
-                  { time: 'A cada 30 dias', action: 'Limpeza', desc: 'Campanhas antigas são deletadas' }
+                  { time: '05:55 (dia seguinte)', action: 'Arquivamento', desc: 'Campanha anterior é arquivada automaticamente até a nova publicação' },
+                  { time: '05:55 (segunda-feira)', action: 'Limpeza guiada', desc: 'Você confirma se deseja baixar as pesquisas com 7 dias antes da exclusão automática' }
                 ].map((row, i) => (
                   <tr key={i} className="border-b border-border">
                     <td className="p-3 font-mono text-sm">{row.time}</td>
@@ -473,7 +510,7 @@ SELECT * FROM cron.job;`}
                   },
                   {
                     problem: '"Aguardando APIs externas"',
-                    solution: 'Configure as APIs no Secrets. Algumas funcionalidades funcionam sem APIs (usando Lovable AI)'
+                    solution: 'Configure as APIs no Secrets. Algumas funcionalidades funcionam em modo simplificado quando Lovable está desativado.'
                   },
                   {
                     problem: '"Erro ao gerar campanha"',

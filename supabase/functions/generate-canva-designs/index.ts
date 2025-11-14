@@ -32,7 +32,15 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI'));
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+
+    if (lovableEnabled && !lovableApiKey) {
+      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -173,58 +181,64 @@ Formato JSON:
 }
 `;
 
-    console.log('Gerando textos com Lovable AI...');
+    let generatedTexts: { texts: Array<{ title: string; content: string; hashtags: string[] }> };
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: 'Você é um especialista em copywriting para turismo. Retorne apenas JSON válido.' },
-          { role: 'user', content: aiPrompt }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'generate_post_texts',
-            description: 'Gera textos para posts de redes sociais',
-            parameters: {
-              type: 'object',
-              properties: {
-                texts: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      title: { type: 'string' },
-                      content: { type: 'string' },
-                      hashtags: { type: 'array', items: { type: 'string' } }
-                    },
-                    required: ['title', 'content', 'hashtags']
+    if (lovableEnabled) {
+      console.log('Gerando textos com Lovable AI...');
+
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'Você é um especialista em copywriting para turismo. Retorne apenas JSON válido.' },
+            { role: 'user', content: aiPrompt }
+          ],
+          tools: [{
+            type: 'function',
+            function: {
+              name: 'generate_post_texts',
+              description: 'Gera textos para posts de redes sociais',
+              parameters: {
+                type: 'object',
+                properties: {
+                  texts: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        title: { type: 'string' },
+                        content: { type: 'string' },
+                        hashtags: { type: 'array', items: { type: 'string' } }
+                      },
+                      required: ['title', 'content', 'hashtags']
+                    }
                   }
-                }
-              },
-              required: ['texts']
+                },
+                required: ['texts']
+              }
             }
-          }
-        }],
-        tool_choice: { type: 'function', function: { name: 'generate_post_texts' } }
-      }),
-    });
+          }],
+          tool_choice: { type: 'function', function: { name: 'generate_post_texts' } }
+        }),
+      });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Erro na API Lovable AI:', aiResponse.status, errorText);
-      throw new Error('Falha ao gerar textos com IA');
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('Erro na API Lovable AI:', aiResponse.status, errorText);
+        throw new Error('Falha ao gerar textos com IA');
+      }
+
+      const aiData = await aiResponse.json();
+      const toolCall = aiData.choices[0]?.message?.tool_calls?.[0];
+      generatedTexts = toolCall ? JSON.parse(toolCall.function.arguments) : { texts: [] };
+    } else {
+      generatedTexts = buildFallbackTexts(campaign, specs);
     }
-
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices[0]?.message?.tool_calls?.[0];
-    const generatedTexts = toolCall ? JSON.parse(toolCall.function.arguments) : { texts: [] };
 
     console.log('Textos gerados:', generatedTexts.texts.length);
 
@@ -372,3 +386,30 @@ Formato JSON:
     );
   }
 });
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+function buildFallbackTexts(campaign: any, specs: { maxChars: number; name: string }) {
+  const baseHashtags = ['#OcitocinaViagens', '#ViajarÉViver', '#SonhosDeViagem'];
+  const priorities = Array.isArray(campaign?.strategic_directive?.priorities)
+    ? campaign.strategic_directive.priorities.filter(Boolean)
+    : [];
+
+  const variations = ['Experiência Premium', 'Oferta Especial', 'Descoberta Personalizada'];
+
+  const texts = variations.map((variant, index) => {
+    const destination = priorities[index] || priorities[0] || 'seu próximo destino dos sonhos';
+    const content = `🌍 ${variant}: ${destination} com a Ocitocina Viagens. Roteiros personalizados, suporte de ponta a ponta e memórias inesquecíveis. Reserve agora e garanta benefícios exclusivos!`;
+    return {
+      title: `${specs.name} ${index + 1}`,
+      content: content.slice(0, specs.maxChars),
+      hashtags: baseHashtags.slice(0, specs.name.includes('Instagram') ? 3 : 2),
+    };
+  });
+
+  return { texts };
+}

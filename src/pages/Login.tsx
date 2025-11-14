@@ -48,6 +48,13 @@ export default function Login() {
         throw new Error('Usuário não encontrado');
       }
 
+      // Bootstrap: promover primeiro usuário a admin (idempotente)
+      try {
+        await supabase.functions.invoke('bootstrap-admin', { method: 'POST' });
+      } catch (e) {
+        console.warn('bootstrap-admin falhou/ignorou:', e);
+      }
+
       // Verificar role de admin
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')

@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.check-api-tokens]
 verify_jwt = true
+
+[functions.bootstrap-admin]
+verify_jwt = true

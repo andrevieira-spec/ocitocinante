@@ -53,7 +53,8 @@ export const AuthForm = () => {
       } else {
         const { error } = await supabase.auth.signUp({ 
           email: validEmail, 
-          password: validPassword 
+          password: validPassword,
+          options: { emailRedirectTo: `${window.location.origin}/` }
         });
         if (error) throw error;
         toast({ title: 'Conta criada! Faça login para continuar.' });

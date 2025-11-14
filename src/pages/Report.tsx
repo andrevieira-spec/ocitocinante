@@ -13,11 +13,18 @@ interface Analysis {
   recommendations: string | null;
   data: any;
   analyzed_at: string;
+  competitor_id?: string;
+}
+
+interface AggregatedAnalysis {
+  competitor_id: string;
+  [key: string]: any;
 }
 
 export default function Report() {
   const [searchParams] = useSearchParams();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [aggregatedData, setAggregatedData] = useState<AggregatedAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiHealth, setApiHealth] = useState<any>(null);
 
@@ -36,6 +43,20 @@ export default function Report() {
 
       if (error) throw error;
       setAnalyses(data || []);
+
+      // Agrupar dados por competitor_id e analysis_type
+      const grouped: { [key: string]: AggregatedAnalysis } = {};
+      data?.forEach((entry: Analysis) => {
+        const { competitor_id, analysis_type, data: analysisData } = entry;
+        const compId = competitor_id || 'general';
+        
+        if (!grouped[compId]) {
+          grouped[compId] = { competitor_id: compId };
+        }
+        grouped[compId][analysis_type] = analysisData;
+      });
+
+      setAggregatedData(Object.values(grouped));
 
       // Carregar status das APIs
       const { data: tokens } = await supabase

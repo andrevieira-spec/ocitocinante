@@ -1,9 +1,21 @@
+import { useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BackToHomeButton } from "@/components/navigation/BackToHomeButton";
 import { FileText, Download, CheckCircle, Clock, Shield, AlertTriangle } from "lucide-react";
 
 const CbosSetup = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const competitorId = searchParams.get('id');
+    if (!competitorId) {
+      navigate('?id=1facc57c-a26f-42eb-a410-326df6cea9ba', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
   const handlePrint = () => {
     window.print();
   };

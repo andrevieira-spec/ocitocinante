@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface ApiStatus {
   name: string;
@@ -15,6 +16,7 @@ interface ApiStatus {
 }
 
 export const GoogleApiHealthCheck = () => {
+  const { session } = useAuth();
   const [apis, setApis] = useState<ApiStatus[]>([
     { name: 'Google Cloud (Service Account)', status: 'idle', message: 'Não testado' },
     { name: 'Google AI (Gemini)', status: 'idle', message: 'Não testado' },
@@ -23,6 +25,16 @@ export const GoogleApiHealthCheck = () => {
     { name: 'People Also Ask (via Gemini)', status: 'idle', message: 'Não testado' },
   ]);
 
+  useEffect(() => {
+    if (!session) {
+      setApis(prev => prev.map(api => ({
+        ...api,
+        status: 'warning' as const,
+        message: 'Faça login para testar as APIs'
+      })));
+    }
+  }, [session]);
+
   const updateApiStatus = (index: number, updates: Partial<ApiStatus>) => {
     setApis(prev => prev.map((api, i) => 
       i === index ? { ...api, ...updates } : api
@@ -30,6 +42,11 @@ export const GoogleApiHealthCheck = () => {
   };
 
   const testGoogleCloud = async () => {
+    if (!session) {
+      updateApiStatus(0, { status: 'warning', message: 'Faça login para testar' });
+      return;
+    }
+
     const index = 0;
     updateApiStatus(index, { status: 'testing', message: 'Validando credenciais...' });
 
@@ -55,11 +72,9 @@ export const GoogleApiHealthCheck = () => {
       }
     } catch (error: any) {
       console.error('Erro ao validar Google Cloud:', error);
-      const msg = (error?.message || '').toLowerCase();
-      const isAuth = msg.includes('401') || msg.includes('não autenticado') || msg.includes('unauth');
       updateApiStatus(index, {
-        status: isAuth ? 'warning' : 'error',
-        message: isAuth ? 'Faça login e tente novamente para validar as credenciais.' : (error.message || 'Falha na validação'),
+        status: 'warning',
+        message: 'Sessão expirada - faça login novamente',
       });
     }
   };
@@ -213,6 +228,14 @@ export const GoogleApiHealthCheck = () => {
   };
 
   const testAll = async () => {
+    if (!session) {
+      setApis(prev => prev.map(api => ({
+        ...api,
+        status: 'warning' as const,
+        message: 'Faça login para testar as APIs'
+      })));
+      return;
+    }
     await testGoogleCloud();
     await new Promise(resolve => setTimeout(resolve, 1000));
     await testGoogleAI();

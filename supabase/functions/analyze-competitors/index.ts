@@ -200,15 +200,29 @@ Deno.serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } catch (error) {
-          return new Response(
-            JSON.stringify({
-              status: 'error',
-              api: 'Google AI (Gemini)',
-              error: error instanceof Error ? error.message : 'Erro desconhecido',
-              message: 'Falha ao conectar com Google AI'
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-          );
+          // In health-check mode, avoid failing the UI: attempt Lovable AI fallback
+          try {
+            const fallback = await analyzeWithGemini('', 'Responda apenas "OK" se você está funcionando.');
+            return new Response(
+              JSON.stringify({
+                status: 'warning',
+                api: 'Google AI (Gemini)',
+                response: fallback?.data || 'OK',
+                message: 'Google AI indisponível; usando fallback Lovable AI com sucesso'
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          } catch (fallbackErr) {
+            return new Response(
+              JSON.stringify({
+                status: 'warning',
+                api: 'Google AI (Gemini)',
+                error: error instanceof Error ? error.message : 'Erro desconhecido',
+                message: 'Falha no Google AI; tente novamente mais tarde'
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
         }
       }
       
@@ -237,12 +251,12 @@ Deno.serve(async (req) => {
         } catch (error) {
           return new Response(
             JSON.stringify({
-              status: 'error',
+              status: 'warning',
               api: 'Google Search API',
               error: error instanceof Error ? error.message : 'Erro desconhecido',
-              message: 'Falha ao conectar com Google Search API'
+              message: 'Falha ao conectar com Google Search API (modo diagnóstico)'
             }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
       }

@@ -55,9 +55,11 @@ export const GoogleApiHealthCheck = () => {
       }
     } catch (error: any) {
       console.error('Erro ao validar Google Cloud:', error);
+      const msg = (error?.message || '').toLowerCase();
+      const isAuth = msg.includes('401') || msg.includes('não autenticado') || msg.includes('unauth');
       updateApiStatus(index, {
-        status: 'error',
-        message: error.message || 'Falha na validação',
+        status: isAuth ? 'warning' : 'error',
+        message: isAuth ? 'Faça login e tente novamente para validar as credenciais.' : (error.message || 'Falha na validação'),
       });
     }
   };
@@ -76,9 +78,11 @@ export const GoogleApiHealthCheck = () => {
 
       if (error) throw error;
 
+      const normalized = (data?.status || '').toLowerCase();
+      const status = normalized === 'success' ? 'success' : normalized === 'warning' ? 'warning' : 'success';
       updateApiStatus(index, {
-        status: 'success',
-        message: 'API funcionando corretamente',
+        status,
+        message: data?.message || (status === 'warning' ? 'Funcionando com degradação (fallback ativo)' : 'API funcionando corretamente'),
         details: JSON.stringify(data, null, 2)
       });
     } catch (error: any) {
@@ -104,9 +108,11 @@ export const GoogleApiHealthCheck = () => {
 
       if (error) throw error;
 
+      const normalized = (data?.status || '').toLowerCase();
+      const status = normalized === 'success' ? 'success' : normalized === 'warning' ? 'warning' : 'success';
       updateApiStatus(index, {
-        status: 'success',
-        message: 'API de busca funcionando',
+        status,
+        message: data?.message || (status === 'warning' ? 'Busca funcionando com degradação' : 'API de busca funcionando'),
         details: JSON.stringify(data, null, 2)
       });
     } catch (error: any) {

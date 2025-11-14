@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { lovableEnabled } from '@/config/lovable';
 import { Send, MessageCircle, X, Bot, User } from 'lucide-react';
 
 interface Message {
@@ -15,6 +16,9 @@ export const PublicChat = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const isConfigured = Boolean(supabaseUrl && supabaseAnonKey);
   const [sessionId] = useState(() => {
     const existing = localStorage.getItem('chat_session_id');
     if (existing) return existing;
@@ -32,26 +36,42 @@ export const PublicChat = () => {
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
+    if (!isConfigured) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content:
+            'O chat não está configurado corretamente. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.',
+        },
+      ]);
+      return;
+    }
+
     const userMessage = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-chat`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: userMessage,
-            sessionId,
-            conversationId,
-          }),
-        }
-      );
+      const response = await fetch(`${supabaseUrl}/functions/v1/public-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          sessionId,
+          conversationId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(errorMessage || 'Erro ao contactar o assistente.');
+      }
 
       const data = await response.json();
 
@@ -101,6 +121,16 @@ export const PublicChat = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/30">
+        {!lovableEnabled && (
+          <div className="text-sm text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-md p-3">
+            O assistente está operando em modo simplificado. Para respostas geradas por IA, habilite o conector na configuração.
+          </div>
+        )}
+        {!isConfigured && (
+          <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/30 rounded-md p-3">
+            Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY para ativar o chat.
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-12">
             <Bot className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -171,10 +201,10 @@ export const PublicChat = () => {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder="Digite sua mensagem..."
-            disabled={loading}
+            disabled={loading || !isConfigured}
             className="flex-1"
           />
-          <Button onClick={sendMessage} disabled={loading || !input.trim()} size="icon">
+          <Button onClick={sendMessage} disabled={loading || !input.trim() || !isConfigured} size="icon">
             <Send className="w-4 h-4" />
           </Button>
         </div>

@@ -32,19 +32,19 @@
 
 ### 4. **Funcionalidades**
 - ✅ Ciclo de vida de campanhas (visível até 05:55, arquivamento automático)
-- ✅ Retenção de 30 dias
+- ✅ Retenção de 7 dias com confirmação antes da limpeza automática
 - ✅ Exportação de campanhas em JSON
 - ✅ Sistema de alertas com severidade
 - ✅ Válvulas de segurança (modo crise, aprovação manual)
-- ✅ Integração com Lovable AI (sem necessidade de API keys externa)
+- 🤖 Assistente IA com fallback local (Lovable opcional — conecte outro provedor se preferir)
 
 ---
 
 ## 🔧 CONFIGURAÇÃO NECESSÁRIA
 
-### APIs Externas (Pendentes - Você Precisa Obter)
+### APIs Externas (Google obrigatório, demais opcionais)
 
-Para o sistema funcionar 100%, você precisa configurar as seguintes APIs no Lovable Cloud:
+Para o sistema funcionar, configure as variáveis abaixo no seu ambiente (variáveis locais ou secrets do Supabase). Somente as chaves do **Google** são obrigatórias — as demais integrações são opcionais e, quando ausentes, o sistema usa o modo **"search like human"** para coletar sinais públicos via Google.
 
 #### 1. **Google APIs**
 ```bash
@@ -60,12 +60,14 @@ GOOGLE_CX_ID=seu_cx_id_aqui
 ```bash
 YOUTUBE_API_KEY=sua_chave_aqui
 ```
+**Opcional:** a mesma chave do Google Custom Search já desbloqueia o YouTube Data API v3; deixe configurado apenas se desejar requisições diretas. Sem essa variável, o sistema usa a busca pública do Google para encontrar conteúdos do YouTube.
+
 **Como obter:**
 - Acesse [Google Cloud Console](https://console.cloud.google.com/)
 - Ative: YouTube Data API v3
 - Use a mesma API Key do Google
 
-#### 3. **X (Twitter)**
+#### 3. **X (Twitter) — opcional**
 ```bash
 X_BEARER_TOKEN=seu_token_aqui
 ```
@@ -74,7 +76,7 @@ X_BEARER_TOKEN=seu_token_aqui
 - Crie um App
 - Gere Bearer Token em "Keys and Tokens"
 
-#### 4. **Meta / Instagram**
+#### 4. **Meta / Instagram — opcional**
 ```bash
 META_APP_ID=seu_app_id_aqui
 META_APP_SECRET=seu_secret_aqui
@@ -86,7 +88,7 @@ META_ACCESS_TOKEN=seu_token_aqui
 - Configure Instagram Basic Display API
 - Gere Access Token
 
-#### 5. **TikTok**
+#### 5. **TikTok — opcional**
 ```bash
 TIKTOK_APP_ID=seu_app_id_aqui
 TIKTOK_APP_SECRET=seu_secret_aqui
@@ -97,11 +99,13 @@ TIKTOK_ACCESS_TOKEN=seu_token_aqui
 - Crie um App
 - Solicite acesso à API
 
+> ℹ️ Sem esses tokens opcionais, as Edge Functions ativam automaticamente a coleta "search like human" (via Google Custom Search) para reunir dados públicos das redes sociais citadas.
+
 ### Como Adicionar as APIs no Projeto
 
-1. **Via Interface Lovable Cloud:**
-   - Vá em Settings → Secrets
-   - Adicione cada variável de ambiente acima
+1. **Via Dashboard do Supabase:**
+   - Vá em Project Settings → API → Edge Functions → Manage Secrets
+   - Adicione cada variável de ambiente listada
 
 2. **Via Supabase Dashboard (alternativo):**
    - Acesse seu projeto Supabase
@@ -215,7 +219,7 @@ Use um serviço como:
 
 ## 🎯 FLUXO AUTOMÁTICO DIÁRIO
 
-Quando o cron job estiver configurado, TODOS OS DIAS às 06:00:
+Quando o cron job estiver configurado, **de segunda a sexta-feira às 06:00 BRT**:
 
 1. **06:00 - Início**
    - Sistema executa `schedule-daily-analysis`
@@ -237,10 +241,12 @@ Quando o cron job estiver configurado, TODOS OS DIAS às 06:00:
 
 5. **Dia seguinte 05:55 - Arquivamento**
    - Campanha do dia anterior é arquivada automaticamente
-   - Nova campanha será gerada às 06:00
+   - Ela permanece visível apenas até que a nova campanha seja publicada
 
-6. **A cada 30 dias**
-   - Campanhas antigas são deletadas automaticamente
+6. **Segunda-feira 05:55 - Limpeza guiada**
+   - O sistema pergunta se você deseja baixar as pesquisas arquivadas com 7 dias
+   - Após sua confirmação, as pesquisas e campanhas arquivadas são removidas 5 minutos antes da coleta de segunda-feira
+   - Preferiu adiar? Basta escolher “Lembrar depois” e o lembrete volta na semana seguinte
 
 ---
 
@@ -296,7 +302,7 @@ O sistema possui proteções automáticas:
 
 ### "Aguardando APIs externas"
 - **Solução**: Configure as APIs no Secrets
-- Algumas funcionalidades funcionam sem APIs (usando Lovable AI)
+- Algumas funcionalidades funcionam em modo simplificado quando Lovable está desativado
 
 ### "Erro ao gerar campanha"
 - **Causa**: Falta de dados de análise
@@ -352,7 +358,6 @@ SELECT cron.schedule(
 
 ## 📞 SUPORTE
 
-- **Documentação Lovable**: [docs.lovable.dev](https://docs.lovable.dev)
 - **Comunidade Discord**: [discord.lovable.dev](https://discord.lovable.dev)
 
 ---

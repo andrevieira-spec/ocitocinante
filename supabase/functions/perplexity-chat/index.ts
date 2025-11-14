@@ -40,7 +40,32 @@ serve(async (req) => {
       });
     }
 
+    const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI'));
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+
+    if (!lovableEnabled) {
+      const assistantMessage = buildLovableDisabledMessage(message);
+
+      await supabase.from('perplexity_messages').insert({
+        conversation_id: currentConversationId!,
+        role: 'assistant',
+        content: assistantMessage,
+        metadata: { related_questions: [] },
+      });
+
+      return new Response(
+        JSON.stringify({
+          message: assistantMessage,
+          conversationId: currentConversationId,
+          relatedQuestions: [],
+          lovableEnabled: false,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     if (!lovableApiKey) {
       return new Response(JSON.stringify({ error: 'Lovable AI key not configured' }), {
         status: 500,
@@ -119,7 +144,8 @@ serve(async (req) => {
       JSON.stringify({
         message: assistantMessage,
         conversationId: currentConversationId,
-        relatedQuestions
+        relatedQuestions,
+        lovableEnabled: true,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -136,3 +162,18 @@ serve(async (req) => {
     );
   }
 });
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+function buildLovableDisabledMessage(userMessage: string) {
+  return [
+    'A automação de análise profunda está desativada no momento.',
+    'Revise manualmente os concorrentes no dashboard e utilize as fontes oficiais cadastradas para levantar dados atualizados.',
+    `Mensagem recebida: "${userMessage}"`,
+    'Ative o conector Lovable ou integre outro provedor de IA para respostas automatizadas.',
+  ].join('\n\n');
+}

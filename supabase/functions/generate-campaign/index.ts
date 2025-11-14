@@ -27,6 +27,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI'));
+    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
     
     // Input validation
     if (!body.conversationId || typeof body.conversationId !== 'string') {
@@ -94,28 +96,43 @@ Formato JSON:
   "metrics": ["métrica1", "métrica2"]
 }`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: 'Você é um especialista em marketing e criação de campanhas.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.8,
-      }),
-    });
+    let campaignContent: string;
 
-    if (!aiResponse.ok) {
-      throw new Error(`AI API error: ${aiResponse.statusText}`);
+    if (lovableEnabled) {
+      if (!lovableKey) {
+        throw new Error('LOVABLE_API_KEY não configurada');
+      }
+
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'Você é um especialista em marketing e criação de campanhas.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.8,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        throw new Error(`AI API error: ${aiResponse.statusText}`);
+      }
+
+      const aiData = await aiResponse.json();
+      campaignContent = aiData.choices[0].message.content;
+    } else {
+      campaignContent = buildCampaignFallback({
+        context,
+        learningData,
+        campaignType,
+        targetAudience,
+      });
     }
-
-    const aiData = await aiResponse.json();
-    const campaignContent = aiData.choices[0].message.content;
 
     // Tentar parsear JSON da resposta
     let parsedContent;
@@ -145,7 +162,7 @@ Formato JSON:
     console.log('Campanha criada:', campaign.id);
 
     return new Response(
-      JSON.stringify({ campaign }),
+      JSON.stringify({ campaign, lovableEnabled }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -170,3 +187,32 @@ Formato JSON:
     );
   }
 });
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+function buildCampaignFallback(params: { context: string; learningData: string; campaignType: string; targetAudience: string }) {
+  const summary = params.context ? params.context.split('\n').slice(-3).join(' ') : 'Sem histórico recente disponível.';
+  const personas = params.targetAudience || 'baseado no contexto';
+  const highlights = params.learningData ? `Padrões relevantes: ${params.learningData}` : 'Sem padrões capturados no momento.';
+
+  const content = {
+    title: `Campanha manual - ${params.campaignType}`,
+    description: `Roteiro criado manualmente a partir do histórico recente do cliente. Público-alvo: ${personas}.`,
+    messages: [
+      'Reforce a proposta de valor principal da Ocitocina Viagens.',
+      'Use depoimentos reais de clientes para aumentar confiança.',
+      highlights,
+    ],
+    ctas: ['Fale com um consultor especializado', 'Reserve sua próxima viagem'],
+    channels: ['Email marketing', 'Instagram Stories', 'WhatsApp Business'],
+    metrics: ['Leads qualificados', 'Taxa de resposta no WhatsApp', 'Reservas confirmadas'],
+    fallback: true,
+    summary,
+  };
+
+  return JSON.stringify(content, null, 2);
+}

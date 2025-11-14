@@ -151,19 +151,19 @@
         <h3>4. Funcionalidades</h3>
         <ul>
             <li><span class="badge badge-success">✅</span> Ciclo de vida de campanhas (visível até 05:55, arquivamento automático)</li>
-            <li><span class="badge badge-success">✅</span> Retenção de 30 dias</li>
+            <li><span class="badge badge-success">✅</span> Retenção de 7 dias com confirmação antes da limpeza</li>
             <li><span class="badge badge-success">✅</span> Exportação de campanhas em JSON</li>
             <li><span class="badge badge-success">✅</span> Sistema de alertas com severidade</li>
             <li><span class="badge badge-success">✅</span> Válvulas de segurança (modo crise, aprovação manual)</li>
-            <li><span class="badge badge-success">✅</span> Integração com Lovable AI (sem necessidade de API keys externa)</li>
+            <li><span class="badge badge-success">🤖</span> Assistente IA com fallback local (Lovable opcional — conecte outro provedor se preferir)</li>
         </ul>
     </div>
 
     <div class="section">
         <h2>🔧 CONFIGURAÇÃO NECESSÁRIA</h2>
 
-        <h3>APIs Externas (Pendentes)</h3>
-        <p>Para o sistema funcionar 100%, você precisa configurar as seguintes APIs no Lovable Cloud:</p>
+        <h3>APIs Externas (Google obrigatório, demais opcionais)</h3>
+        <p>Configure as variáveis abaixo no seu ambiente (variáveis locais ou secrets do Supabase). Apenas as chaves do <strong>Google</strong> são obrigatórias — as demais integrações são opcionais. Quando não configuradas, as Edge Functions usam o modo <em>"search like human"</em> para coletar sinais públicos via Google.</p>
 
         <h4>1. Google APIs</h4>
         <pre>GOOGLE_API_KEY=sua_chave_aqui
@@ -175,8 +175,9 @@ GOOGLE_CX_ID=seu_cx_id_aqui</pre>
             <li>Crie credenciais → API Key</li>
         </ul>
 
-        <h4>2. YouTube</h4>
+        <h4>2. YouTube (opcional)</h4>
         <pre>YOUTUBE_API_KEY=sua_chave_aqui</pre>
+        <p><strong>Opcional:</strong> a mesma chave do Google Custom Search já habilita a YouTube Data API v3. Se não definir esta variável, o sistema buscará conteúdos do YouTube via Google.</p>
         <p><strong>Como obter:</strong></p>
         <ul>
             <li>Acesse Google Cloud Console</li>
@@ -184,7 +185,7 @@ GOOGLE_CX_ID=seu_cx_id_aqui</pre>
             <li>Use a mesma API Key do Google</li>
         </ul>
 
-        <h4>3. X (Twitter)</h4>
+        <h4>3. X (Twitter) — opcional</h4>
         <pre>X_BEARER_TOKEN=seu_token_aqui</pre>
         <p><strong>Como obter:</strong></p>
         <ul>
@@ -193,7 +194,7 @@ GOOGLE_CX_ID=seu_cx_id_aqui</pre>
             <li>Gere Bearer Token em "Keys and Tokens"</li>
         </ul>
 
-        <h4>4. Meta / Instagram</h4>
+        <h4>4. Meta / Instagram — opcional</h4>
         <pre>META_APP_ID=seu_app_id_aqui
 META_APP_SECRET=seu_secret_aqui
 META_ACCESS_TOKEN=seu_token_aqui</pre>
@@ -205,7 +206,7 @@ META_ACCESS_TOKEN=seu_token_aqui</pre>
             <li>Gere Access Token</li>
         </ul>
 
-        <h4>5. TikTok</h4>
+        <h4>5. TikTok — opcional</h4>
         <pre>TIKTOK_APP_ID=seu_app_id_aqui
 TIKTOK_APP_SECRET=seu_secret_aqui
 TIKTOK_ACCESS_TOKEN=seu_token_aqui</pre>
@@ -217,10 +218,15 @@ TIKTOK_ACCESS_TOKEN=seu_token_aqui</pre>
         </ul>
 
         <div class="alert alert-info">
+            <strong>ℹ️ Dica:</strong> Sem esses tokens opcionais, as análises continuam funcionando usando Google Custom Search para simular pesquisas humanas e extrair dados públicos das redes sociais.
+        </div>
+
+        <div class="alert alert-info">
             <strong>💡 Como Adicionar as APIs no Projeto</strong><br><br>
-            <strong>Via Interface Lovable Cloud:</strong><br>
-            → Vá em Settings → Secrets<br>
-            → Adicione cada variável de ambiente acima
+            <strong>Via Dashboard do Supabase:</strong><br>
+            → Vá em Project Settings → API → Edge Functions → Manage Secrets<br>
+            → Adicione cada variável de ambiente listada<br>
+            → Faça o redeploy das funções se necessário
         </div>
     </div>
 
@@ -365,12 +371,12 @@ SELECT * FROM cron.job;</pre>
                 <tr>
                     <td>05:55 (dia seguinte)</td>
                     <td>Arquivamento</td>
-                    <td>Campanha anterior é arquivada automaticamente</td>
+                    <td>Campanha anterior é arquivada automaticamente até a nova publicação</td>
                 </tr>
                 <tr>
-                    <td>A cada 30 dias</td>
-                    <td>Limpeza</td>
-                    <td>Campanhas antigas são deletadas</td>
+                    <td>05:55 (segunda-feira)</td>
+                    <td>Limpeza guiada</td>
+                    <td>Você confirma se deseja baixar as pesquisas com 7 dias antes da exclusão automática</td>
                 </tr>
             </tbody>
         </table>
@@ -415,7 +421,7 @@ SELECT * FROM cron.job;</pre>
                 </tr>
                 <tr>
                     <td>"Aguardando APIs externas"</td>
-                    <td>Configure as APIs no Secrets. Algumas funcionalidades funcionam sem APIs (usando Lovable AI)</td>
+                    <td>Configure as APIs no Secrets. Algumas funcionalidades funcionam em modo simplificado quando Lovable está desativado.</td>
                 </tr>
                 <tr>
                     <td>"Erro ao gerar campanha"</td>

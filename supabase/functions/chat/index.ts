@@ -32,6 +32,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    const lovableEnabled = parseFlag(Deno.env.get('ENABLE_LOVABLE_AI'));
+    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
     
     // Input validation
     if (!body.message || typeof body.message !== 'string') {
@@ -243,27 +245,36 @@ ${analyses.slice(0, 2).map((a: any) => `- [${a.date}] ${a.confidence}% confianç
       ...(history?.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })) || [])
     ];
 
-    // Chamar Lovable AI com modelo mais poderoso
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro', // Modelo mais poderoso para análise complexa
-        messages: messages,
-        temperature: 0.8, // Aumentado para respostas mais criativas e insights únicos
-        max_tokens: 4096, // Respostas mais completas e detalhadas
-      }),
-    });
+    let assistantMessage: string;
 
-    if (!aiResponse.ok) {
-      throw new Error(`AI API error: ${aiResponse.statusText}`);
+    if (lovableEnabled) {
+      if (!lovableKey) {
+        throw new Error('LOVABLE_API_KEY não configurada');
+      }
+
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-pro', // Modelo mais poderoso para análise complexa
+          messages: messages,
+          temperature: 0.8, // Aumentado para respostas mais criativas e insights únicos
+          max_tokens: 4096, // Respostas mais completas e detalhadas
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        throw new Error(`AI API error: ${aiResponse.statusText}`);
+      }
+
+      const aiData = await aiResponse.json();
+      assistantMessage = aiData.choices[0].message.content;
+    } else {
+      assistantMessage = buildChatFallback(message, history || []);
     }
-
-    const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices[0].message.content;
 
     console.log('Resposta da IA recebida');
 
@@ -298,7 +309,8 @@ ${analyses.slice(0, 2).map((a: any) => `- [${a.date}] ${a.confidence}% confianç
     return new Response(
       JSON.stringify({
         conversationId: conversation.id,
-        message: assistantMessage
+        message: assistantMessage,
+        lovableEnabled,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -324,3 +336,22 @@ ${analyses.slice(0, 2).map((a: any) => `- [${a.date}] ${a.confidence}% confianç
     );
   }
 });
+
+function parseFlag(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+function buildChatFallback(message: string, history: { role: string; content: string }[]) {
+  const lastTopics = history.slice(-3).map(entry => `• ${entry.role === 'assistant' ? 'Assistente' : 'Usuário'}: ${entry.content.substring(0, 120)}`);
+  const summary = lastTopics.length ? ['Histórico recente:', ...lastTopics].join('\n') : 'Nenhum histórico recente disponível.';
+
+  return [
+    'O copiloto estratégico está temporariamente em modo manual.',
+    summary,
+    `Mensagem atual: "${message}"`,
+    'Revise os módulos de Mercado, Campanhas e Alertas para reunir os dados necessários e responda diretamente ao usuário.',
+    'Ative o conector Lovable ou integre outro provedor para retomar as respostas automatizadas.',
+  ].join('\n\n');
+}

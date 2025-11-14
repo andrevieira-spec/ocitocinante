@@ -241,7 +241,7 @@ Armazena snapshots completos do sistema:
 Função `cleanup_old_cbos_snapshots()` roda periodicamente:
 - Remove snapshots expirados
 - Mantém apenas últimos 10 snapshots automáticos
-- Mantém operações dos últimos 30 dias
+- Mantém operações confirmadas dos últimos 7 dias (com lembrete antes da limpeza)
 
 ## Limitações Atuais
 

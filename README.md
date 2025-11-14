@@ -1,77 +1,65 @@
-# Welcome to your Lovable project
+# Ocitocina Market Intelligence
 
-Teste de integração GPT + GitHub
+Aplicação administrativa construída com Vite + React para gerir campanhas diárias, monitorar concorrentes e oferecer atendimento automatizado para a Ocitocina Viagens.
 
-## Project info
+## Principais tecnologias
+- React 18 com Vite e TypeScript
+- shadcn/ui + Tailwind CSS para componentes visuais
+- Supabase (Auth, banco de dados Postgres, Edge Functions)
+- React Query para acesso a dados
 
-**URL**: https://lovable.dev/projects/62965e9e-7836-46d9-9cc2-ca6912c0d4ff
+## Pré-requisitos
+- Node.js 20 (ou versão LTS mais recente)
+- npm 9+
+- Conta Supabase com banco provisionado
 
-## How can I edit this code?
+## Configuração
+1. Clone o repositório e instale dependências:
+   ```sh
+   git clone <seu-fork>
+   cd ocitocinante
+   npm install
+   ```
+2. Copie o arquivo `.env` (crie um novo caso não exista) e defina as variáveis abaixo:
+   ```ini
+   VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=<anon key>
+   VITE_ENABLE_LOVABLE=false
+   ```
+3. Configure as secrets das Edge Functions no painel do Supabase (`Project Settings → API → Edge Functions → Manage Secrets`) ou via CLI. Para operar no modo padrão (sem conectores externos), você precisa de:
+   - `SUPABASE_URL` e `SUPABASE_ANON_KEY`
+   - `GOOGLE_API_KEY` e `GOOGLE_CX_ID` (Google Custom Search)
+   - `ENABLE_LOVABLE_AI` (opcional, `true` para ativar o conector Lovable)
 
-There are several ways of editing your application.
+   Tokens adicionais (X/Twitter, Instagram, TikTok etc.) são opcionais. Quando não configurados, as Edge Functions utilizam o modo **"search like human"** baseado na busca do Google para coletar sinais públicos das redes sociais e continuar gerando análises.
 
-**Use Lovable**
+> ℹ️ O assistente de IA opera em modo simplificado quando `VITE_ENABLE_LOVABLE=false` e `ENABLE_LOVABLE_AI` não estão habilitados. Conecte outro provedor se desejar respostas avançadas.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/62965e9e-7836-46d9-9cc2-ca6912c0d4ff) and start prompting.
+## Scripts úteis
+| Comando        | Descrição                                      |
+| -------------- | ---------------------------------------------- |
+| `npm run dev`  | Inicia o servidor local em modo desenvolvimento |
+| `npm run build`| Gera o bundle de produção                       |
+| `npm run lint` | Executa o ESLint configurado para o projeto     |
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
+## Edge Functions
+O projeto inclui funções em `supabase/functions`. Para publicar novas versões:
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+supabase functions deploy <function-name>
 ```
+Certifique-se de atualizar as secrets após qualquer alteração em variáveis de ambiente.
 
-**Edit a file directly in GitHub**
+## Automação diária
+- A função `schedule-daily-analysis` roda automaticamente **de segunda a sexta às 06:00 BRT**, executando as coletas e gerando a campanha do dia.
+- A campanha anterior é arquivada às 05:55 BRT e permanece disponível somente até a próxima publicação.
+- Na segunda-feira às 05:55 BRT o sistema pergunta se você deseja baixar as pesquisas arquivadas com 7 dias; após a confirmação (ou na semana seguinte, caso escolha ser lembrado depois) os dados são removidos 5 minutos antes da nova coleta.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Deploy
+Qualquer plataforma compatível com aplicações Vite/React pode ser utilizada (Netlify, Vercel, Render, etc.).
 
-**Use GitHub Codespaces**
+1. Defina `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e demais variáveis no painel da plataforma escolhida.
+2. Execute `npm run build` durante o processo de deploy e sirva os arquivos gerados em `dist/`.
+3. Configure uma URL para as Edge Functions do Supabase (o front-end já utiliza diretamente o endpoint do projeto Supabase configurado).
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/62965e9e-7836-46d9-9cc2-ca6912c0d4ff) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-Teste de sincronização GitHub → Lovable
-
+## Suporte
+Consulte `CBOS_SETUP.md` para checklist detalhado de configuração de dados, rotinas e integrações.

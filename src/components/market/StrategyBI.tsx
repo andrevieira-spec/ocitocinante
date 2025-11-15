@@ -266,32 +266,85 @@ export const StrategyBI = () => {
             </CardContent>
           </Card>
 
-          {/* Insights Estratégicos (se houver) */}
-          {strategicAnalysis && (
-            <Card className="bg-card-dark border-border">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
-                  <Lightbulb className="w-5 h-5 text-brand-yellow" />
-                  Insights Estratégicos Detalhados
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="prose prose-sm max-w-none">
-                    <div className="whitespace-pre-wrap text-text-primary">{strategicAnalysis.insights}</div>
-                  </div>
-                  {strategicAnalysis.recommendations && (
-                    <div className="border-t border-border pt-4">
-                      <h4 className="font-semibold mb-2 text-text-primary">Recomendações:</h4>
-                      <div className="whitespace-pre-wrap text-sm text-text-muted">
-                        {strategicAnalysis.recommendations}
+          {/* Insights Estratégicos Detalhados */}
+          {strategicAnalysis && (() => {
+            const rawText = strategicAnalysis.data?.raw_response || strategicAnalysis.insights || '';
+            
+            // Parser seguro: extrair seções estruturadas do texto
+            const sections: Array<{title: string; content: string[]}> = [];
+            
+            // Dividir por títulos em markdown
+            const parts = rawText.split(/\*\*([A-Za-zÀ-ÿ\s]+):\*\*/);
+            
+            for (let i = 1; i < parts.length; i += 2) {
+              const title = parts[i].trim();
+              const content = parts[i + 1] || '';
+              
+              // Extrair itens da lista
+              const items = content
+                .split(/\d+\.\s+/)
+                .filter(item => item.trim().length > 20)
+                .map(item => 
+                  item
+                    .replace(/\*\*/g, '')
+                    .replace(/\*/g, '')
+                    .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡⚠️🚨❌💎✨]/g, '')
+                    .trim()
+                    .split('\n')[0]
+                )
+                .filter(item => item.length > 15);
+              
+              if (items.length > 0) {
+                sections.push({ title, content: items });
+              }
+            }
+            
+            // Se não encontrou seções, usar texto simples
+            if (sections.length === 0) {
+              const lines = rawText
+                .split('\n')
+                .filter(line => line.trim().length > 20)
+                .map(line => line.replace(/\*\*/g, '').replace(/\*/g, '').trim())
+                .slice(0, 10);
+              
+              if (lines.length > 0) {
+                sections.push({ title: 'Análise Estratégica', content: lines });
+              }
+            }
+            
+            return sections.length > 0 ? (
+              <Card className="bg-card-dark border-border">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
+                    <Lightbulb className="w-5 h-5 text-brand-yellow" />
+                    Insights Estratégicos Detalhados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {sections.map((section, idx) => (
+                      <div key={idx} className="space-y-3">
+                        <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-brand-yellow" />
+                          {section.title}
+                        </h4>
+                        <div className="space-y-2 ml-4">
+                          {section.content.map((item, itemIdx) => (
+                            <div 
+                              key={itemIdx}
+                              className="p-3 bg-muted/30 rounded-lg border-l-2 border-brand-yellow/50"
+                            >
+                              <p className="text-sm text-text-primary">{item}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null;
+          })()}
 
           {/* Botão de Ação */}
           <Card className="bg-gradient-to-r from-brand-orange/20 to-brand-blue/20 border-brand-orange">

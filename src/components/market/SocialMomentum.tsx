@@ -22,11 +22,11 @@ export const SocialMomentum = () => {
 
   const loadMomentum = async () => {
     try {
-      // Buscar mais análises para garantir dados dinâmicos
+      // Buscar análises de tendências sociais (Google Trends, PAA)
       const { data, error } = await supabase
         .from('market_analysis')
         .select('*')
-        .eq('analysis_type', 'social_media')
+        .in('analysis_type', ['google_trends', 'trends', 'people_also_ask'])
         .order('analyzed_at', { ascending: false })
         .limit(20);
 
@@ -139,7 +139,7 @@ export const SocialMomentum = () => {
       <div>
         <h2 className="text-3xl font-bold text-foreground">Social Momentum</h2>
         <p className="text-sm text-text-muted mt-1">
-          Pulso social do setor turístico
+          Tendências sociais e temas em alta no Google Trends
         </p>
       </div>
 
@@ -198,12 +198,11 @@ export const SocialMomentum = () => {
             </Card>
           </div>
 
-          {/* Tendência de 14 dias */}
           <Card className="bg-card-dark border-border">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
                 <TrendingUp className="w-5 h-5 text-brand-blue" />
-                Tendência de Engajamento (14 dias)
+                Volume de Buscas (14 dias)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -222,8 +221,11 @@ export const SocialMomentum = () => {
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card-dark))',
                       border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      color: 'hsl(var(--text-primary))'
                     }}
+                    formatter={(value: number) => [`${value.toFixed(1)}%`, 'Volume de Buscas']}
+                    labelFormatter={(label) => `Data: ${label}`}
                   />
                   <Line 
                     type="monotone" 
@@ -242,7 +244,7 @@ export const SocialMomentum = () => {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-text-primary">
                 <Hash className="w-5 h-5 text-brand-yellow" />
-                Hashtags Mais Usadas
+                Top Termos de Busca
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -250,7 +252,8 @@ export const SocialMomentum = () => {
                 {kpis.topHashtags.map((tag, idx) => (
                   <Badge 
                     key={idx}
-                    className="bg-brand-yellow/20 text-brand-yellow hover:bg-brand-yellow/30 text-base px-4 py-2"
+                    variant="secondary"
+                    className="text-sm bg-muted text-foreground hover:bg-muted/80"
                   >
                     {tag}
                   </Badge>

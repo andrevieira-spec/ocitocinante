@@ -9,6 +9,7 @@ interface Analysis {
   insights: string;
   recommendations: string | null;
   analysis_type: string;
+  data: any;
 }
 
 export const StrategyBI = () => {
@@ -39,45 +40,116 @@ export const StrategyBI = () => {
 
   const strategicAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights');
 
-  // Cenário Atual (3 bullets)
-  const currentScenario = [
-    'Demanda por destinos nacionais em alta (+35% vs mês anterior)',
-    'Concorrentes focando em formatos curtos e humor nas redes sociais',
-    'Preços médios estáveis com leve tendência de alta para alta temporada'
-  ];
-
-  // Riscos & Oportunidades
-  const risksOpportunities = {
-    risks: [
-      'Aumento da concorrência em destinos populares (Gramado, Bonito)',
-      'Possível saturação de conteúdo com formato "expectativa vs realidade"',
-      'Sensibilidade a preço: público busca alternativas econômicas'
-    ],
-    opportunities: [
-      'Crescimento de 45% em engajamento com Reels humorísticos',
-      'Tendência de viagens sustentáveis ainda pouco explorada',
-      'Janela de oportunidade: destinos menos conhecidos com alta procura'
-    ]
+  // Extrair cenário atual das análises
+  const extractCurrentScenario = () => {
+    const items: string[] = [];
+    
+    if (strategicAnalysis) {
+      const text = (strategicAnalysis.data?.raw_response || strategicAnalysis.insights || '');
+      const scenarioMatch = text.match(/\*\*Cenário Atual[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+      
+      if (scenarioMatch) {
+        const extracted = scenarioMatch[1]
+          .split(/\d+\.\s+/)
+          .filter(item => item.trim().length > 20)
+          .map(item => item.replace(/\*\*/g, '').replace(/[🎯💡📊🔥⚡]/g, '').trim().split('\n')[0])
+          .slice(0, 3);
+        items.push(...extracted);
+      }
+    }
+    
+    if (items.length === 0) {
+      items.push(
+        'Análise em andamento - Execute nova análise para ver dados atualizados',
+        'Aguardando coleta de dados de mercado',
+        'Sistema pronto para processar informações'
+      );
+    }
+    
+    return items;
   };
 
-  // Ações Recomendadas
-  const recommendedActions = [
-    {
-      priority: 'Alta',
-      action: 'Criar série de 5 Reels com humor sobre destinos brasileiros',
-      deadline: '3 dias'
-    },
-    {
-      priority: 'Média',
-      action: 'Desenvolver carrossel informativo sobre turismo sustentável',
-      deadline: '5 dias'
-    },
-    {
-      priority: 'Alta',
-      action: 'Lançar campanha promocional para destinos em alta (Gramado)',
-      deadline: '2 dias'
+  const currentScenario = extractCurrentScenario();
+
+  // Extrair riscos e oportunidades
+  const extractRisksOpportunities = () => {
+    const result = { risks: [] as string[], opportunities: [] as string[] };
+    
+    if (strategicAnalysis) {
+      const text = (strategicAnalysis.data?.raw_response || strategicAnalysis.insights || '');
+      
+      // Buscar riscos
+      const risksMatch = text.match(/\*\*Riscos[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+      if (risksMatch) {
+        const risks = risksMatch[1]
+          .split(/\d+\.\s+/)
+          .filter(item => item.trim().length > 15)
+          .map(item => item.replace(/\*\*/g, '').replace(/[⚠️🚨❌]/g, '').trim().split('\n')[0])
+          .slice(0, 3);
+        result.risks.push(...risks);
+      }
+      
+      // Buscar oportunidades
+      const oppsMatch = text.match(/\*\*Oportunidades[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+      if (oppsMatch) {
+        const opps = oppsMatch[1]
+          .split(/\d+\.\s+/)
+          .filter(item => item.trim().length > 15)
+          .map(item => item.replace(/\*\*/g, '').replace(/[💎✨🎯]/g, '').trim().split('\n')[0])
+          .slice(0, 3);
+        result.opportunities.push(...opps);
+      }
     }
-  ];
+    
+    if (result.risks.length === 0) {
+      result.risks.push('Aguardando análise de riscos', 'Execute análise para identificar ameaças', 'Dados em processamento');
+    }
+    if (result.opportunities.length === 0) {
+      result.opportunities.push('Aguardando análise de oportunidades', 'Execute análise para identificar chances', 'Dados em processamento');
+    }
+    
+    return result;
+  };
+
+  const risksOpportunities = extractRisksOpportunities();
+
+  // Extrair ações recomendadas
+  const extractActions = () => {
+    const actions: Array<{ priority: string; action: string; deadline: string }> = [];
+    
+    if (strategicAnalysis) {
+      const text = (strategicAnalysis.recommendations || strategicAnalysis.data?.raw_response || '');
+      const actionsMatch = text.match(/\*\*Recomendações[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i) ||
+                           text.match(/\*\*Ações[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+      
+      if (actionsMatch) {
+        const items = actionsMatch[1]
+          .split(/\d+\.\s+/)
+          .filter(item => item.trim().length > 15)
+          .map(item => item.replace(/\*\*/g, '').replace(/[🎯⚡🔥]/g, '').trim().split('\n')[0])
+          .slice(0, 3);
+        
+        items.forEach((item, idx) => {
+          actions.push({
+            priority: idx === 0 ? 'Alta' : idx === 1 ? 'Média' : 'Baixa',
+            action: item,
+            deadline: `${3 - idx} dias`
+          });
+        });
+      }
+    }
+    
+    if (actions.length === 0) {
+      actions.push(
+        { priority: 'Alta', action: 'Execute análise para gerar recomendações personalizadas', deadline: 'Agora' },
+        { priority: 'Média', action: 'Aguardando processamento de dados do mercado', deadline: '—' }
+      );
+    }
+    
+    return actions;
+  };
+
+  const recommendedActions = extractActions();
 
   if (loading) {
     return <div className="text-center py-8 text-text-muted">Carregando estratégia...</div>;

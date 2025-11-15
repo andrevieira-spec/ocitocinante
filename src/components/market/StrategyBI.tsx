@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Target, AlertTriangle, Lightbulb, Zap } from 'lucide-react';
+import { sanitizeText, isValidSanitizedText } from '@/lib/sanitize';
 
 interface Analysis {
   id: string;
@@ -51,7 +52,8 @@ export const StrategyBI = () => {
         const parsed: any = JSON.parse(text);
         const acc: string[] = [];
         const pushVal = (val: any) => {
-          if (typeof val === 'string' && val.trim().length > 20) acc.push(val.trim());
+          const cleaned = sanitizeText(val);
+          if (isValidSanitizedText(cleaned, 20)) acc.push(cleaned);
           if (Array.isArray(val)) val.forEach((v) => pushVal(v));
           if (val && typeof val === 'object') Object.values(val).forEach((v) => pushVal(v));
         };
@@ -60,7 +62,7 @@ export const StrategyBI = () => {
           if (parsed && typeof parsed === 'object' && k in parsed) pushVal((parsed as any)[k]);
         });
         if (acc.length === 0) pushVal(parsed);
-        items.push(...acc.filter(s => !s.includes('{') && !s.includes('[')).slice(0, 3));
+        items.push(...acc.slice(0, 3));
       } catch {}
       
       // 2) Fallback: regex em markdown
@@ -70,7 +72,8 @@ export const StrategyBI = () => {
           const extracted = scenarioMatch[1]
             .split(/\d+\.\s+/)
             .filter(item => item.trim().length > 20)
-            .map(item => item.replace(/\*\*/g, '').replace(/[🎯💡📊🔥⚡]/g, '').trim().split('\n')[0])
+            .map(item => sanitizeText(item))
+            .filter(item => isValidSanitizedText(item, 20))
             .slice(0, 3);
           items.push(...extracted);
         }
@@ -100,7 +103,8 @@ export const StrategyBI = () => {
       try {
         const parsed: any = JSON.parse(text);
         const pushAll = (val: any, acc: string[]) => {
-          if (typeof val === 'string' && val.trim().length > 15) acc.push(val.trim());
+          const cleaned = sanitizeText(val);
+          if (isValidSanitizedText(cleaned)) acc.push(cleaned);
           else if (Array.isArray(val)) val.forEach(v => pushAll(v, acc));
           else if (val && typeof val === 'object') Object.values(val).forEach(v => pushAll(v, acc));
         };
@@ -117,7 +121,8 @@ export const StrategyBI = () => {
           const risks = risksMatch[1]
             .split(/\d+\.\s+/)
             .filter(item => item.trim().length > 15)
-            .map(item => item.replace(/\*\*/g, '').replace(/[⚠️🚨❌]/g, '').trim().split('\n')[0])
+            .map(item => sanitizeText(item))
+            .filter(item => isValidSanitizedText(item))
             .slice(0, 3);
           result.risks.push(...risks);
         }
@@ -128,7 +133,8 @@ export const StrategyBI = () => {
           const opps = oppsMatch[1]
             .split(/\d+\.\s+/)
             .filter(item => item.trim().length > 15)
-            .map(item => item.replace(/\*\*/g, '').replace(/[💎✨🎯]/g, '').trim().split('\n')[0])
+            .map(item => sanitizeText(item))
+            .filter(item => isValidSanitizedText(item))
             .slice(0, 3);
           result.opportunities.push(...opps);
         }
@@ -136,8 +142,8 @@ export const StrategyBI = () => {
     }
     
     // Limpar, deduplicar e limitar
-    result.risks = Array.from(new Set(result.risks.filter(r => !r.includes('{') && !r.includes('[')))).slice(0,3);
-    result.opportunities = Array.from(new Set(result.opportunities.filter(o => !o.includes('{') && !o.includes('[')))).slice(0,3);
+    result.risks = Array.from(new Set(result.risks.filter(r => isValidSanitizedText(r)))).slice(0, 3);
+    result.opportunities = Array.from(new Set(result.opportunities.filter(o => isValidSanitizedText(o)))).slice(0, 3);
 
     if (result.risks.length === 0) {
       result.risks.push('Aguardando análise de riscos', 'Execute análise para identificar ameaças', 'Dados em processamento');
@@ -164,8 +170,8 @@ export const StrategyBI = () => {
         const items = actionsMatch[1]
           .split(/\d+\.\s+/)
           .filter(item => item.trim().length > 15)
-          .map(item => item.replace(/\*\*/g, '').replace(/[🎯⚡🔥]/g, '').trim().split('\n')[0])
-          .filter(item => !item.includes('{') && !item.includes('['))
+          .map(item => sanitizeText(item))
+          .filter(item => isValidSanitizedText(item))
           .slice(0, 3);
         
         items.forEach((item, idx) => {
@@ -322,15 +328,8 @@ export const StrategyBI = () => {
               const items = content
                 .split(/\d+\.\s+/)
                 .filter(item => item.trim().length > 20)
-                .map(item => 
-                  item
-                    .replace(/\*\*/g, '')
-                    .replace(/\*/g, '')
-                    .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡⚠️🚨❌💎✨]/g, '')
-                    .trim()
-                    .split('\n')[0]
-                )
-                .filter(item => item.length > 15);
+                .map(item => sanitizeText(item))
+                .filter(item => isValidSanitizedText(item, 15));
               
               if (items.length > 0) {
                 sections.push({ title, content: items });
@@ -342,7 +341,8 @@ export const StrategyBI = () => {
               const lines = rawText
                 .split('\n')
                 .filter(line => line.trim().length > 20)
-                .map(line => line.replace(/\*\*/g, '').replace(/\*/g, '').trim())
+                .map(line => sanitizeText(line))
+                .filter(line => isValidSanitizedText(line, 20))
                 .slice(0, 10);
               
               if (lines.length > 0) {

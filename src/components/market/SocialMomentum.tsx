@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Hash, Search, Zap } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar, Cell } from 'recharts';
+import { sanitizeText, isValidSanitizedText } from '@/lib/sanitize';
 
 interface Analysis {
   id: string;
@@ -47,12 +48,6 @@ export const SocialMomentum = () => {
   };
 
   // Helpers para processamento genérico (sem nicho)
-  const sanitizeText = (s: string) =>
-    String(s ?? "")
-      .replace(/[{}\[\]]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
   type Candidate = { name: string; volume: number };
 
   const extractEntriesFromData = (d: any): Candidate[] => {

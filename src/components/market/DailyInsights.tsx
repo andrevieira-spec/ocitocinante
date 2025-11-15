@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lightbulb, TrendingUp, Target, Zap, Users, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { sanitizeText, isValidSanitizedText } from '@/lib/sanitize';
 
 interface Analysis {
   id: string;
@@ -45,25 +46,6 @@ export const DailyInsights = () => {
     const rawText = strategyAnalysis?.data?.raw_response || strategyAnalysis?.insights || '';
     
     const insights: Array<{ category: string; icon: any; color: string; items: string[] }> = [];
-    
-    // Função helper para limpar texto
-    const cleanText = (text: string): string => {
-      try {
-        // Tentar parsear JSON caso seja string JSON
-        const parsed = JSON.parse(text);
-        // Se for string, use; se for objeto/array, não renderizar JSON cru
-        if (typeof parsed === 'string') return parsed.trim();
-        return '';
-      } catch {
-        // Se não for JSON, limpar normalmente
-        return text
-          .replace(/\*\*/g, '')
-          .replace(/\*/g, '')
-          .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡⚠️🚨❌💎✨]/g, '')
-          .replace(/\n.*/g, '')
-          .trim();
-      }
-    };
 
     // Extrair insights principais
     const mainInsights = rawText.match(/\*\*Insights Principais:\*\*([\s\S]*?)(?=\*\*|$)/i);
@@ -71,8 +53,8 @@ export const DailyInsights = () => {
       const items = mainInsights[1]
         .split(/\d+\.\s+/)
         .filter(item => item.trim().length > 20)
-        .map(item => cleanText(item))
-        .filter(item => item.length > 15 && !item.includes('{') && !item.includes('['))
+        .map(item => sanitizeText(item))
+        .filter(item => isValidSanitizedText(item))
         .slice(0, 3);
       
       if (items.length > 0) {
@@ -91,8 +73,8 @@ export const DailyInsights = () => {
       const items = recommendations[1]
         .split(/\d+\.\s+/)
         .filter(item => item.trim().length > 20)
-        .map(item => cleanText(item))
-        .filter(item => item.length > 15 && !item.includes('{') && !item.includes('['))
+        .map(item => sanitizeText(item))
+        .filter(item => isValidSanitizedText(item))
         .slice(0, 3);
       
       if (items.length > 0) {
@@ -114,7 +96,7 @@ export const DailyInsights = () => {
       // Buscar métricas de engagement
       const engMatches = socialText.match(/(\d+[.,]\d+)%\s+de\s+engajamento/gi);
       if (engMatches && engMatches.length > 0) {
-        engagementItems.push(cleanText(`Taxa média de engajamento: ${engMatches[0]}`));
+        engagementItems.push(sanitizeText(`Taxa média de engajamento: ${engMatches[0]}`));
       }
       
       // Buscar top performing content
@@ -122,7 +104,7 @@ export const DailyInsights = () => {
         engagementItems.push('Reels e vídeos curtos dominam o engajamento');
       }
       
-      if (engagementItems.length > 0 && engagementItems.every(item => !item.includes('{') && !item.includes('['))) {
+      if (engagementItems.length > 0 && engagementItems.every(item => isValidSanitizedText(item))) {
         insights.push({
           category: 'Engajamento Social',
           icon: Users,
@@ -151,7 +133,7 @@ export const DailyInsights = () => {
         pricingItems.push('Parcelamento é fator decisivo de conversão');
       }
       
-      if (pricingItems.length > 0 && pricingItems.every(item => !item.includes('{') && !item.includes('['))) {
+      if (pricingItems.length > 0 && pricingItems.every(item => isValidSanitizedText(item))) {
         insights.push({
           category: 'Inteligência de Preços',
           icon: DollarSign,
@@ -209,8 +191,8 @@ export const DailyInsights = () => {
               <CardContent>
                 <div className="space-y-3">
                   {section.items.map((item, itemIdx) => {
-                    // Validação extra: nunca renderizar se parecer JSON/objeto
-                    if (item.includes('{') || item.includes('[') || item.includes('}') || item.includes(']')) {
+                    // Validação extra: nunca renderizar se for JSON inválido
+                    if (!isValidSanitizedText(item)) {
                       return null;
                     }
                     

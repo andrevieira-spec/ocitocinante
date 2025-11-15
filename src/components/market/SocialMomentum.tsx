@@ -15,8 +15,8 @@ interface Analysis {
 
 interface TrendTopic {
   name: string;
-  volume: number;
-  growth: string;
+  volume: number; // aggregated across analyses
+  growthPct: number; // percent change recent vs past window
 }
 
 export const SocialMomentum = () => {
@@ -46,73 +46,102 @@ export const SocialMomentum = () => {
     }
   };
 
+  // Helpers para processamento genérico (sem nicho)
+  const sanitizeText = (s: string) =>
+    String(s ?? "")
+      .replace(/[{}\[\]]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  type Candidate = { name: string; volume: number };
+
+  const extractEntriesFromData = (d: any): Candidate[] => {
+    const out: Candidate[] = [];
+    const push = (nameRaw: any, vol?: any) => {
+      const name = sanitizeText(nameRaw);
+      if (!name || name.length < 2) return;
+      const volumeNum = Number(vol);
+      const volume = Number.isFinite(volumeNum) && volumeNum > 0 ? volumeNum : 1;
+      out.push({ name, volume });
+    };
+    const arrays = [
+      d?.top_queries,
+      d?.queries,
+      d?.related_queries,
+      d?.top_trends,
+      d?.trends,
+      d?.topics,
+      d?.items,
+      d?.questions,
+      d?.people_also_ask,
+    ];
+    for (const arr of arrays) {
+      if (Array.isArray(arr)) {
+        for (const it of arr) {
+          if (typeof it === "string") {
+            push(it, 1);
+            continue;
+          }
+          if (it && typeof it === "object") {
+            push(
+              (it as any).query ??
+                (it as any).name ??
+                (it as any).title ??
+                (it as any).topic ??
+                (it as any).question ??
+                (it as any).keyword,
+              (it as any).value ??
+                (it as any).search_volume ??
+                (it as any).score ??
+                (it as any).volume ??
+                (it as any).count
+            );
+          }
+        }
+      }
+    }
+    if (d?.topics && !Array.isArray(d.topics) && typeof d.topics === "object") {
+      for (const [k, v] of Object.entries(d.topics)) {
+        push(k, typeof v === "number" ? v : undefined);
+      }
+    }
+    return out;
+  };
+
+  const formatPct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
+
   // Extrair Top 10 temas do Google Trends BR das análises
   const extractTopTrends = (): TrendTopic[] => {
     if (analyses.length === 0) return [];
 
-    const topicsMap = new Map<string, { volume: number; mentions: number }>();
-    
-    // Destinos brasileiros populares no turismo
-    const destinations = [
-      'Gramado', 'Porto de Galinhas', 'Bonito', 'Fernando de Noronha',
-      'Foz do Iguaçu', 'Campos do Jordão', 'Jericoacoara', 'Maragogi',
-      'Búzios', 'Paraty', 'Nordeste', 'Amazônia', 'Pantanal', 'Chapada'
-    ];
+    const perTopic = new Map<string, { vol: number; daily: Map<string, number> }>();
 
-    for (const analysis of analyses) {
-      const text = (analysis.data?.raw_response || analysis.insights || '').toLowerCase();
-      
-      // Extrair destinos mencionados
-      destinations.forEach(dest => {
-        const destLower = dest.toLowerCase();
-        if (text.includes(destLower)) {
-          const current = topicsMap.get(dest) || { volume: 0, mentions: 0 };
-          
-          // Tentar extrair volume de buscas
-          const volumeMatch = text.match(new RegExp(`${destLower}[^\\d]*(\\d+\\.?\\d*)\\s*(mil|k|milhões)?\\s*(buscas|pesquisas|searches)`, 'i'));
-          let volume = current.volume;
-          
-          if (volumeMatch) {
-            let num = parseFloat(volumeMatch[1]);
-            if (volumeMatch[2]?.includes('mil') || volumeMatch[2]?.includes('k')) num *= 1000;
-            if (volumeMatch[2]?.includes('milhões')) num *= 1000000;
-            volume += num;
-          } else {
-            // Estimar volume baseado em menções (heurística)
-            volume += 500 + Math.random() * 1500;
-          }
-          
-          topicsMap.set(dest, {
-            volume,
-            mentions: current.mentions + 1
-          });
-        }
-      });
-
-      // Extrair termos de busca genéricos relacionados a turismo
-      const terms = ['turismo', 'viagem', 'hotel', 'resort', 'pacote', 'destino', 'férias', 'passeio'];
-      terms.forEach(term => {
-        if (text.includes(term)) {
-          const current = topicsMap.get(term) || { volume: 0, mentions: 0 };
-          topicsMap.set(term, {
-            volume: current.volume + (200 + Math.random() * 800),
-            mentions: current.mentions + 1
-          });
-        }
-      });
+    for (const a of analyses) {
+      const d = new Date(a.analyzed_at);
+      const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const entries = extractEntriesFromData(a.data ?? {});
+      for (const e of entries) {
+        const rec = perTopic.get(e.name) ?? { vol: 0, daily: new Map<string, number>() };
+        rec.vol += e.volume;
+        rec.daily.set(dayKey, (rec.daily.get(dayKey) ?? 0) + e.volume);
+        perTopic.set(e.name, rec);
+      }
     }
 
-    // Converter para array e ordenar por volume
-    const trends = Array.from(topicsMap.entries())
-      .map(([name, data]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        volume: Math.round(data.volume),
-        growth: data.mentions > 2 ? '+' + (15 + Math.random() * 40).toFixed(0) + '%' : '+' + (5 + Math.random() * 15).toFixed(0) + '%'
-      }))
+    const topics: TrendTopic[] = Array.from(perTopic.entries()).map(([name, rec]) => {
+      const series = Array.from(rec.daily.entries())
+        .sort(([da], [db]) => da.localeCompare(db))
+        .map(([, v]) => v);
+      const mid = Math.floor(series.length / 2);
+      const past = series.slice(0, mid).reduce((s, v) => s + v, 0);
+      const recent = series.slice(mid).reduce((s, v) => s + v, 0);
+      const growthPct = series.length >= 2 ? ((recent - past) / (past || 1)) * 100 : 0;
+      return { name, volume: Math.round(rec.vol), growthPct };
+    });
+
+    return topics
       .sort((a, b) => b.volume - a.volume)
       .slice(0, 10);
-
-    return trends;
   };
 
   const topTrends = extractTopTrends();
@@ -124,84 +153,80 @@ export const SocialMomentum = () => {
         totalVolume: '0',
         topTrend: 'Aguardando análise',
         avgGrowth: '+0%',
-        trendsCount: 0
+        trendsCount: 0,
       };
     }
 
-    const totalVolume = topTrends.reduce((sum, t) => sum + t.volume, 0);
+    const total = topTrends.reduce((sum, t) => sum + t.volume, 0);
+    const avg = topTrends.reduce((s, t) => s + t.growthPct, 0) / topTrends.length;
     const topTrend = topTrends[0]?.name || 'N/A';
-    const growthValues = topTrends.map(t => parseFloat(t.growth.replace(/[+%]/g, '')));
-    const avgGrowth = growthValues.length > 0 
-      ? '+' + (growthValues.reduce((a, b) => a + b, 0) / growthValues.length).toFixed(0) + '%'
-      : '+0%';
 
     return {
-      totalVolume: totalVolume >= 1000000 
-        ? (totalVolume / 1000000).toFixed(1) + 'M'
-        : totalVolume >= 1000
-          ? (totalVolume / 1000).toFixed(1) + 'K'
-          : totalVolume.toString(),
+      totalVolume:
+        total >= 1000000
+          ? (total / 1000000).toFixed(1) + 'M'
+          : total >= 1000
+            ? (total / 1000).toFixed(1) + 'K'
+            : total.toString(),
       topTrend,
-      avgGrowth,
-      trendsCount: topTrends.length
+      avgGrowth: formatPct(avg),
+      trendsCount: topTrends.length,
     };
   };
 
   const kpis = extractKPIs();
 
-  // Dados de tendência (últimos 14 dias com variação baseada em análises reais)
-  const trendData = analyses.slice(0, 14).reverse().map((a) => {
-    const baseDate = new Date(a.analyzed_at);
-    const text = (a.data?.raw_response || a.insights || '').toLowerCase();
-    
-    // Tentar extrair volume real do texto
-    const volumeMatch = text.match(/(\d+\.?\d*)\s*(mil|k|milhões)?\s*(buscas|pesquisas|searches)/i);
-    let volume = 1000 + Math.random() * 3000;
-    
-    if (volumeMatch) {
-      let num = parseFloat(volumeMatch[1]);
-      if (volumeMatch[2]?.includes('mil') || volumeMatch[2]?.includes('k')) num *= 1000;
-      if (volumeMatch[2]?.includes('milhões')) num *= 1000000;
-      volume = num / 100; // Escalar para percentual
-    }
-    
-    return {
-      day: `${baseDate.getDate()}/${baseDate.getMonth() + 1}`,
-      volume: Math.round(volume)
-    };
-  });
+  // Dados de tendência (últimos 14 dias agregando volume por dia)
+  const trendData = (() => {
+    const byDay = new Map<string, number>();
 
-  // Extrair insights de tendências
+    for (const a of analyses) {
+      const d = new Date(a.analyzed_at);
+      const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const entries = extractEntriesFromData(a.data ?? {});
+      const daySum = entries.reduce((s, e) => s + e.volume, 0);
+      byDay.set(dayKey, (byDay.get(dayKey) ?? 0) + daySum);
+    }
+
+    const sorted = Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-14);
+
+    return sorted.map(([key, vol]) => {
+      const [y, m, d] = key.split('-');
+      return { day: `${d}/${m}`, volume: Math.round(vol) };
+    });
+  })();
+
+  // Extrair insights de tendências (sem JSON cru)
   const extractInsights = () => {
-    if (analyses.length === 0) return [];
-    
-    const insights: string[] = [];
-    const latestAnalysis = analyses[0];
-    const text = latestAnalysis.data?.raw_response || latestAnalysis.insights || '';
-    
-    // Buscar insights estruturados
-    const insightMatches = text.match(/\*\*Insights?[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
-    if (insightMatches) {
-      const items = insightMatches[1]
-        .split(/\d+\.\s+/)
-        .filter(item => item.trim().length > 20)
-        .map(item => item.replace(/\*\*/g, '').replace(/[🎯💡📊🔥⚡]/g, '').trim().split('\n')[0])
-        .slice(0, 3);
-      insights.push(...items);
+    if (analyses.length === 0) return [] as string[];
+
+    const items: string[] = [];
+
+    if (topTrends.length > 0) {
+      items.push(`Top tendência no Brasil: "${topTrends[0].name}" com ${topTrends[0].volume.toLocaleString('pt-BR')} buscas.`);
     }
-    
-    // Fallback: gerar insights baseados nos dados
-    if (insights.length === 0) {
-      if (topTrends.length > 0) {
-        insights.push(`"${topTrends[0].name}" lidera com ${topTrends[0].volume.toLocaleString('pt-BR')} buscas`);
-      }
-      if (topTrends.length > 1) {
-        insights.push(`Crescimento de ${topTrends[1].growth} em buscas por "${topTrends[1].name}"`);
-      }
-      insights.push('Tendências de turismo doméstico em alta no Brasil');
+
+    const accel = [...topTrends].sort((a, b) => b.growthPct - a.growthPct)[0];
+    if (accel && accel.growthPct !== 0) {
+      items.push(`Maior aceleração: "${accel.name}" ${formatPct(accel.growthPct)} nas últimas coletas.`);
     }
-    
-    return insights.filter(i => !i.includes('{') && !i.includes('[')).slice(0, 3);
+
+    const latest = analyses[0];
+    const d: any = latest?.data ?? {};
+    const paaArr: any[] = Array.isArray(d?.questions)
+      ? d.questions
+      : Array.isArray(d?.people_also_ask)
+        ? d.people_also_ask
+        : [];
+    if (paaArr.length > 0) {
+      const q = paaArr[0];
+      const text = sanitizeText(typeof q === 'string' ? q : q?.question ?? q?.title ?? '');
+      if (text) items.push(`Pergunta popular: ${text}`);
+    }
+
+    return items.slice(0, 3);
   };
 
   const insights = extractInsights();
@@ -215,7 +240,7 @@ export const SocialMomentum = () => {
       <div>
         <h2 className="text-3xl font-bold text-foreground">Tendências Sociais (Google Trends BR)</h2>
         <p className="text-sm text-text-muted mt-1">
-          Top 10 temas mais pesquisados no Google Trends Brasil relacionados a turismo
+          Top 10 temas mais pesquisados no Google Trends Brasil
         </p>
       </div>
 
@@ -359,14 +384,13 @@ export const SocialMomentum = () => {
                         </div>
                       </div>
                       <Badge 
-                        className={`${
-                          trend.growth.startsWith('+') 
-                            ? 'bg-success/20 text-success' 
-                            : 'bg-danger/20 text-danger'
+                        className={`${trend.growthPct >= 0 
+                          ? 'bg-success/20 text-success' 
+                          : 'bg-danger/20 text-danger'
                         }`}
                       >
                         <TrendingUp className="w-3 h-3 mr-1" />
-                        {trend.growth}
+                        {formatPct(trend.growthPct)}
                       </Badge>
                     </div>
                   ))}

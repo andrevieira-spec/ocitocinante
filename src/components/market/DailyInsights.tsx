@@ -52,7 +52,17 @@ export const DailyInsights = () => {
       const items = mainInsights[1]
         .split(/\d+\.\s+/)
         .filter(item => item.trim().length > 20)
-        .map(item => item.trim().split('\n')[0])
+        .map(item => {
+          // Limpar markdown, asteriscos, emojis e caracteres especiais
+          return item
+            .trim()
+            .replace(/\*\*/g, '') // Remove bold markdown
+            .replace(/\*/g, '') // Remove asteriscos
+            .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡]/g, '') // Remove emojis
+            .replace(/\n.*/g, '') // Pega só primeira linha
+            .trim();
+        })
+        .filter(item => item.length > 15) // Garante conteúdo relevante
         .slice(0, 3);
       
       if (items.length > 0) {
@@ -71,7 +81,15 @@ export const DailyInsights = () => {
       const items = recommendations[1]
         .split(/\d+\.\s+/)
         .filter(item => item.trim().length > 20)
-        .map(item => item.replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️]/g, '').trim().split('\n')[0])
+        .map(item => {
+          return item
+            .replace(/\*\*/g, '')
+            .replace(/\*/g, '')
+            .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡]/g, '')
+            .replace(/\n.*/g, '')
+            .trim();
+        })
+        .filter(item => item.length > 15)
         .slice(0, 3);
       
       if (items.length > 0) {

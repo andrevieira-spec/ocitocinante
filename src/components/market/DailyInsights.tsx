@@ -51,8 +51,9 @@ export const DailyInsights = () => {
       try {
         // Tentar parsear JSON caso seja string JSON
         const parsed = JSON.parse(text);
-        if (typeof parsed === 'string') return parsed;
-        return JSON.stringify(parsed);
+        // Se for string, use; se for objeto/array, não renderizar JSON cru
+        if (typeof parsed === 'string') return parsed.trim();
+        return '';
       } catch {
         // Se não for JSON, limpar normalmente
         return text

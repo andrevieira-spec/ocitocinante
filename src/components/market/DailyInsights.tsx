@@ -39,35 +39,44 @@ export const DailyInsights = () => {
     }
   };
 
-  // Extrair e estruturar insights do texto bruto
+  // Parser seguro: extrair e estruturar insights do texto bruto
   const structuredInsights = () => {
     const strategyAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights');
-    const text = strategyAnalysis?.data?.raw_response || strategyAnalysis?.insights || '';
+    const rawText = strategyAnalysis?.data?.raw_response || strategyAnalysis?.insights || '';
     
     const insights: Array<{ category: string; icon: any; color: string; items: string[] }> = [];
+    
+    // Função helper para limpar texto
+    const cleanText = (text: string): string => {
+      try {
+        // Tentar parsear JSON caso seja string JSON
+        const parsed = JSON.parse(text);
+        if (typeof parsed === 'string') return parsed;
+        return JSON.stringify(parsed);
+      } catch {
+        // Se não for JSON, limpar normalmente
+        return text
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡⚠️🚨❌💎✨]/g, '')
+          .replace(/\n.*/g, '')
+          .trim();
+      }
+    };
 
     // Extrair insights principais
-    const mainInsights = text.match(/\*\*Insights Principais:\*\*([\s\S]*?)(?=\*\*|$)/i);
+    const mainInsights = rawText.match(/\*\*Insights Principais:\*\*([\s\S]*?)(?=\*\*|$)/i);
     if (mainInsights) {
       const items = mainInsights[1]
         .split(/\d+\.\s+/)
         .filter(item => item.trim().length > 20)
-        .map(item => {
-          // Limpar markdown, asteriscos, emojis e caracteres especiais
-          return item
-            .trim()
-            .replace(/\*\*/g, '') // Remove bold markdown
-            .replace(/\*/g, '') // Remove asteriscos
-            .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡]/g, '') // Remove emojis
-            .replace(/\n.*/g, '') // Pega só primeira linha
-            .trim();
-        })
-        .filter(item => item.length > 15) // Garante conteúdo relevante
+        .map(item => cleanText(item))
+        .filter(item => item.length > 15 && !item.includes('{') && !item.includes('['))
         .slice(0, 3);
       
       if (items.length > 0) {
         insights.push({
-          category: '💡 Insights Principais',
+          category: 'Insights Principais',
           icon: Lightbulb,
           color: 'text-brand-yellow',
           items
@@ -76,25 +85,18 @@ export const DailyInsights = () => {
     }
 
     // Extrair recomendações estratégicas
-    const recommendations = text.match(/\*\*Recomendações Estratégicas:\*\*([\s\S]*?)(?=\*\*|$)/i);
+    const recommendations = rawText.match(/\*\*Recomendações Estratégicas:\*\*([\s\S]*?)(?=\*\*|$)/i);
     if (recommendations) {
       const items = recommendations[1]
         .split(/\d+\.\s+/)
         .filter(item => item.trim().length > 20)
-        .map(item => {
-          return item
-            .replace(/\*\*/g, '')
-            .replace(/\*/g, '')
-            .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡]/g, '')
-            .replace(/\n.*/g, '')
-            .trim();
-        })
-        .filter(item => item.length > 15)
+        .map(item => cleanText(item))
+        .filter(item => item.length > 15 && !item.includes('{') && !item.includes('['))
         .slice(0, 3);
       
       if (items.length > 0) {
         insights.push({
-          category: '🎯 Ações Recomendadas',
+          category: 'Ações Recomendadas',
           icon: Target,
           color: 'text-brand-orange',
           items
@@ -111,7 +113,7 @@ export const DailyInsights = () => {
       // Buscar métricas de engagement
       const engMatches = socialText.match(/(\d+[.,]\d+)%\s+de\s+engajamento/gi);
       if (engMatches && engMatches.length > 0) {
-        engagementItems.push(`Taxa média de engajamento: ${engMatches[0]}`);
+        engagementItems.push(cleanText(`Taxa média de engajamento: ${engMatches[0]}`));
       }
       
       // Buscar top performing content
@@ -119,9 +121,9 @@ export const DailyInsights = () => {
         engagementItems.push('Reels e vídeos curtos dominam o engajamento');
       }
       
-      if (engagementItems.length > 0) {
+      if (engagementItems.length > 0 && engagementItems.every(item => !item.includes('{') && !item.includes('['))) {
         insights.push({
-          category: '📊 Engajamento Social',
+          category: 'Engajamento Social',
           icon: Users,
           color: 'text-brand-blue',
           items: engagementItems
@@ -148,9 +150,9 @@ export const DailyInsights = () => {
         pricingItems.push('Parcelamento é fator decisivo de conversão');
       }
       
-      if (pricingItems.length > 0) {
+      if (pricingItems.length > 0 && pricingItems.every(item => !item.includes('{') && !item.includes('['))) {
         insights.push({
-          category: '💰 Inteligência de Preços',
+          category: 'Inteligência de Preços',
           icon: DollarSign,
           color: 'text-success',
           items: pricingItems
@@ -205,15 +207,22 @@ export const DailyInsights = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {section.items.map((item, itemIdx) => (
-                    <div 
-                      key={itemIdx} 
-                      className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors"
-                    >
-                      <div className={`w-2 h-2 rounded-full ${section.color.replace('text-', 'bg-')} mt-2 flex-shrink-0`} />
-                      <p className="text-sm text-text-primary flex-1">{item}</p>
-                    </div>
-                  ))}
+                  {section.items.map((item, itemIdx) => {
+                    // Validação extra: nunca renderizar se parecer JSON/objeto
+                    if (item.includes('{') || item.includes('[') || item.includes('}') || item.includes(']')) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div 
+                        key={itemIdx} 
+                        className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors"
+                      >
+                        <div className={`w-2 h-2 rounded-full ${section.color.replace('text-', 'bg-')} mt-2 flex-shrink-0`} />
+                        <p className="text-sm text-text-primary flex-1">{item}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

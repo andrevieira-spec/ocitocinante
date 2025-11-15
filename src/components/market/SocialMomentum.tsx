@@ -73,11 +73,11 @@ export const SocialMomentum = () => {
     for (const arr of arrays) {
       if (Array.isArray(arr)) {
         for (const it of arr) {
-          if (typeof it === "string") {
+          if (typeof it === 'string') {
             push(it, 1);
             continue;
           }
-          if (it && typeof it === "object") {
+          if (it && typeof it === 'object') {
             push(
               (it as any).query ??
                 (it as any).name ??
@@ -95,12 +95,47 @@ export const SocialMomentum = () => {
         }
       }
     }
-    if (d?.topics && !Array.isArray(d.topics) && typeof d.topics === "object") {
+    if (d?.topics && !Array.isArray(d.topics) && typeof d.topics === 'object') {
       for (const [k, v] of Object.entries(d.topics)) {
-        push(k, typeof v === "number" ? v : undefined);
+        push(k, typeof v === 'number' ? v : undefined);
       }
     }
     return out;
+  };
+
+  // Fallback: extrai entradas a partir de texto (markdown) quando não há estrutura
+  const extractEntriesFromText = (raw: any): Candidate[] => {
+    if (!raw) return [];
+    const src = String(raw);
+
+    // Selecionar blocos de TENDÊNCIAS / PAA do texto
+    const sectionRegexes = [
+      /TENDÊNCIAS/i,
+      /DÚVIDAS COMUNS/i,
+      /TENDENCIAS/i,
+    ];
+
+    let blocks: string[] = [];
+    for (const rx of sectionRegexes) {
+      const m = src.match(new RegExp(`(?:\\*\\*|##|###|)\\s*${rx.source}[:\\s]*\\n([\\s\\S]*?)(?:\\n(?:##|###|\\*\\*|---)|$)`, 'i'));
+      if (m && m[1]) blocks.push(m[1]);
+    }
+    if (blocks.length === 0) blocks = [src];
+
+    const out: Candidate[] = [];
+    for (const block of blocks) {
+      const lines = block
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.startsWith('*') || l.startsWith('-') || /^[0-9]+\.\s+/.test(l));
+
+      for (const line of lines) {
+        const cleaned = sanitizeText(line.replace(/^[*\-\d.\s]+/, ''));
+        if (isValidSanitizedText(cleaned, 8)) out.push({ name: cleaned, volume: 1 });
+      }
+    }
+
+    return out.slice(0, 50);
   };
 
   const formatPct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
@@ -114,7 +149,10 @@ export const SocialMomentum = () => {
     for (const a of analyses) {
       const d = new Date(a.analyzed_at);
       const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const entries = extractEntriesFromData(a.data ?? {});
+      const entries = [
+        ...extractEntriesFromData(a.data ?? {}),
+        ...extractEntriesFromText((a as any).data?.raw_response ?? a.insights ?? '')
+      ];
       for (const e of entries) {
         const rec = perTopic.get(e.name) ?? { vol: 0, daily: new Map<string, number>() };
         rec.vol += e.volume;
@@ -178,7 +216,10 @@ export const SocialMomentum = () => {
     for (const a of analyses) {
       const d = new Date(a.analyzed_at);
       const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const entries = extractEntriesFromData(a.data ?? {});
+      const entries = [
+        ...extractEntriesFromData(a.data ?? {}),
+        ...extractEntriesFromText((a as any).data?.raw_response ?? a.insights ?? '')
+      ];
       const daySum = entries.reduce((s, e) => s + e.volume, 0);
       byDay.set(dayKey, (byDay.get(dayKey) ?? 0) + daySum);
     }

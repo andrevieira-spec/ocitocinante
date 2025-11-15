@@ -20,13 +20,24 @@ export function sanitizeText(input: any): string {
   }
   
   return text
-    // Remover caracteres JSON
+    // Remover blocos de código e marcações
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`+/g, '')
+    // Remover cabeçalhos e marcadores comuns
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    // Remover caracteres JSON e aspas
     .replace(/[{}\[\]]/g, '')
-    // Remover markdown bold
+    .replace(/"/g, '')
+    // Remover padrões chave: valor típicos de JSON
+    .replace(/([A-Za-z0-9_])\s*:\s*/g, '$1 ')
+    // Remover literais JSON comuns
+    .replace(/\b(null|true|false)\b/gi, '')
+    // Remover markdown bold/itens
     .replace(/\*\*/g, '')
     .replace(/\*/g, '')
     // Remover emojis comuns
-    .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡⚠️🚨❌💎✨]/g, '')
+    .replace(/[✈️🎥👨‍👩‍👧‍👦💬🤝🗓️🎯💡📊🔥⚡⚠️🚨❌💎✨📈❓]/g, '')
     // Normalizar espaços
     .replace(/\s+/g, ' ')
     .trim();
@@ -37,8 +48,14 @@ export function sanitizeText(input: any): string {
  * (não vazio, sem JSON residual, comprimento mínimo)
  */
 export function isValidSanitizedText(text: string, minLength: number = 15): boolean {
-  if (!text || text.length < minLength) return false;
-  if (text.includes('{') || text.includes('[')) return false;
-  if (text.includes('}') || text.includes(']')) return false;
+  if (!text) return false;
+  const t = text.trim();
+  if (t.length < minLength) return false;
+  // Bloquear qualquer resquício de JSON/código
+  if (/[{}\[\]`"]/.test(t)) return false;
+  if (/"\s*:\s*|[A-Za-z0-9_]\s*:\s*["\[{0-9]/.test(t)) return false;
+  const colonCount = (t.match(/:/g) || []).length;
+  if (colonCount >= 2) return false;
+  if (/\b(null|true|false)\b/i.test(t)) return false;
   return true;
 }

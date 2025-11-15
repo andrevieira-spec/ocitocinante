@@ -46,15 +46,34 @@ export const StrategyBI = () => {
     
     if (strategicAnalysis) {
       const text = (strategicAnalysis.data?.raw_response || strategicAnalysis.insights || '');
-      const scenarioMatch = text.match(/\*\*Cenário Atual[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+      // 1) Tentar JSON primeiro
+      try {
+        const parsed: any = JSON.parse(text);
+        const acc: string[] = [];
+        const pushVal = (val: any) => {
+          if (typeof val === 'string' && val.trim().length > 20) acc.push(val.trim());
+          if (Array.isArray(val)) val.forEach((v) => pushVal(v));
+          if (val && typeof val === 'object') Object.values(val).forEach((v) => pushVal(v));
+        };
+        const keys = ['scenario', 'cenário', 'context', 'summary', 'sumário', 'overview'];
+        keys.forEach((k) => {
+          if (parsed && typeof parsed === 'object' && k in parsed) pushVal((parsed as any)[k]);
+        });
+        if (acc.length === 0) pushVal(parsed);
+        items.push(...acc.filter(s => !s.includes('{') && !s.includes('[')).slice(0, 3));
+      } catch {}
       
-      if (scenarioMatch) {
-        const extracted = scenarioMatch[1]
-          .split(/\d+\.\s+/)
-          .filter(item => item.trim().length > 20)
-          .map(item => item.replace(/\*\*/g, '').replace(/[🎯💡📊🔥⚡]/g, '').trim().split('\n')[0])
-          .slice(0, 3);
-        items.push(...extracted);
+      // 2) Fallback: regex em markdown
+      if (items.length === 0) {
+        const scenarioMatch = text.match(/\*\*Cenário Atual[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+        if (scenarioMatch) {
+          const extracted = scenarioMatch[1]
+            .split(/\d+\.\s+/)
+            .filter(item => item.trim().length > 20)
+            .map(item => item.replace(/\*\*/g, '').replace(/[🎯💡📊🔥⚡]/g, '').trim().split('\n')[0])
+            .slice(0, 3);
+          items.push(...extracted);
+        }
       }
     }
     
@@ -77,30 +96,49 @@ export const StrategyBI = () => {
     
     if (strategicAnalysis) {
       const text = (strategicAnalysis.data?.raw_response || strategicAnalysis.insights || '');
+      // 1) JSON primeiro
+      try {
+        const parsed: any = JSON.parse(text);
+        const pushAll = (val: any, acc: string[]) => {
+          if (typeof val === 'string' && val.trim().length > 15) acc.push(val.trim());
+          else if (Array.isArray(val)) val.forEach(v => pushAll(v, acc));
+          else if (val && typeof val === 'object') Object.values(val).forEach(v => pushAll(v, acc));
+        };
+        const risksSrc = (parsed?.risks ?? parsed?.riscos);
+        const oppsSrc = (parsed?.opportunities ?? parsed?.oportunidades);
+        if (risksSrc) pushAll(risksSrc, result.risks);
+        if (oppsSrc) pushAll(oppsSrc, result.opportunities);
+      } catch {}
       
-      // Buscar riscos
-      const risksMatch = text.match(/\*\*Riscos[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
-      if (risksMatch) {
-        const risks = risksMatch[1]
-          .split(/\d+\.\s+/)
-          .filter(item => item.trim().length > 15)
-          .map(item => item.replace(/\*\*/g, '').replace(/[⚠️🚨❌]/g, '').trim().split('\n')[0])
-          .slice(0, 3);
-        result.risks.push(...risks);
+      // 2) Fallback: regex
+      if (result.risks.length === 0) {
+        const risksMatch = text.match(/\*\*Riscos[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+        if (risksMatch) {
+          const risks = risksMatch[1]
+            .split(/\d+\.\s+/)
+            .filter(item => item.trim().length > 15)
+            .map(item => item.replace(/\*\*/g, '').replace(/[⚠️🚨❌]/g, '').trim().split('\n')[0])
+            .slice(0, 3);
+          result.risks.push(...risks);
+        }
       }
-      
-      // Buscar oportunidades
-      const oppsMatch = text.match(/\*\*Oportunidades[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
-      if (oppsMatch) {
-        const opps = oppsMatch[1]
-          .split(/\d+\.\s+/)
-          .filter(item => item.trim().length > 15)
-          .map(item => item.replace(/\*\*/g, '').replace(/[💎✨🎯]/g, '').trim().split('\n')[0])
-          .slice(0, 3);
-        result.opportunities.push(...opps);
+      if (result.opportunities.length === 0) {
+        const oppsMatch = text.match(/\*\*Oportunidades[:\s]*\*\*([\s\S]*?)(?=\*\*[A-Z]|$)/i);
+        if (oppsMatch) {
+          const opps = oppsMatch[1]
+            .split(/\d+\.\s+/)
+            .filter(item => item.trim().length > 15)
+            .map(item => item.replace(/\*\*/g, '').replace(/[💎✨🎯]/g, '').trim().split('\n')[0])
+            .slice(0, 3);
+          result.opportunities.push(...opps);
+        }
       }
     }
     
+    // Limpar, deduplicar e limitar
+    result.risks = Array.from(new Set(result.risks.filter(r => !r.includes('{') && !r.includes('[')))).slice(0,3);
+    result.opportunities = Array.from(new Set(result.opportunities.filter(o => !o.includes('{') && !o.includes('[')))).slice(0,3);
+
     if (result.risks.length === 0) {
       result.risks.push('Aguardando análise de riscos', 'Execute análise para identificar ameaças', 'Dados em processamento');
     }
@@ -127,6 +165,7 @@ export const StrategyBI = () => {
           .split(/\d+\.\s+/)
           .filter(item => item.trim().length > 15)
           .map(item => item.replace(/\*\*/g, '').replace(/[🎯⚡🔥]/g, '').trim().split('\n')[0])
+          .filter(item => !item.includes('{') && !item.includes('['))
           .slice(0, 3);
         
         items.forEach((item, idx) => {
@@ -141,8 +180,7 @@ export const StrategyBI = () => {
     
     if (actions.length === 0) {
       actions.push(
-        { priority: 'Alta', action: 'Execute análise para gerar recomendações personalizadas', deadline: 'Agora' },
-        { priority: 'Média', action: 'Aguardando processamento de dados do mercado', deadline: '—' }
+        { priority: 'Alta', action: 'Execute análise para gerar recomendações personalizadas', deadline: 'Agora' }
       );
     }
     

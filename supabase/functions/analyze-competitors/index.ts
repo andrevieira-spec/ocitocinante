@@ -1191,6 +1191,15 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
     if (!response.ok) {
       const errText = await response.text();
       console.error('AI Fallback Error:', response.status, errText);
+      
+      // Handle specific error codes with user-friendly messages
+      if (response.status === 402) {
+        throw new Error('Créditos insuficientes no Lovable AI. Adicione créditos em Settings → Workspace → Usage ou aguarde o reset de quota do Google AI.');
+      }
+      if (response.status === 429) {
+        throw new Error('Limite de requisições excedido no Lovable AI. Aguarde alguns minutos ou adicione mais créditos.');
+      }
+      
       throw new Error(`AI fallback error: ${response.status} - ${errText.slice(0, 200)}`);
     }
 

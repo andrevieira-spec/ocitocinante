@@ -1,0 +1,19 @@
+name: Executar pesquisa automática
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # Roda todo dia às 6h da manhã (horário de Brasília)
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Rodar script da pesquisa
+        run: |
+          echo "Executando pesquisa automática"
+          # Substitua abaixo com o comando real do seu sistema
+          python scripts/pesquisa.py

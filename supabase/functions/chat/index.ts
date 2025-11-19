@@ -243,27 +243,39 @@ ${analyses.slice(0, 2).map((a: any) => `- [${a.date}] ${a.confidence}% confianç
       ...(history?.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })) || [])
     ];
 
-    // Chamar Lovable AI com modelo mais poderoso
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Chamar Google AI direto
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!googleApiKey) {
+      throw new Error('GOOGLE_AI_API_KEY não configurada');
+    }
+
+    const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+    
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
         'Content-Type': 'application/json',
+        'x-goog-api-key': googleApiKey,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro', // Modelo mais poderoso para análise complexa
-        messages: messages,
-        temperature: 0.8, // Aumentado para respostas mais criativas e insights únicos
-        max_tokens: 4096, // Respostas mais completas e detalhadas
+        contents: [{
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: 4096,
+        }
       }),
     });
 
     if (!aiResponse.ok) {
-      throw new Error(`AI API error: ${aiResponse.statusText}`);
+      const errorText = await aiResponse.text();
+      console.error('Google AI Error:', errorText);
+      throw new Error(`Google AI error: ${aiResponse.statusText}`);
     }
 
     const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices[0].message.content;
+    const assistantMessage = aiData.candidates[0].content.parts[0].text;
 
     console.log('Resposta da IA recebida');
 

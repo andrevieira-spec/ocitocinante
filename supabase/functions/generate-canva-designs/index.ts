@@ -173,58 +173,44 @@ Formato JSON:
 }
 `;
 
-    console.log('Gerando textos com Lovable AI...');
+    console.log('Gerando textos com Google AI...');
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!googleApiKey) {
+      throw new Error('GOOGLE_AI_API_KEY não configurada');
+    }
+
+    const fullPrompt = `Você é um especialista em copywriting para turismo. Retorne apenas JSON válido.\n\n${aiPrompt}`;
+
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
+        'x-goog-api-key': googleApiKey,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: 'Você é um especialista em copywriting para turismo. Retorne apenas JSON válido.' },
-          { role: 'user', content: aiPrompt }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'generate_post_texts',
-            description: 'Gera textos para posts de redes sociais',
-            parameters: {
-              type: 'object',
-              properties: {
-                texts: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      title: { type: 'string' },
-                      content: { type: 'string' },
-                      hashtags: { type: 'array', items: { type: 'string' } }
-                    },
-                    required: ['title', 'content', 'hashtags']
-                  }
-                }
-              },
-              required: ['texts']
-            }
-          }
+        contents: [{
+          parts: [{ text: fullPrompt }]
         }],
-        tool_choice: { type: 'function', function: { name: 'generate_post_texts' } }
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('Erro na API Lovable AI:', aiResponse.status, errorText);
+      console.error('Erro na API Google AI:', aiResponse.status, errorText);
       throw new Error('Falha ao gerar textos com IA');
     }
 
     const aiData = await aiResponse.json();
-    const toolCall = aiData.choices[0]?.message?.tool_calls?.[0];
-    const generatedTexts = toolCall ? JSON.parse(toolCall.function.arguments) : { texts: [] };
+    const responseText = aiData.candidates[0].content.parts[0].text;
+    
+    // Parse JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const generatedTexts = jsonMatch ? JSON.parse(jsonMatch[0]) : { texts: [] };
 
     console.log('Textos gerados:', generatedTexts.texts.length);
 

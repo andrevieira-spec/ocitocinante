@@ -113,28 +113,39 @@ Deno.serve(async (req) => {
       ...(history?.map(m => ({ role: m.role, content: m.content })) || [])
     ];
 
-    // Chamar IA
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Chamar Google AI direto
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!googleApiKey) {
+      throw new Error('GOOGLE_AI_API_KEY não configurada');
+    }
+
+    const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+    
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
         'Content-Type': 'application/json',
+        'x-goog-api-key': googleApiKey,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: messages,
-        temperature: 0.7,
+        contents: [{
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI Error:', errorText);
-      throw new Error(`AI API error: ${aiResponse.statusText}`);
+      console.error('Google AI Error:', errorText);
+      throw new Error(`Google AI error: ${aiResponse.statusText}`);
     }
 
     const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices[0].message.content;
+    const assistantMessage = aiData.candidates[0].content.parts[0].text;
 
     // Salvar resposta
     await supabase.from('public_messages').insert({

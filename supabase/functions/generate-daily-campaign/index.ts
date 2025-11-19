@@ -96,36 +96,41 @@ Crie uma campanha completa com:
 
 Retorne em JSON estruturado.`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!googleApiKey) {
+      return new Response(JSON.stringify({ error: 'GOOGLE_AI_API_KEY not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const fullPrompt = `Você é um especialista em marketing de turismo de lazer no Brasil. Seja estratégico, criativo e focado em resultados mensuráveis.\n\n${prompt}`;
+
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
+        'x-goog-api-key': googleApiKey,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um especialista em marketing de turismo de lazer no Brasil. Seja estratégico, criativo e focado em resultados mensuráveis.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
+        contents: [{
+          parts: [{ text: fullPrompt }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI API error:', errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      console.error('Google AI error:', errorText);
+      throw new Error(`Google AI error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices[0].message.content;
+    const content = aiData.candidates[0].content.parts[0].text;
 
     let campaignData;
     try {

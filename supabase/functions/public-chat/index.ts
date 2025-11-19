@@ -7,7 +7,13 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    // CORS restrito: só permite origem do domínio principal
+    const allowedOrigin = 'https://ocitocinante.vercel.app';
+    const origin = req.headers.get('origin');
+    if (origin !== allowedOrigin) {
+      return new Response(null, { status: 403 });
+    }
+    return new Response(null, { headers: { ...corsHeaders, 'Access-Control-Allow-Origin': allowedOrigin } });
   }
 
   try {
@@ -15,6 +21,15 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
+
+    // JWT obrigatório
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { message, sessionId, conversationId, clientInfo } = await req.json();
     
@@ -87,26 +102,26 @@ Deno.serve(async (req) => {
     // Prompt do sistema para bot público
     const systemPrompt = `Você é um assistente virtual da Ocitocina Viagens & Sonhos, especializada em turismo de lazer.
 
-PRODUTOS DISPONÍVEIS NA LOJA:
-${products?.map(p => `- ${p.name} (${p.category || 'Viagem'}): R$ ${p.price?.toFixed(2) || 'Consultar'}\n  ${p.description?.substring(0, 100) || ''}\n  Link: ${p.url}`).join('\n\n') || 'Carregando produtos...'}
+    PRODUTOS DISPONÍVEIS NA LOJA:
+    ${products?.map(p => `- ${p.name} (${p.category || 'Viagem'}): R$ ${p.price?.toFixed(2) || 'Consultar'}\n  ${p.description?.substring(0, 100) || ''}\n  Link: ${p.url}`).join('\n\n') || 'Carregando produtos...'}
 
-INSTRUÇÕES:
-1. Seja amigável, prestativo e empolgante sobre viagens
-2. Ajude o cliente a encontrar o pacote/produto ideal para seus sonhos
-3. Quando identificar interesse em um produto específico, forneça o link direto da loja
-4. Se detectar interesse de compra, pergunte se deseja falar com um atendente humano
-5. Quando o cliente demonstrar interesse real, pergunte educadamente o nome e WhatsApp para contato
-6. Sempre incentive a visita à loja completa: https://ocitocina.lojamoblix.com
-7. Responda em português brasileiro, de forma natural e conversacional
-8. Seja conciso mas informativo (máximo 200 palavras por resposta)
+    INSTRUÇÕES:
+    1. Seja amigável, prestativo e empolgante sobre viagens
+    2. Ajude o cliente a encontrar o pacote/produto ideal para seus sonhos
+    3. Quando identificar interesse em um produto específico, forneça o link direto da loja
+    4. Se detectar interesse de compra, pergunte se deseja falar com um atendente humano
+    5. Quando o cliente demonstrar interesse real, pergunte educadamente o nome e WhatsApp para contato
+    6. Sempre incentive a visita à loja completa: https://ocitocina.lojamoblix.com
+    7. Responda em português brasileiro, de forma natural e conversacional
+    8. Seja conciso mas informativo (máximo 200 palavras por resposta)
 
-SOBRE A OCITOCINA:
-- Agência especializada em viagens de lazer e experiências memoráveis
-- Oferece pacotes personalizados para diversos destinos nacionais e internacionais
-- Foco em criar sonhos e realizar desejos de viagem dos clientes
-- Atendimento humanizado e dedicado
+    SOBRE A OCITOCINA:
+    - Agência especializada em viagens de lazer e experiências memoráveis
+    - Oferece pacotes personalizados para diversos destinos nacionais e internacionais
+    - Foco em criar sonhos e realizar desejos de viagem dos clientes
+    - Atendimento humanizado e dedicado
 
-Lembre-se: você está aqui para ajudar o cliente a realizar seus sonhos de viagem!`;
+    Lembre-se: você está aqui para ajudar o cliente a realizar seus sonhos de viagem!`;
 
     const messages = [
       { role: 'system', content: systemPrompt },

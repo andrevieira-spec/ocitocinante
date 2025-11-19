@@ -243,18 +243,22 @@ export const MarketInsights = () => {
     } catch (error: any) {
       console.error('❌ [MarketInsights] Erro capturado:', error);
       const errorMsg = error?.message || 'Erro desconhecido';
+      console.error('[MarketInsights] Erro capturado:', errorMsg);
       
-      // Check if it's a credits/availability error
+      // Check for Google AI specific errors
       if (
-        errorMsg.includes('OcitoGoogle AI está temporariamente indisponível') ||
-        errorMsg.includes('Fallback') ||
-        errorMsg.includes('402') ||
-        errorMsg.includes('payment_required')
+        errorMsg.includes('Google AI indisponível') ||
+        errorMsg.includes('Limite de requisições excedido') ||
+        errorMsg.includes('GOOGLE_AI_API_KEY não configurada') ||
+        errorMsg.includes('429') ||
+        errorMsg.includes('503')
       ) {
         setAnalyzing(false);
         toast({
-          title: '⚠️ Serviço temporariamente indisponível',
-          description: 'O OcitoGoogle AI está sendo ocitocinado. Tente novamente em alguns instantes.',
+          title: '🔧 Google AI temporariamente indisponível',
+          description: errorMsg.includes('Limite') 
+            ? 'Limite de requisições atingido. Aguarde alguns minutos.'
+            : 'Serviço de análise em manutenção. Tente novamente em instantes.',
           variant: 'destructive',
         });
         return;

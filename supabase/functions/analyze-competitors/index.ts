@@ -735,19 +735,24 @@ Liste top 20 buscas reais do Brasil nos últimos 7 dias.`;
 Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
 
       console.log('Starting pricing analysis...');
-      const pricingAnalysis = await retryWithBackoff(() => 
-        analyzeWithGemini(googleApiKey, pricingPrompt)
-      );
-      const { error: pricingError } = await supabase.from('market_analysis').insert({
-        competitor_id: competitor.id,
-        analysis_type: 'pricing',
-        data: { raw_response: pricingAnalysis.data },
-        insights: pricingAnalysis.insights,
-        recommendations: pricingAnalysis.recommendations,
-        confidence_score: 0.85,
-        is_automated
-      });
-      if (pricingError) console.error('Error inserting pricing analysis:', pricingError);
+      try {
+        const pricingAnalysis = await retryWithBackoff(() => 
+          analyzeWithGemini(googleApiKey, pricingPrompt)
+        );
+        const { error: pricingError } = await supabase.from('market_analysis').insert({
+          competitor_id: competitor.id,
+          analysis_type: 'pricing',
+          data: { raw_response: pricingAnalysis.data },
+          insights: pricingAnalysis.insights,
+          recommendations: pricingAnalysis.recommendations,
+          confidence_score: 0.85,
+          is_automated
+        });
+        if (pricingError) console.error('Error inserting pricing analysis:', pricingError);
+        console.log('✅ Pricing analysis completed');
+      } catch (err) {
+        console.error('❌ Pricing analysis failed:', err instanceof Error ? err.message : String(err));
+      }
 
       // 2. Analyze Social Media Trends
       const socialUrls = [
@@ -1144,15 +1149,13 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
   
   const fullPrompt = `${systemPrompt}\n\n${prompt}`;
   
-  // Tentar Google AI primeiro (se apiKey existir), com fallback automático para Lovable AI
-  const tryGoogle = async () => {
-    if (!apiKey) {
-      console.error('❌ GOOGLE_AI_API_KEY não encontrada!');
-      throw new Error('GOOGLE_API_KEY ausente, pulando Google AI');
-    }
-    
-    console.log(`🔑 Tentando Google AI com chave que começa com: ${apiKey.substring(0, 10)}...`);
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+  if (!apiKey) {
+    console.error('❌ GOOGLE_AI_API_KEY não encontrada!');
+    throw new Error('GOOGLE_AI_API_KEY não configurada');
+  }
+  
+  console.log(`🔑 Usando Google AI com chave que começa com: ${apiKey.substring(0, 10)}...`);
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1179,74 +1182,11 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
     if (data.usageMetadata) {
       console.log(`📊 Tokens: ${data.usageMetadata.promptTokenCount} prompt + ${data.usageMetadata.candidatesTokenCount} completion = ${data.usageMetadata.totalTokenCount} total`);
     }
-    const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);
-    const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
-    return {
-      data: fullText,
-      insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
-      recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
-    };
+  const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);
+  const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
+  return {
+    data: fullText,
+    insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
+    recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
   };
-
-  const tryLovable = async () => {
-    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableKey) {
-      throw new Error('Fallback AI indisponível: LOVABLE_API_KEY não configurada.');
-    }
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('AI Fallback Error:', response.status, errText);
-      
-      // Handle specific error codes with user-friendly messages
-      if (response.status === 402) {
-        throw new Error('⚠️ O OcitoGoogle AI está temporariamente indisponível. Fallback (Lovable AI) indisponível. A análise funcionará automaticamente quando o OcitoGoogle AI for ocitocinado na veia.');
-      }
-      if (response.status === 429) {
-        throw new Error('⚠️ O OcitoGoogle AI está temporariamente indisponível (limite de requisições). Tente novamente em alguns minutos ou aguarde a ocitocinada.');
-      }
-      
-      throw new Error(`AI fallback error: ${response.status} - ${errText.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-    const fullText = data.choices?.[0]?.message?.content || '';
-    console.log(`✅ Lovable AI fallback response received (${fullText.length} chars)`);
-    const insightMatch = fullText.match(/Insights?[:\s]+(.+?)(?=Recomendações?|$)/si);
-    const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
-    return {
-      data: fullText,
-      insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
-      recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
-    };
-  };
-
-  try {
-    console.log('🚀 Iniciando analyzeWithGemini - tentando Google AI primeiro');
-    return await tryGoogle();
-  } catch (err) {
-    console.error('❌ Google AI falhou:', err instanceof Error ? err.message : String(err));
-    console.warn('⚠️ Tentando fallback Lovable AI...');
-    try {
-      return await tryLovable();
-    } catch (fallbackErr) {
-      console.error('❌ Lovable AI também falhou:', fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
-      throw fallbackErr;
-    }
-  }
 }

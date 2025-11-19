@@ -165,6 +165,23 @@ Deno.serve(async (req) => {
     const googleSearchApiKey = Deno.env.get('GOOGLE_API_KEY') || '';
     const googleCxId = Deno.env.get('GOOGLE_CX_ID') || '';
 
+    // DIAGNOSTIC MODE - Check environment variables
+    if (test_mode && test_api === 'diagnostics') {
+      return new Response(
+        JSON.stringify({
+          status: 'diagnostics',
+          env_vars: {
+            GOOGLE_AI_API_KEY: googleApiKey ? `${googleApiKey.substring(0, 10)}...` : 'NOT SET',
+            GOOGLE_API_KEY: googleSearchApiKey ? `${googleSearchApiKey.substring(0, 10)}...` : 'NOT SET',
+            GOOGLE_CX_ID: googleCxId || 'NOT SET',
+            LOVABLE_API_KEY: Deno.env.get('LOVABLE_API_KEY') ? 'SET' : 'NOT SET',
+          },
+          message: 'Variáveis de ambiente verificadas'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // TEST MODE - Quick API health check
     if (test_mode && test_api) {
       console.log(`🧪 Test mode: checking ${test_api}`);
@@ -173,7 +190,7 @@ Deno.serve(async (req) => {
         try {
           const testPrompt = 'Responda apenas "OK" se você está funcionando.';
           const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`,
+            `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1135,7 +1152,7 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
     }
     
     console.log(`🔑 Tentando Google AI com chave que começa com: ${apiKey.substring(0, 10)}...`);
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

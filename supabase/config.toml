@@ -10,7 +10,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.public-chat]
-verify_jwt = true
+verify_jwt = false
 
 [functions.perplexity-chat]
 verify_jwt = true

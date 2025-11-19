@@ -7,13 +7,7 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    // CORS restrito: só permite origem do domínio principal
-    const allowedOrigin = 'https://ocitocinante.vercel.app';
-    const origin = req.headers.get('origin');
-    if (origin !== allowedOrigin) {
-      return new Response(null, { status: 403 });
-    }
-    return new Response(null, { headers: { ...corsHeaders, 'Access-Control-Allow-Origin': allowedOrigin } });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -21,15 +15,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
-
-    // JWT obrigatório
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const { message, sessionId, conversationId, clientInfo } = await req.json();
     

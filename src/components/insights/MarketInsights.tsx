@@ -239,7 +239,7 @@ export const MarketInsights = () => {
         }
       }, 5000);
 
-      toast({ title: '🚀 Análise iniciada! Atualizando automaticamente por 2 minutos... [v2]' });
+      toast({ title: '🚀 Análise iniciada! Aguarde 2 minutos para conclusão...' });
     } catch (error: any) {
       console.error('❌ [MarketInsights] Erro capturado:', error);
       const errorMsg = error?.message || 'Erro desconhecido';

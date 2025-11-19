@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         try {
           const testPrompt = 'Responda apenas "OK" se você está funcionando.';
           const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1129,9 +1129,13 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
   
   // Tentar Google AI primeiro (se apiKey existir), com fallback automático para Lovable AI
   const tryGoogle = async () => {
-    if (!apiKey) throw new Error('GOOGLE_API_KEY ausente, pulando Google AI');
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+    if (!apiKey) {
+      console.error('❌ GOOGLE_AI_API_KEY não encontrada!');
+      throw new Error('GOOGLE_API_KEY ausente, pulando Google AI');
+    }
+    
+    console.log(`🔑 Tentando Google AI com chave que começa com: ${apiKey.substring(0, 10)}...`);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1194,10 +1198,10 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
       
       // Handle specific error codes with user-friendly messages
       if (response.status === 402) {
-        throw new Error('Créditos insuficientes no Lovable AI. Adicione créditos em Settings → Workspace → Usage ou aguarde o reset de quota do Google AI.');
+        throw new Error('⚠️ O OcitoGoogle AI está temporariamente indisponível. Fallback (Lovable AI) indisponível. A análise funcionará automaticamente quando o OcitoGoogle AI for ocitocinado na veia.');
       }
       if (response.status === 429) {
-        throw new Error('Limite de requisições excedido no Lovable AI. Aguarde alguns minutos ou adicione mais créditos.');
+        throw new Error('⚠️ O OcitoGoogle AI está temporariamente indisponível (limite de requisições). Tente novamente em alguns minutos ou aguarde a ocitocinada.');
       }
       
       throw new Error(`AI fallback error: ${response.status} - ${errText.slice(0, 200)}`);

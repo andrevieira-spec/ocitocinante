@@ -244,16 +244,17 @@ export const MarketInsights = () => {
       console.error('❌ [MarketInsights] Erro capturado:', error);
       const errorMsg = error?.message || 'Erro desconhecido';
       
-      // Check if it's a credits error
+      // Check if it's a credits/availability error
       if (
-        errorMsg.includes('Créditos insuficientes') ||
+        errorMsg.includes('OcitoGoogle AI está temporariamente indisponível') ||
+        errorMsg.includes('Fallback') ||
         errorMsg.includes('402') ||
         errorMsg.includes('payment_required')
       ) {
         setAnalyzing(false);
         toast({
-          title: '❌ Créditos insuficientes',
-          description: 'Adicione créditos em Settings → Workspace → Usage para continuar as análises.',
+          title: '⚠️ Serviço temporariamente indisponível',
+          description: 'O OcitoGoogle AI está sendo ocitocinado. Tente novamente em alguns instantes.',
           variant: 'destructive',
         });
         return;

@@ -9,15 +9,6 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  build: {
-    rollupOptions: {
-      output: {
-        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`
-      }
-    }
-  },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {

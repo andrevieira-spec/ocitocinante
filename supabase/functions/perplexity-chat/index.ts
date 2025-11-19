@@ -40,9 +40,9 @@ serve(async (req) => {
       });
     }
 
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'Lovable AI key not configured' }), {
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    if (!googleApiKey) {
+      return new Response(JSON.stringify({ error: 'Google AI key not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,36 +75,32 @@ serve(async (req) => {
       .eq('conversation_id', currentConversationId)
       .order('created_at', { ascending: true });
 
-    // Call Lovable AI Gateway with GPT
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Build context from conversation history
+    const systemPrompt = 'Você é um assistente especializado em análise de mercado, tendências e inteligência competitiva para agências de viagens. Forneça respostas detalhadas, baseadas em dados atuais da web.';
+    const conversationContext = (messages || [])
+      .map(m => `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${m.content}`)
+      .join('\n\n');
+    
+    const fullPrompt = `${systemPrompt}\n\nHistórico da conversa:\n${conversationContext}`;
+
+    // Call Google AI (Gemini 2.5 Flash) directly
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${googleApiKey}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-5',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um assistente especializado em análise de mercado, tendências e inteligência competitiva para agências de viagens. Forneça respostas detalhadas, baseadas em dados atuais da web.'
-          },
-          ...(messages || []).map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Perplexity API error:', response.status, errorText);
-      throw new Error(`Perplexity API error: ${response.status}`);
+      console.error('Google AI error:', response.status, errorText);
+      throw new Error(`Google AI error: ${response.status}`);
     }
 
     const data = await response.json();
-    const assistantMessage = data.choices[0].message.content;
+    const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui gerar uma resposta.';
     const relatedQuestions: string[] = [];
 
     // Save assistant message

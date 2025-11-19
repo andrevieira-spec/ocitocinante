@@ -1,8 +1,3 @@
 {
-  "framework": "vite",
-  "build": {
-    "env": {
-      "FORCE_REBUILD": "true"
-    }
-  }
+  "framework": "vite"
 }

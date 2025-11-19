@@ -1237,9 +1237,16 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
   };
 
   try {
+    console.log('🚀 Iniciando analyzeWithGemini - tentando Google AI primeiro');
     return await tryGoogle();
   } catch (err) {
-    console.warn('Google AI indisponível, usando fallback Lovable AI:', err instanceof Error ? err.message : String(err));
-    return await tryLovable();
+    console.error('❌ Google AI falhou:', err instanceof Error ? err.message : String(err));
+    console.warn('⚠️ Tentando fallback Lovable AI...');
+    try {
+      return await tryLovable();
+    } catch (fallbackErr) {
+      console.error('❌ Lovable AI também falhou:', fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
+      throw fallbackErr;
+    }
   }
 }

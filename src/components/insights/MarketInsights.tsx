@@ -42,6 +42,7 @@ export const MarketInsights = () => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    console.log('[MarketInsights] Component loaded - Version 1.0.1 NO LOVABLE');
     loadData();
     checkApiHealth();
     // Check API health every 5 minutes

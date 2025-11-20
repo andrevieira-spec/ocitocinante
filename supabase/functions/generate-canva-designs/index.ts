@@ -32,8 +32,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('Buscando campanha:', campaignId);
@@ -150,7 +148,7 @@ serve(async (req) => {
     };
     const canvaDocType = canvaTypeMap[designType] ?? 'INSTAGRAM_POST';
 
-    // Usar Lovable AI para gerar textos criativos baseados na campanha
+    // Usar Google AI para gerar textos criativos baseados na campanha
     const aiPrompt = `
 Com base nesta diretiva estratégica de campanha de turismo, crie textos curtos e impactantes para posts em ${specs.name}:
 

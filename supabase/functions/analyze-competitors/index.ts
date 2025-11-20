@@ -174,7 +174,6 @@ Deno.serve(async (req) => {
             GOOGLE_AI_API_KEY: googleApiKey ? `${googleApiKey.substring(0, 10)}...` : 'NOT SET',
             GOOGLE_API_KEY: googleSearchApiKey ? `${googleSearchApiKey.substring(0, 10)}...` : 'NOT SET',
             GOOGLE_CX_ID: googleCxId || 'NOT SET',
-            LOVABLE_API_KEY: Deno.env.get('LOVABLE_API_KEY') ? 'SET' : 'NOT SET',
           },
           message: 'Variáveis de ambiente verificadas'
         }),
@@ -217,29 +216,15 @@ Deno.serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } catch (error) {
-          // In health-check mode, avoid failing the UI: attempt Lovable AI fallback
-          try {
-            const fallback = await analyzeWithGemini('', 'Responda apenas "OK" se você está funcionando.');
-            return new Response(
-              JSON.stringify({
-                status: 'warning',
-                api: 'Google AI (Gemini)',
-                response: fallback?.data || 'OK',
-                message: 'Google AI indisponível; usando fallback Lovable AI com sucesso'
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          } catch (fallbackErr) {
-            return new Response(
-              JSON.stringify({
-                status: 'warning',
-                api: 'Google AI (Gemini)',
-                error: error instanceof Error ? error.message : 'Erro desconhecido',
-                message: 'Falha no Google AI; tente novamente mais tarde'
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
+          return new Response(
+            JSON.stringify({
+              status: 'error',
+              api: 'Google AI (Gemini)',
+              error: error instanceof Error ? error.message : 'Erro desconhecido',
+              message: 'Google AI indisponível no momento'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       }
       

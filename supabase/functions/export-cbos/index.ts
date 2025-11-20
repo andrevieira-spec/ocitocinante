@@ -126,11 +126,10 @@ Deno.serve(async (req) => {
           storage_buckets: ['cbos-exports'],
         },
         secrets_template: {
+          GOOGLE_AI_API_KEY: 'YOUR_GOOGLE_AI_API_KEY',
           GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY',
-          PERPLEXITY_API_KEY: 'YOUR_PERPLEXITY_API_KEY',
           CANVA_CLIENT_ID: 'YOUR_CANVA_CLIENT_ID',
           CANVA_CLIENT_SECRET: 'YOUR_CANVA_CLIENT_SECRET',
-          LOVABLE_API_KEY: 'YOUR_LOVABLE_API_KEY',
         },
         dependencies: {
           node: '>=20',

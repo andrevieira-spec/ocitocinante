@@ -20,7 +20,7 @@ serve(async (req) => {
     
     // A URL do app deve ser configurada via variável de ambiente
     // ou usar a URL de preview como fallback
-    const appUrl = Deno.env.get('APP_URL') || 'https://62965e9e-7836-46d9-9cc2-ca6912c0d4ff.lovableproject.com';
+    const appUrl = Deno.env.get('APP_URL') || 'https://ocitocinante.vercel.app';
     const redirectUri = `${appUrl}/canva/callback`;
 
     if (!clientId) {

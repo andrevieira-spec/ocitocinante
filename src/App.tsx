@@ -13,6 +13,10 @@ import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import RequestAccess from "./pages/RequestAccess";
 import CbosSetup from "./pages/CbosSetup";
+
+// Log environment check
+console.log('[App] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'NOT SET');
+console.log('[App] VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
 import Report from "./pages/Report";
 
 

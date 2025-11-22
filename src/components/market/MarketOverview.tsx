@@ -532,12 +532,12 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(strategyAnalysis?.insights || trendsAnalysis?.insights) ? (
+              {(strategyAnalysis?.insights || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights) ? (
                 <div className="space-y-4">
                   <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border">
                     <div className="prose prose-sm max-w-none">
                       <p className="text-text-primary leading-relaxed whitespace-pre-line">
-                        {strategyAnalysis?.insights || trendsAnalysis?.insights}
+                        {strategyAnalysis?.insights || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights}
                       </p>
                     </div>
                   </div>
@@ -559,9 +559,9 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(strategyAnalysis?.recommendations || trendsAnalysis?.recommendations) ? (
+              {(strategyAnalysis?.recommendations || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response) ? (
                 <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border space-y-3">
-                  {(strategyAnalysis?.recommendations || trendsAnalysis?.recommendations || '').split('\n').filter((line: string) => line.trim()).map((action: string, idx: number) => (
+                  {(strategyAnalysis?.recommendations || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response || '').split('\n').filter((line: string) => line.trim()).slice(0, 10).map((action: string, idx: number) => (
                     <div key={idx} className="flex items-start gap-3 p-3 bg-success/5 rounded-lg hover:bg-success/10 transition-colors">
                       <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-xs font-bold text-success">{idx + 1}</span>

@@ -83,6 +83,12 @@ export const MarketOverview = () => {
   if (strategyAnalysis) {
     console.log('[MarketOverview] strategyAnalysis.insights tamanho:', strategyAnalysis.insights?.length || 0);
     console.log('[MarketOverview] strategyAnalysis.recommendations tamanho:', strategyAnalysis.recommendations?.length || 0);
+    console.log('[MarketOverview] strategyAnalysis.data?.raw_response tamanho:', strategyAnalysis.data?.raw_response?.length || 0);
+  }
+  if (trendsAnalysis) {
+    console.log('[MarketOverview] trendsAnalysis.insights tamanho:', trendsAnalysis.insights?.length || 0);
+    console.log('[MarketOverview] trendsAnalysis.recommendations tamanho:', trendsAnalysis.recommendations?.length || 0);
+    console.log('[MarketOverview] trendsAnalysis.data?.raw_response tamanho:', trendsAnalysis.data?.raw_response?.length || 0);
   }
   if (pricingAnalysis) {
     console.log('[MarketOverview] pricingAnalysis COMPLETA:', pricingAnalysis);

@@ -1171,7 +1171,7 @@ async function analyzeWithGemini(apiKey: string, prompt: string, structuredOutpu
   const recommendMatch = fullText.match(/Recomendações?[:\s]+(.+?)$/si);
   return {
     data: fullText,
-    insights: insightMatch ? insightMatch[1].trim() : fullText.substring(0, 500),
+    insights: insightMatch ? insightMatch[1].trim() : fullText, // REMOVIDO TRUNCAMENTO DE 500 CHARS
     recommendations: recommendMatch ? recommendMatch[1].trim() : fullText
   };
 }

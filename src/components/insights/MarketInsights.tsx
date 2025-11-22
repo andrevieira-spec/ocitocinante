@@ -52,41 +52,8 @@ export const MarketInsights = () => {
 
   const checkApiHealth = async () => {
     try {
-      const { data, error } = await supabase
-        .from('api_tokens')
-        .select('*')
-        .eq('is_healthy', false);
-
-      if (error) throw error;
-
-      // Show persistent toast for unhealthy APIs
-      if (data && data.length > 0) {
-        data.forEach((token) => {
-          toast({
-            title: `⚠️ Problema com ${token.api_name}`,
-            description: token.last_error || 'API não está funcionando corretamente',
-            variant: 'destructive',
-          });
-        });
-      }
-
-      // Check for expiring tokens (within 24 hours)
-      const { data: expiringData } = await supabase
-        .from('api_tokens')
-        .select('*')
-        .gte('expires_at', new Date().toISOString())
-        .lte('expires_at', new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
-
-      if (expiringData && expiringData.length > 0) {
-        expiringData.forEach((token) => {
-          const hoursLeft = Math.floor((new Date(token.expires_at).getTime() - Date.now()) / (1000 * 60 * 60));
-          toast({
-            title: `🔔 ${token.api_name} expira em breve!`,
-            description: `O token expira em ${hoursLeft} horas. Atualize-o para continuar usando a API.`,
-            variant: 'destructive',
-          });
-        });
-      }
+      // DESABILITADO: tabela api_tokens não existe
+      return;
     } catch (error) {
       console.error('Error checking API health:', error);
     }

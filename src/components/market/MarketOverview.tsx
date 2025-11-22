@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, MapPin, Sparkles, AlertTriangle, TrendingDown, Minus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, MapPin, Sparkles, AlertTriangle, TrendingDown, Minus, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -17,6 +18,7 @@ interface Analysis {
 export const MarketOverview = () => {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     loadOverview();
@@ -42,6 +44,26 @@ export const MarketOverview = () => {
       console.error('Erro ao carregar visão geral:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runAnalysis = async () => {
+    setAnalyzing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { error } = await supabase.functions.invoke('schedule-daily-analysis', {
+        body: { trigger: 'manual', userId: user.id }
+      });
+
+      if (error) throw error;
+      
+      setTimeout(() => loadOverview(), 3000);
+    } catch (error) {
+      console.error('Erro ao executar análise:', error);
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -179,6 +201,14 @@ export const MarketOverview = () => {
               <TrendingUp className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium mb-2">Nenhuma análise ainda</p>
               <p className="text-sm">Execute uma análise completa para ver o panorama do mercado.</p>
+              <Button 
+                onClick={runAnalysis} 
+                disabled={analyzing}
+                className="mt-4"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {analyzing ? 'Executando...' : 'Executar Análise Agora'}
+              </Button>
             </div>
           </CardContent>
         </Card>

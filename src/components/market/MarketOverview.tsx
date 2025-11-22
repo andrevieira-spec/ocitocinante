@@ -538,12 +538,12 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(strategyAnalysis?.insights || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights) ? (
+              {(strategyAnalysis?.insights || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights) ? (
                 <div className="space-y-4">
                   <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border max-h-96 overflow-y-auto">
                     <div className="prose prose-sm max-w-none">
                       <p className="text-text-primary leading-relaxed whitespace-pre-line">
-                        {strategyAnalysis?.insights || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights}
+                        {strategyAnalysis?.insights || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights}
                       </p>
                     </div>
                   </div>

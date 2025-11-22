@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CBOS - Diagnóstico de Dados</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Diagnóstico CBOS - Dados do Banco</h1>
+    <button onclick="checkData()">Verificar Dados</button>
+    <pre id="output"></pre>
+
+    <script>
+        const SUPABASE_URL = 'https://wtpyatordibtxxeayxfr.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0cHlhdG9yZGlidHh4ZWF5eGZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjk2MzE1NzYsImV4cCI6MjA0NTIwNzU3Nn0.6G0U5w8PwBvKMG2EedscDBVYjOPSA-0NI4zFDcji2Y';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        async function checkData() {
+            const output = document.getElementById('output');
+            output.textContent = 'Carregando...\n';
+            
+            try {
+                // Buscar análises
+                const { data: analyses, error } = await supabase
+                    .from('market_analysis')
+                    .select('*')
+                    .order('analyzed_at', { ascending: false })
+                    .limit(10);
+                
+                if (error) throw error;
+                
+                output.textContent = `✅ Total de análises: ${analyses.length}\n\n`;
+                
+                // Agrupar por tipo
+                const byType = {};
+                analyses.forEach(a => {
+                    byType[a.analysis_type] = (byType[a.analysis_type] || 0) + 1;
+                });
+                
+                output.textContent += '📊 Por tipo:\n';
+                Object.entries(byType).forEach(([type, count]) => {
+                    output.textContent += `  - ${type}: ${count}\n`;
+                });
+                
+                output.textContent += '\n📝 Últimas 3 análises:\n\n';
+                
+                analyses.slice(0, 3).forEach((a, i) => {
+                    output.textContent += `${i + 1}. Tipo: ${a.analysis_type}\n`;
+                    output.textContent += `   Data: ${new Date(a.analyzed_at).toLocaleString('pt-BR')}\n`;
+                    output.textContent += `   Insights: ${(a.insights || '').substring(0, 150)}...\n`;
+                    output.textContent += `   Data.raw_response: ${a.data?.raw_response ? 'SIM (' + a.data.raw_response.length + ' chars)' : 'NÃO'}\n`;
+                    output.textContent += `   Recommendations: ${a.recommendations ? 'SIM' : 'NÃO'}\n\n`;
+                });
+                
+                // Mostrar conteúdo completo da primeira análise
+                if (analyses.length > 0) {
+                    output.textContent += '\n🔍 CONTEÚDO COMPLETO DA PRIMEIRA ANÁLISE:\n\n';
+                    output.textContent += JSON.stringify(analyses[0], null, 2);
+                }
+                
+            } catch (error) {
+                output.textContent = '❌ ERRO: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

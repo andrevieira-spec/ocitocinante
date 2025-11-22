@@ -199,7 +199,7 @@ export const MarketOverview = () => {
                           fontSize: '12px'
                         }}
                       />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -236,7 +236,7 @@ export const MarketOverview = () => {
                           fontSize: '12px'
                         }}
                       />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-orange))" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-orange))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -268,7 +268,7 @@ export const MarketOverview = () => {
                           fontSize: '12px'
                         }}
                       />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

@@ -70,7 +70,7 @@ export const MarketOverview = () => {
   };
 
   // Processar dados reais do backend
-  const strategyAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights');
+  const strategyAnalysis = analyses.find(a => a.analysis_type === 'strategic_insights' || a.analysis_type === 'strategy');
   const trendsAnalysis = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
   const socialAnalysis = analyses.find(a => a.analysis_type === 'social_media');
   const pricingAnalysis = analyses.find(a => a.analysis_type === 'pricing');
@@ -80,6 +80,10 @@ export const MarketOverview = () => {
   console.log('[MarketOverview] socialAnalysis:', socialAnalysis ? 'OK' : 'VAZIO');
   console.log('[MarketOverview] pricingAnalysis:', pricingAnalysis ? 'OK' : 'VAZIO');
   
+  if (strategyAnalysis) {
+    console.log('[MarketOverview] strategyAnalysis.insights tamanho:', strategyAnalysis.insights?.length || 0);
+    console.log('[MarketOverview] strategyAnalysis.recommendations tamanho:', strategyAnalysis.recommendations?.length || 0);
+  }
   if (pricingAnalysis) {
     console.log('[MarketOverview] pricingAnalysis COMPLETA:', pricingAnalysis);
     console.log('[MarketOverview] pricingAnalysis.data:', pricingAnalysis.data);

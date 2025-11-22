@@ -75,20 +75,27 @@ export const MarketOverview = () => {
   const socialAnalysis = analyses.find(a => a.analysis_type === 'social_media');
   const pricingAnalysis = analyses.find(a => a.analysis_type === 'pricing');
 
-  // NOVA FUNÇÃO: Combinar TODOS os textos de TODAS as análises
+  // NOVA FUNÇÃO: Combinar TODOS os textos de TODAS as análises SEM DUPLICAÇÕES
   const getCombinedInsights = () => {
     const allTexts: string[] = [];
+    const seenTexts = new Set<string>(); // Para evitar duplicatas
     
     analyses.forEach(analysis => {
-      if (analysis.insights && analysis.insights.trim()) allTexts.push(`[${analysis.analysis_type}] ${analysis.insights}`);
-      if (analysis.recommendations && analysis.recommendations.trim()) allTexts.push(`[${analysis.analysis_type} - Recomendações] ${analysis.recommendations}`);
-      if (analysis.data?.raw_response && analysis.data.raw_response.trim()) allTexts.push(`[${analysis.analysis_type} - Resposta Completa] ${analysis.data.raw_response}`);
+      // Pegar o MAIOR texto disponível (prioridade: raw_response > recommendations > insights)
+      const bestText = analysis.data?.raw_response?.trim() || 
+                       analysis.recommendations?.trim() || 
+                       analysis.insights?.trim();
+      
+      if (bestText && !seenTexts.has(bestText)) {
+        allTexts.push(`[${analysis.analysis_type}]\n${bestText}`);
+        seenTexts.add(bestText);
+      }
     });
     
-    console.log('[MarketOverview] 🔥 TEXTOS COMBINADOS:', allTexts.length, 'blocos');
-    console.log('[MarketOverview] 🔥 TAMANHO TOTAL:', allTexts.join('\n\n---\n\n').length, 'caracteres');
+    console.log('[MarketOverview] 🔥 TEXTOS ÚNICOS:', allTexts.length, 'blocos');
+    console.log('[MarketOverview] 🔥 TAMANHO TOTAL:', allTexts.join('\n\n═══════════════════════════════\n\n').length, 'caracteres');
     
-    return allTexts.length > 0 ? allTexts.join('\n\n---\n\n') : null;
+    return allTexts.length > 0 ? allTexts.join('\n\n═══════════════════════════════\n\n') : null;
   };
   
   const combinedInsights = getCombinedInsights();

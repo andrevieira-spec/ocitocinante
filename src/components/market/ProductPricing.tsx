@@ -31,12 +31,18 @@ export const ProductPricing = () => {
 
   useEffect(() => {
     loadProducts();
+    const interval = setInterval(() => {
+      console.log('[ProductPricing] Recarregando...', new Date().toISOString());
+      loadProducts();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const [scope, setScope] = useState<'Nacional' | 'Internacional'>('Nacional');
 
   const loadProducts = async () => {
     try {
+      console.log('[ProductPricing] Buscando análises...', new Date().toISOString());
       // Buscar análises de preços dos concorrentes
       const { data: analyses, error } = await supabase
         .from('market_analysis')
@@ -46,6 +52,7 @@ export const ProductPricing = () => {
         .limit(5);
 
       if (error) throw error;
+      console.log(`[ProductPricing] Carregadas ${analyses?.length || 0} análises`);
 
       // Extrair produtos das análises - priorizar dados estruturados da API
       const extractedProducts: Product[] = [];

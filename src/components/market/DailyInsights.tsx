@@ -20,6 +20,11 @@ export const DailyInsights = () => {
 
   useEffect(() => {
     loadInsights();
+    const interval = setInterval(() => {
+      console.log('[DailyInsights] Recarregando...', new Date().toISOString());
+      loadInsights();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadInsights = async () => {

@@ -20,6 +20,11 @@ export const MarketOverview = () => {
 
   useEffect(() => {
     loadOverview();
+    const interval = setInterval(() => {
+      console.log('[MarketOverview] Recarregando...', new Date().toISOString());
+      loadOverview();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadOverview = async () => {
@@ -68,21 +73,28 @@ export const MarketOverview = () => {
   };
 
   const extractDestinations = (): string[] => {
-    const text = trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || '';
-    const destinations: string[] = [];
+    const trendsAnalyses = analyses.filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends').slice(0, 3);
+    const destinationsMap = new Map<string, number>();
     
-    // Buscar menções de destinos com volume
-    const destMatches = text.match(/(Gramado|Porto de Galinhas|Bonito|Fernando de Noronha|Foz do Iguaçu|Campos do Jordão|Jericoacoara|Maragogi|Búzios|Paraty)/gi);
-    if (destMatches) {
-      const uniqueDests = [...new Set(destMatches)].map(d => String(d).toLowerCase());
-      uniqueDests.slice(0, 5).forEach(dest => {
+    trendsAnalyses.forEach(analysis => {
+      const text = analysis?.data?.raw_response || analysis?.insights || '';
+      
+      // Buscar menções de destinos com volume
+      const pattern1 = /(Gramado|Porto de Galinhas|Bonito|Fernando de Noronha|Foz do Iguaçu|Campos do Jordão|Jericoacoara|Maragogi|Búzios|Paraty|Arraial d'Ajuda|Trancoso|Natal|Fortaleza)/gi;
+      
+      let match;
+      while ((match = pattern1.exec(text)) !== null) {
+        const dest = match[1].toLowerCase();
         const formattedDest = dest.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        const mentions = (text.toLowerCase().match(new RegExp(dest, 'g')) || []).length;
-        destinations.push(`${formattedDest} (${mentions * 150} buscas)`);
-      });
-    }
+        const currentCount = destinationsMap.get(formattedDest) || 0;
+        destinationsMap.set(formattedDest, currentCount + 1);
+      }
+    });
     
-    return destinations;
+    return Array.from(destinationsMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([dest, count]) => `${dest} (${count * 150} buscas)`);
   };
 
   const extractOpportunity = (): string => {

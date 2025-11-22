@@ -19,10 +19,16 @@ export const CompetitiveRadar = () => {
 
   useEffect(() => {
     loadRadar();
+    const interval = setInterval(() => {
+      console.log('[CompetitiveRadar] Recarregando...', new Date().toISOString());
+      loadRadar();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadRadar = async () => {
     try {
+      console.log('[CompetitiveRadar] Carregando dados...', new Date().toISOString());
       const { data, error } = await supabase
         .from('market_analysis')
         .select('*')
@@ -31,6 +37,7 @@ export const CompetitiveRadar = () => {
         .limit(20);
 
       if (error) throw error;
+      console.log(`[CompetitiveRadar] Carregadas ${data?.length || 0} análises`);
       setAnalyses(data || []);
     } catch (error) {
       console.error('Erro ao carregar radar competitivo:', error);

@@ -31,17 +31,25 @@ export const SocialTrends = () => {
 
   useEffect(() => {
     loadTrends();
+    const interval = setInterval(() => {
+      console.log('[SocialTrends] Recarregando...', new Date().toISOString());
+      loadTrends();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadTrends = async () => {
     try {
       // Buscar análises do Google Trends
+      console.log('[SocialTrends] Carregando trends...', new Date().toISOString());
       const { data: analyses, error } = await supabase
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'google_trends')
         .order('analyzed_at', { ascending: false })
-        .limit(1);
+        .limit(3);
+      
+      console.log(`[SocialTrends] Carregadas ${analyses?.length || 0} análises`);
 
       if (error) throw error;
 

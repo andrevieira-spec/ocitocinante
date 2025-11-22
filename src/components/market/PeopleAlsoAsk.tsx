@@ -16,10 +16,16 @@ export const PeopleAlsoAsk = () => {
 
   useEffect(() => {
     loadPAA();
+    const interval = setInterval(() => {
+      console.log('[PeopleAlsoAsk] Recarregando...', new Date().toISOString());
+      loadPAA();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadPAA = async () => {
     try {
+      console.log('[PeopleAlsoAsk] Buscando análises...', new Date().toISOString());
       // Buscar análises mais recentes com timestamp único para forçar atualização
       const { data, error } = await supabase
         .from('market_analysis')
@@ -29,6 +35,7 @@ export const PeopleAlsoAsk = () => {
         .limit(10);
 
       if (error) throw error;
+      console.log(`[PeopleAlsoAsk] Carregadas ${data?.length || 0} análises`);
       
       // Adicionar timestamp para forçar re-render quando houver novas análises
       const enrichedData = (data || []).map(a => ({

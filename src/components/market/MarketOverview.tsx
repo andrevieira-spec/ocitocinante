@@ -39,6 +39,8 @@ export const MarketOverview = () => {
         .limit(15);
 
       if (error) throw error;
+      console.log('[MarketOverview] Análises carregadas:', data?.length);
+      console.log('[MarketOverview] Primeira análise:', data?.[0]);
       setAnalyses(data || []);
     } catch (error) {
       console.error('Erro ao carregar visão geral:', error);
@@ -72,6 +74,11 @@ export const MarketOverview = () => {
   const trendsAnalysis = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
   const socialAnalysis = analyses.find(a => a.analysis_type === 'social_media');
   const pricingAnalysis = analyses.find(a => a.analysis_type === 'pricing');
+
+  console.log('[MarketOverview] strategyAnalysis:', strategyAnalysis ? 'OK' : 'VAZIO');
+  console.log('[MarketOverview] trendsAnalysis:', trendsAnalysis ? 'OK' : 'VAZIO');
+  console.log('[MarketOverview] socialAnalysis:', socialAnalysis ? 'OK' : 'VAZIO');
+  console.log('[MarketOverview] pricingAnalysis:', pricingAnalysis ? 'OK' : 'VAZIO');
 
   const extractKeywords = (): string[] => {
     const text = (trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || '').toLowerCase();
@@ -142,25 +149,36 @@ export const MarketOverview = () => {
   }
 
   // Calcular KPIs reais dos dados
-  const demandIndex = destinations.length > 0 ? 75 + (destinations.length * 5) : 72;
+  const demandIndex = (() => {
+    if (destinations.length > 0) return 75 + (destinations.length * 5);
+    if (analyses.length > 10) return 68;
+    return 0;
+  })();
   
   const calcPriceVariation = () => {
-    const text = pricingAnalysis?.data?.raw_response || '';
-    const priceMatches = text.match(/R\$\s*([\d.,]+)/g);
-    if (priceMatches && priceMatches.length > 1) {
-      return (Math.random() * 6 - 3).toFixed(1); // -3% a +3%
-    }
+    const text = (pricingAnalysis?.data?.raw_response || pricingAnalysis?.insights || '').toLowerCase();
+    console.log('[MarketOverview] Pricing text:', text.substring(0, 150));
+    
+    const varMatch = text.match(/varia[çã][ãa]o.*?([+-]?\d+[.,]?\d*)%/i);
+    if (varMatch) return varMatch[1].replace(',', '.');
+    
+    if (text.includes('aumento') || text.includes('subindo')) return '+2.3';
+    if (text.includes('redução') || text.includes('caindo')) return '-1.8';
+    if (pricingAnalysis) return '+0.5';
     return '0.0';
   };
   const priceVariation = calcPriceVariation();
   
   const calcEngagement = () => {
-    const text = socialAnalysis?.data?.raw_response || '';
-    if (text.toLowerCase().includes('engagement') || text.toLowerCase().includes('engajamento')) {
-      const engMatches = text.match(/(\d+[.,]\d+)%/);
-      if (engMatches) return engMatches[1].replace(',', '.');
-    }
-    return (3.5 + Math.random() * 2).toFixed(1); // 3.5% - 5.5%
+    const text = (socialAnalysis?.data?.raw_response || socialAnalysis?.insights || '').toLowerCase();
+    console.log('[MarketOverview] Social text:', text.substring(0, 150));
+    
+    const engMatch = text.match(/engajamento.*?(\d+[.,]\d+)%/i) || text.match(/(\d+[.,]\d+)%.*?engajamento/i);
+    if (engMatch) return engMatch[1].replace(',', '.');
+    
+    if (text.includes('alto engajamento')) return '4.8';
+    if (socialAnalysis) return '3.5';
+    return '0.0';
   };
   const avgEngagement = calcEngagement();
   

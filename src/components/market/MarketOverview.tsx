@@ -34,9 +34,9 @@ export const MarketOverview = () => {
       const { data, error } = await supabase
         .from('market_analysis')
         .select('*')
-        .in('analysis_type', ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends'])
+        .in('analysis_type', ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends', 'strategy'])
         .order('analyzed_at', { ascending: false })
-        .limit(15);
+        .limit(20); // Aumentar para 20 para ter mais dados
 
       if (error) throw error;
       console.log('[MarketOverview] Análises carregadas:', data?.length);
@@ -74,6 +74,24 @@ export const MarketOverview = () => {
   const trendsAnalysis = analyses.find(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends');
   const socialAnalysis = analyses.find(a => a.analysis_type === 'social_media');
   const pricingAnalysis = analyses.find(a => a.analysis_type === 'pricing');
+
+  // NOVA FUNÇÃO: Combinar TODOS os textos de TODAS as análises
+  const getCombinedInsights = () => {
+    const allTexts: string[] = [];
+    
+    analyses.forEach(analysis => {
+      if (analysis.insights && analysis.insights.trim()) allTexts.push(`[${analysis.analysis_type}] ${analysis.insights}`);
+      if (analysis.recommendations && analysis.recommendations.trim()) allTexts.push(`[${analysis.analysis_type} - Recomendações] ${analysis.recommendations}`);
+      if (analysis.data?.raw_response && analysis.data.raw_response.trim()) allTexts.push(`[${analysis.analysis_type} - Resposta Completa] ${analysis.data.raw_response}`);
+    });
+    
+    console.log('[MarketOverview] 🔥 TEXTOS COMBINADOS:', allTexts.length, 'blocos');
+    console.log('[MarketOverview] 🔥 TAMANHO TOTAL:', allTexts.join('\n\n---\n\n').length, 'caracteres');
+    
+    return allTexts.length > 0 ? allTexts.join('\n\n---\n\n') : null;
+  };
+  
+  const combinedInsights = getCombinedInsights();
 
   console.log('[MarketOverview] strategyAnalysis:', strategyAnalysis ? 'OK' : 'VAZIO');
   console.log('[MarketOverview] trendsAnalysis:', trendsAnalysis ? 'OK' : 'VAZIO');
@@ -538,15 +556,11 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(strategyAnalysis?.insights || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights) ? (
-                <div className="space-y-4">
-                  <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border max-h-96 overflow-y-auto">
-                    <div className="prose prose-sm max-w-none">
-                      <p className="text-text-primary leading-relaxed whitespace-pre-line">
-                        {strategyAnalysis?.insights || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights}
-                      </p>
-                    </div>
-                  </div>
+              {combinedInsights ? (
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                  <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
+                    {combinedInsights}
+                  </p>
                 </div>
               ) : (
                 <div className="text-center py-12 text-text-muted">
@@ -565,9 +579,9 @@ export const MarketOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(strategyAnalysis?.recommendations || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response) ? (
+              {combinedInsights ? (
                 <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border space-y-3 max-h-96 overflow-y-auto">
-                  {(strategyAnalysis?.recommendations || trendsAnalysis?.recommendations || trendsAnalysis?.data?.raw_response || '').split('\n').filter((line: string) => line.trim()).slice(0, 20).map((action: string, idx: number) => (
+                  {combinedInsights.split('\n').filter((line: string) => line.trim()).slice(0, 30).map((action: string, idx: number) => (
                     <div key={idx} className="flex items-start gap-3 p-3 bg-success/5 rounded-lg hover:bg-success/10 transition-colors">
                       <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-xs font-bold text-success">{idx + 1}</span>

@@ -230,10 +230,24 @@ export const MarketOverview = () => {
     
     console.log('[MarketOverview] 📝 Texto de entrada tem', text.length, 'caracteres');
     
-    // Remover cabeçalhos
-    const cleanText = text.replace(/\[[\w_]+\]\n/g, '');
+    // Extrair frases completas que contenham recomendações/insights
+    const allSentences = text
+      .split(/\n+/)
+      .map(s => s.trim())
+      .filter(s => s.length >= 40 && s.length <= 400)
+      .filter(s => {
+        // Filtrar frases que sejam recomendações/insights
+        const isRecommendation = /(?:deve|precisa|é importante|recomenda|sugere|indica|oportunidade|potencial|aproveitar|focar|investir|desenvolver|criar|implementar|lançar|promover|aumentar|melhorar|otimizar|demonstra|observa-se)/i.test(s);
+        const hasContent = !/^(#{1,6}|---|\*\*|__|\[|\]|•)/.test(s); // Ignorar markdown headers/formatting
+        return isRecommendation && hasContent;
+      });
     
-    // Padrões mais abrangentes para capturar ações
+    console.log(`[MarketOverview] 🔍 Encontradas ${allSentences.length} frases candidatas (insights/recomendações)`);
+    
+    // Se encontrou frases candidatas, adicionar ao pool
+    const allMatches = new Set<string>(allSentences.map(s => s.replace(/^[\d\.)•\-*\s]+/, '').trim()));
+    
+    // Padrões tradicionais (fallback)
     const patterns = [
       // Ações numeradas: "1. Desenvolver..."
       /(?:^|\n)\s*\d+[\.)]\s*([A-ZÀÁÂÃÉÊÍÓÔÕÚÇ][^\n]{30,300})/g,
@@ -243,15 +257,12 @@ export const MarketOverview = () => {
       /(?:^|\n)\s*((?:Criar|Desenvolver|Implementar|Lançar|Focar|Investir|Oferecer|Promover|Estabelecer|Aumentar|Melhorar|Otimizar|Diversificar|Expandir|Aproveitar|Definir|Construir|Explorar|Fortalecer)[^\n]{30,300})/gi
     ];
     
-    const allMatches = new Set<string>();
-    
     patterns.forEach((pattern, idx) => {
-      const matches = [...cleanText.matchAll(pattern)];
-      console.log(`[MarketOverview] 🔍 Pattern ${idx+1} encontrou ${matches.length} matches`);
+      const matches = [...text.matchAll(pattern)];
+      console.log(`[MarketOverview] 🔍 Pattern ${idx+1} encontrou ${matches.length} matches adicionais`);
       matches.forEach(match => {
         const action = match[1]?.trim();
         if (action && action.length >= 30) {
-          // Limpar pontuação final e adicionar
           const cleanAction = action.replace(/[.!?;,]+$/, '').trim();
           allMatches.add(cleanAction);
         }
@@ -260,10 +271,10 @@ export const MarketOverview = () => {
     
     const actions = Array.from(allMatches);
     
-    console.log('[MarketOverview] 🎯 IA encontrou', actions.length, 'ações únicas após deduplicação');
+    console.log('[MarketOverview] 🎯 Total de', actions.length, 'ações/insights únicos extraídos');
     
     if (actions.length === 0) {
-      console.log('[MarketOverview] ⚠️ Nenhuma ação encontrada com os patterns. Primeiras 500 chars do texto:', cleanText.substring(0, 500));
+      console.log('[MarketOverview] ⚠️ Nenhuma ação encontrada. Primeiras 800 chars do texto:', text.substring(0, 800));
       return [];
     }
     
@@ -477,11 +488,11 @@ export const MarketOverview = () => {
     
     // Se não encontrou destinos, usar dados de exemplo
     if (destinationsMap.size === 0) {
-      console.log('[MarketOverview] ⚠️ Nenhum dado disponível - aguardando primeira análise');
+      console.log('[MarketOverview] ⚠️ Nenhum dado do Google Trends - clique em "Executar Análise" para coletar');
       return [
-        'Aguardando dados...',
-        'Execute uma análise',
-        'para ver tendências reais'
+        '🔍 Sem dados do Google Trends',
+        '➡️ Clique em "Executar Análise"',
+        'para coletar tendências reais'
       ];
     }
     

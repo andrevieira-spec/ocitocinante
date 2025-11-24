@@ -7,16 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Função para buscar dados REAIS do Google Trends via SerpAPI
+// Função para buscar dados REAIS do Google Trends via scraping direto (GRÁTIS)
 async function fetchRealGoogleTrends(keywords: string[] = ['turismo Brasil', 'viagem Brasil', 'pacotes turismo']): Promise<any> {
   try {
-    console.log('🔍 Buscando dados REAIS do Google Trends via SerpAPI...');
-    
-    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-    if (!SERPAPI_KEY) {
-      console.error('❌ SERPAPI_KEY não configurada - configure em Supabase Dashboard > Settings > Edge Functions');
-      return null;
-    }
+    console.log('🔍 Buscando dados REAIS do Google Trends via scraping direto...');
     
     const results: any = {
       timestamp: new Date().toISOString(),
@@ -25,81 +19,281 @@ async function fetchRealGoogleTrends(keywords: string[] = ['turismo Brasil', 'vi
       trending_now: []
     };
 
-    // Buscar interesse real por keywords via SerpAPI
+    // Scraping direto do Google Trends (sem SerpAPI)
     for (const keyword of keywords) {
       try {
-        const url = `https://serpapi.com/search.json?engine=google_trends&q=${encodeURIComponent(keyword)}&data_type=TIMESERIES&geo=BR&api_key=${SERPAPI_KEY}`;
+        // Buscar widget token primeiro
+        const exploreUrl = `https://trends.google.com/trends/api/explore?hl=pt-BR&tz=-180&req={"comparisonItem":[{"keyword":"${encodeURIComponent(keyword)}","geo":"BR","time":"today 12-m"}],"category":67,"property":""}`;
         
-        const response = await fetch(url);
-        if (!response.ok) {
-          console.error(`❌ SerpAPI erro ${response.status} para "${keyword}"`);
+        const exploreResponse = await fetch(exploreUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'pt-BR,pt;q=0.9'
+          }
+        });
+
+        if (!exploreResponse.ok) {
+          console.error(`❌ Google Trends explore erro ${exploreResponse.status} para "${keyword}"`);
           continue;
         }
+
+        const exploreText = await exploreResponse.text();
+        const exploreJson = JSON.parse(exploreText.replace(/^\)\]\}'\n/, ''));
+        const token = exploreJson?.widgets?.[0]?.token;
+
+        if (!token) {
+          console.error(`❌ Token não encontrado para "${keyword}"`);
+          continue;
+        }
+
+        // Buscar dados reais com o token
+        const dataUrl = `https://trends.google.com/trends/api/widgetdata/multiline?hl=pt-BR&tz=-180&req={"time":"today 12-m","resolution":"WEEK","locale":"pt-BR","comparisonItem":[{"geo":"BR","keyword":"${encodeURIComponent(keyword)}"}],"requestOptions":{"property":"","backend":"IZG","category":67}}&token=${token}`;
         
-        const data = await response.json();
-        
-        if (data.interest_over_time?.timeline_data) {
-          const values = data.interest_over_time.timeline_data.map((item: any) => item.values?.[0]?.value || 0);
-          const avgValue = Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
-          const maxValue = Math.max(...values);
+        const dataResponse = await fetch(dataUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Referer': 'https://trends.google.com/'
+          }
+        });
+
+        if (dataResponse.ok) {
+          const dataText = await dataResponse.text();
+          const dataJson = JSON.parse(dataText.replace(/^\)\]\}'\n/, ''));
           
-          results.keywords.push({
-            keyword: keyword,
-            avg_interest: avgValue,
-            max_interest: maxValue,
-            trend: values[values.length - 1] > values[0] ? 'up' : 'down'
-          });
-          
-          console.log(`✅ ${keyword}: ${avgValue} pontos (real)`);
+          if (dataJson?.default?.timelineData) {
+            const values = dataJson.default.timelineData.map((item: any) => item.value[0] || 0);
+            const avgValue = Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
+            const maxValue = Math.max(...values);
+            
+            results.keywords.push({
+              keyword: keyword,
+              avg_interest: avgValue,
+              max_interest: maxValue,
+              trend: values[values.length - 1] > values[0] ? 'up' : 'down'
+            });
+            
+            console.log(`✅ ${keyword}: ${avgValue} pontos (scraping real)`);
+          }
         }
         
-        await new Promise(resolve => setTimeout(resolve, 300)); // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500)); // Rate limiting importante
       } catch (error) {
         console.error(`❌ Erro ao buscar "${keyword}":`, error);
       }
     }
 
-    // Buscar destinos em alta via SerpAPI (trending searches)
-    try {
-      const trendsUrl = `https://serpapi.com/search.json?engine=google_trends&data_type=GEO_MAP&geo=BR&category=67&api_key=${SERPAPI_KEY}`;
-      const response = await fetch(trendsUrl);
-      
-      if (response.ok) {
-        const data = await response.json();
+    // Buscar destinos em alta (top travel destinations Brasil)
+    const travelDestinations = [
+      'Gramado', 'Fernando de Noronha', 'Porto de Galinhas', 
+      'Bonito', 'Campos do Jordão', 'Jericoacoara', 'Maragogi',
+      'Arraial do Cabo', 'Chapada Diamantina', 'Foz do Iguaçu'
+    ];
+
+    for (const dest of travelDestinations) {
+      try {
+        const exploreUrl = `https://trends.google.com/trends/api/explore?hl=pt-BR&tz=-180&req={"comparisonItem":[{"keyword":"${encodeURIComponent(dest)}","geo":"BR","time":"today 3-m"}],"category":67,"property":""}`;
         
-        if (data.interest_by_region) {
-          const topRegions = data.interest_by_region
-            .sort((a: any, b: any) => (b.value || 0) - (a.value || 0))
-            .slice(0, 10);
-          
-          for (const region of topRegions) {
-            results.destinations.push({
-              name: region.location,
-              interest_score: region.value || 0,
-              relative_searches: Math.round((region.value || 0) * 1.2)
-            });
+        const exploreResponse = await fetch(exploreUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
           }
-          
-          console.log(`✅ ${results.destinations.length} destinos reais coletados`);
+        });
+
+        if (exploreResponse.ok) {
+          const exploreText = await exploreResponse.text();
+          const exploreJson = JSON.parse(exploreText.replace(/^\)\]\}'\n/, ''));
+          const token = exploreJson?.widgets?.[0]?.token;
+
+          if (token) {
+            const dataUrl = `https://trends.google.com/trends/api/widgetdata/multiline?hl=pt-BR&tz=-180&req={"time":"today 3-m","resolution":"WEEK","locale":"pt-BR","comparisonItem":[{"geo":"BR","keyword":"${encodeURIComponent(dest)}"}],"requestOptions":{"property":"","backend":"IZG","category":67}}&token=${token}`;
+            
+            const dataResponse = await fetch(dataUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://trends.google.com/'
+              }
+            });
+
+            if (dataResponse.ok) {
+              const dataText = await dataResponse.text();
+              const dataJson = JSON.parse(dataText.replace(/^\)\]\}'\n/, ''));
+              
+              if (dataJson?.default?.timelineData) {
+                const values = dataJson.default.timelineData.map((item: any) => item.value[0] || 0);
+                const avgValue = Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
+                
+                if (avgValue > 10) {
+                  results.destinations.push({
+                    name: dest,
+                    interest_score: avgValue,
+                    relative_searches: Math.round(avgValue * 1.5)
+                  });
+                }
+              }
+            }
+          }
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`❌ Erro ao buscar destino ${dest}:`, error);
       }
-    } catch (error) {
-      console.error('❌ Erro ao buscar destinos trending:', error);
     }
 
     // Ordenar destinos por interesse
     results.destinations.sort((a: any, b: any) => b.interest_score - a.interest_score);
     results.destinations = results.destinations.slice(0, 5);
     
-    console.log('✅ Dados REAIS do Google Trends (SerpAPI):', {
+    console.log('✅ Dados REAIS do Google Trends (scraping direto):', {
       keywords: results.keywords.length,
       destinations: results.destinations.length,
       topDestination: results.destinations[0]?.name
     });
 
-    return results.keywords.length > 0 ? results : null;
+    return results.keywords.length > 0 || results.destinations.length > 0 ? results : null;
   } catch (error) {
     console.error('❌ Erro ao buscar Google Trends real:', error);
+    return null;
+  }
+}
+
+// YouTube Data API v3 - Buscar dados reais de vídeos
+async function fetchYouTubeData(youtubeUrl: string, apiKey: string) {
+  try {
+    // Extrair channel ID ou username da URL
+    const channelMatch = youtubeUrl.match(/youtube\.com\/(channel\/|c\/|@|user\/)([^/?]+)/);
+    if (!channelMatch) {
+      console.error('❌ URL do YouTube inválida');
+      return null;
+    }
+
+    let channelId = '';
+    const identifier = channelMatch[2];
+
+    console.log(`📺 Buscando dados do YouTube para: ${identifier}`);
+
+    // Se for @username, buscar o channel ID primeiro
+    if (youtubeUrl.includes('/@')) {
+      const searchResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(identifier)}&key=${apiKey}`
+      );
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        channelId = searchData.items?.[0]?.id?.channelId || '';
+      }
+    } else if (youtubeUrl.includes('/channel/')) {
+      channelId = identifier;
+    } else {
+      // Buscar por username
+      const channelsResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=id&forUsername=${identifier}&key=${apiKey}`
+      );
+      
+      if (channelsResponse.ok) {
+        const channelsData = await channelsResponse.json();
+        channelId = channelsData.items?.[0]?.id || '';
+      }
+    }
+
+    if (!channelId) {
+      console.error('❌ Channel ID não encontrado');
+      return null;
+    }
+
+    // Buscar dados do canal
+    const channelResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&id=${channelId}&key=${apiKey}`
+    );
+
+    if (!channelResponse.ok) {
+      console.error(`❌ YouTube API erro ${channelResponse.status}`);
+      return null;
+    }
+
+    const channelData = await channelResponse.json();
+    const channel = channelData.items?.[0];
+
+    if (!channel) {
+      console.error('❌ Canal não encontrado');
+      return null;
+    }
+
+    // Buscar vídeos recentes
+    const uploadsPlaylistId = channel.contentDetails?.relatedPlaylists?.uploads;
+    
+    const videosResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=10&key=${apiKey}`
+    );
+
+    if (!videosResponse.ok) {
+      console.error(`❌ YouTube videos erro ${videosResponse.status}`);
+      return null;
+    }
+
+    const videosData = await videosResponse.json();
+    const videoIds = videosData.items?.map((item: any) => item.snippet?.resourceId?.videoId).filter(Boolean).join(',');
+
+    // Buscar estatísticas dos vídeos
+    const statsResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id=${videoIds}&key=${apiKey}`
+    );
+
+    let videoStats: any[] = [];
+    if (statsResponse.ok) {
+      const statsData = await statsResponse.json();
+      videoStats = statsData.items || [];
+    }
+
+    // Montar dados dos vídeos
+    const videos = videosData.items?.map((item: any, index: number) => {
+      const videoId = item.snippet?.resourceId?.videoId;
+      const stats = videoStats.find((v: any) => v.id === videoId);
+      
+      return {
+        id: videoId,
+        title: item.snippet?.title || '',
+        description: item.snippet?.description?.substring(0, 300) || '',
+        published_at: item.snippet?.publishedAt,
+        thumbnail: item.snippet?.thumbnails?.medium?.url || '',
+        video_url: `https://www.youtube.com/watch?v=${videoId}`,
+        views: parseInt(stats?.statistics?.viewCount || '0'),
+        likes: parseInt(stats?.statistics?.likeCount || '0'),
+        comments: parseInt(stats?.statistics?.commentCount || '0'),
+        duration: stats?.contentDetails?.duration || '',
+        engagement: parseInt(stats?.statistics?.likeCount || '0') + parseInt(stats?.statistics?.commentCount || '0')
+      };
+    }) || [];
+
+    const subscribers = parseInt(channel.statistics?.subscriberCount || '0');
+    const totalViews = parseInt(channel.statistics?.viewCount || '0');
+    const videoCount = parseInt(channel.statistics?.videoCount || '0');
+    
+    const totalEngagement = videos.reduce((sum: number, v: any) => sum + v.engagement, 0);
+    const avgEngagementRate = subscribers > 0 ? ((totalEngagement / videos.length) / subscribers * 100).toFixed(2) : '0';
+
+    console.log(`✅ YouTube scraped: ${videos.length} vídeos, ${subscribers.toLocaleString()} inscritos, ${avgEngagementRate}% engajamento`);
+
+    return {
+      channel: {
+        id: channelId,
+        title: channel.snippet?.title || '',
+        description: channel.snippet?.description || '',
+        custom_url: channel.snippet?.customUrl || '',
+        published_at: channel.snippet?.publishedAt,
+        thumbnail: channel.snippet?.thumbnails?.medium?.url || '',
+        subscribers_count: subscribers,
+        video_count: videoCount,
+        total_views: totalViews,
+        avg_engagement_rate: avgEngagementRate
+      },
+      videos: videos
+    };
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados do YouTube:', error);
     return null;
   }
 }
@@ -427,6 +621,7 @@ Deno.serve(async (req) => {
     const metaUserToken = Deno.env.get('META_USER_TOKEN') || '';
     const googleSearchApiKey = Deno.env.get('GOOGLE_API_KEY') || '';
     const googleCxId = Deno.env.get('GOOGLE_CX_ID') || '';
+    const googleYoutubeApiKey = Deno.env.get('GOOGLE_YOUTUBE_API_KEY') || '';
 
     // DIAGNOSTIC MODE - Check environment variables
     if (test_mode && test_api === 'diagnostics') {
@@ -659,6 +854,31 @@ Seja específico e use dados reais.`;
             }
           }
 
+          // Fetch real YouTube data via API oficial Google
+          let youtubeData = null;
+          if (competitor.youtube_url && googleYoutubeApiKey) {
+            try {
+              youtubeData = await fetchYouTubeData(competitor.youtube_url, googleYoutubeApiKey);
+              console.log(youtubeData ? `✅ YouTube API: ${youtubeData.videos.length} vídeos` : '⚠️ YouTube retornou null');
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'YOUTUBE_DATA_API',
+                is_healthy: youtubeData !== null,
+                last_error: youtubeData ? null : 'API retornou dados vazios',
+                last_health_check: new Date().toISOString()
+              });
+            } catch (error) {
+              console.error('YouTube API failed:', error);
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'YOUTUBE_DATA_API',
+                is_healthy: false,
+                last_error: error instanceof Error ? error.message : 'Falha ao buscar dados do YouTube',
+                last_health_check: new Date().toISOString()
+              });
+            }
+          }
+
           // Fetch real TikTok data via scraping (sem API)
           let tiktokData = null;
           if (competitor.tiktok_url) {
@@ -748,6 +968,61 @@ ${accountInfo}
 ${postsInfo}
 
 Use estes dados concretos do Instagram para enriquecer sua análise de engajamento e público-alvo.`;
+          }
+
+          // Add real YouTube data to prompt if available
+          if (youtubeData && youtubeData.videos.length > 0) {
+            const videosInfo = youtubeData.videos.slice(0, 5).map((video: any) => {
+              return `
+Vídeo: "${video.title}"
+📊 Métricas: ${video.views.toLocaleString()} views, ${video.likes.toLocaleString()} likes, ${video.comments.toLocaleString()} comentários
+💬 Engajamento: ${video.engagement.toLocaleString()} interações
+⏱️ Duração: ${video.duration}
+📅 Publicado: ${new Date(video.published_at).toLocaleDateString('pt-BR')}
+🔗 Link: ${video.video_url}`;
+            }).join('\n');
+
+            const channelInfo = `
+📺 Canal: ${youtubeData.channel.title}
+👥 Inscritos: ${youtubeData.channel.subscribers_count.toLocaleString()}
+🎬 Total de vídeos: ${youtubeData.channel.video_count.toLocaleString()}
+👁️ Views totais: ${youtubeData.channel.total_views.toLocaleString()}
+📈 Taxa de engajamento: ${youtubeData.channel.avg_engagement_rate}%`;
+
+            socialPrompt += `\n\n📺 DADOS REAIS DO YOUTUBE:
+${channelInfo}
+
+Vídeos recentes:
+${videosInfo}
+
+Use estes dados concretos do YouTube para identificar temas de vídeos que performam melhor, estratégias de thumbnail e títulos que geram mais cliques.`;
+          }
+
+          // Add real TikTok data to prompt if available
+          if (tiktokData && tiktokData.videos.length > 0) {
+            const videosInfo = tiktokData.videos.slice(0, 5).map((video: any) => {
+              return `
+Vídeo: "${video.description?.substring(0, 100) || 'Sem descrição'}..."
+📊 Métricas: ${video.likes} likes, ${video.comments} comentários, ${video.shares} shares, ${video.views} views
+💬 Engajamento total: ${video.engagement} interações
+📅 Data: ${new Date(video.created_at).toLocaleDateString('pt-BR')}
+🔗 Link: ${video.video_url}`;
+            }).join('\n');
+
+            const accountInfo = `
+👤 Perfil: @${tiktokData.account.username} (${tiktokData.account.nickname})
+👥 Seguidores: ${tiktokData.account.followers_count.toLocaleString()}
+🎬 Vídeos totais: ${tiktokData.account.videos_count}
+❤️ Likes totais: ${tiktokData.account.likes_count.toLocaleString()}
+📈 Taxa de engajamento: ${tiktokData.account.avg_engagement_rate}%`;
+
+            socialPrompt += `\n\n🎵 DADOS REAIS DO TIKTOK:
+${accountInfo}
+
+Vídeos recentes:
+${videosInfo}
+
+Use estes dados concretos do TikTok para identificar tendências de vídeo curto, formatos virais e estratégias de conteúdo que performam melhor.`;
           }
 
           socialPrompt += `\n\nSeja CONCRETO, use DADOS REAIS observados nas redes sociais.`;

@@ -97,48 +97,131 @@ export const MarketOverview = () => {
     return allTexts.length > 0 ? allTexts.join('\n\n═══════════════════════════════\n\n') : null;
   };
 
-  // Função para resumir insights usando IA (extração inteligente)
+  // Função para resumir insights usando IA (extração inteligente com análise semântica)
   const summarizeInsights = (text: string): string => {
     if (!text || text.length < 200) return text;
     
-    // Extrair os pontos principais (primeiras frases de cada parágrafo)
-    const paragraphs = text.split('\n\n').filter(p => p.trim());
-    const keyPoints = paragraphs.map(p => {
-      const sentences = p.split(/[.!?]/).filter(s => s.trim());
-      return sentences[0]?.trim() || '';
-    }).filter(Boolean).slice(0, 8); // Top 8 pontos
+    // Remover cabeçalhos de tipo de análise
+    const cleanText = text.replace(/\[[\w_]+\]\n/g, '');
     
-    return keyPoints.join('.\n\n') + '.';
+    // Separar em parágrafos e sentenças
+    const paragraphs = cleanText.split(/\n{2,}/).filter(p => p.trim() && p.length > 50);
+    
+    // Extrair insights principais (frases que contêm palavras-chave estratégicas)
+    const strategicKeywords = [
+      'oportunidade', 'tendência', 'crescimento', 'demanda', 'mercado',
+      'estratégia', 'diferencial', 'vantagem', 'posicionamento', 'segmento',
+      'cliente', 'público', 'comportamento', 'preferência', 'expectativa',
+      'receita', 'lucro', 'conversão', 'resultado', 'performance'
+    ];
+    
+    const keyInsights: string[] = [];
+    
+    paragraphs.forEach(paragraph => {
+      const sentences = paragraph.split(/[.!?]+/).filter(s => s.trim().length > 40);
+      
+      sentences.forEach(sentence => {
+        const cleanSentence = sentence.trim();
+        // Calcular relevância baseada em keywords
+        const relevance = strategicKeywords.filter(kw => 
+          cleanSentence.toLowerCase().includes(kw)
+        ).length;
+        
+        if (relevance > 0 && cleanSentence.length > 50 && cleanSentence.length < 250) {
+          keyInsights.push({ text: cleanSentence, score: relevance });
+        }
+      });
+    });
+    
+    // Ordenar por relevância e pegar top 10
+    const topInsights = keyInsights
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 10)
+      .map((item: any) => item.text);
+    
+    if (topInsights.length === 0) {
+      // Fallback: pegar primeiras frases de cada parágrafo
+      return paragraphs.slice(0, 8).map(p => {
+        const firstSentence = p.split(/[.!?]/)[0]?.trim();
+        return firstSentence;
+      }).filter(Boolean).join('.\n\n') + '.';
+    }
+    
+    console.log('[MarketOverview] 🧠 IA extraiu', topInsights.length, 'insights de', paragraphs.length, 'parágrafos');
+    return topInsights.join('.\n\n') + '.';
   };
 
-  // Função para extrair top 5 ações recomendadas usando análise de relevância
+  // Função para extrair top 5 ações recomendadas usando análise de relevância aprimorada
   const extractTop5Actions = (text: string): string[] => {
     if (!text) return [];
     
-    // Extrair todas as ações (linhas que começam com números, bullets ou verbos)
-    const actionPattern = /(?:^|\n)(?:\d+[\.)]|[-•*])?\s*([A-Z][^\n]{20,200})(?:[.!]|\n|$)/g;
-    const matches = [...text.matchAll(actionPattern)];
+    // Remover cabeçalhos
+    const cleanText = text.replace(/\[[\w_]+\]\n/g, '');
     
-    const actions = matches.map(m => m[1].trim()).filter(action => {
-      // Filtrar ações relevantes (contém verbos de ação)
-      const actionVerbs = /\b(criar|desenvolver|implementar|lançar|focar|investir|oferecer|promover|estabelecer|aumentar|melhorar|otimizar|diversificar|expandir|aproveitar)\b/i;
-      return actionVerbs.test(action) && action.length > 30;
+    // Padrões mais abrangentes para capturar ações
+    const patterns = [
+      // Ações numeradas: "1. Desenvolver..."
+      /(?:^|\n)\s*\d+[\.)]\s*([A-ZÀÁÂÃÉÊÍÓÔÕÚÇ][^\n]{30,300})/g,
+      // Ações com bullets: "• Criar..." ou "- Implementar..."
+      /(?:^|\n)\s*[•\-*]\s*([A-ZÀÁÂÃÉÊÍÓÔÕÚÇ][^\n]{30,300})/g,
+      // Frases começando com verbos de ação
+      /(?:^|\n)\s*((?:Criar|Desenvolver|Implementar|Lançar|Focar|Investir|Oferecer|Promover|Estabelecer|Aumentar|Melhorar|Otimizar|Diversificar|Expandir|Aproveitar|Definir|Construir|Explorar|Fortalecer)[^\n]{30,300})/gi
+    ];
+    
+    const allMatches = new Set<string>();
+    
+    patterns.forEach(pattern => {
+      const matches = [...cleanText.matchAll(pattern)];
+      matches.forEach(match => {
+        const action = match[1]?.trim();
+        if (action && action.length >= 30) {
+          // Limpar pontuação final e adicionar
+          const cleanAction = action.replace(/[.!?;,]+$/, '').trim();
+          allMatches.add(cleanAction);
+        }
+      });
     });
     
-    // Priorizar ações com palavras-chave estratégicas
+    const actions = Array.from(allMatches);
+    
+    console.log('[MarketOverview] 🎯 IA encontrou', actions.length, 'ações potenciais');
+    
+    // Scoring de relevância
     const scoredActions = actions.map(action => {
       let score = 0;
-      const keywords = ['pacote', 'destino', 'cliente', 'receita', 'mercado', 'campanha', 'promoção', 'diferencial', 'experiência', 'fidelização'];
-      keywords.forEach(kw => {
+      
+      // Keywords de alto impacto (+15 pontos cada)
+      const highImpactKeywords = ['receita', 'lucro', 'conversão', 'roi', 'fidelização', 'captação'];
+      highImpactKeywords.forEach(kw => {
+        if (action.toLowerCase().includes(kw)) score += 15;
+      });
+      
+      // Keywords estratégicas (+10 pontos cada)
+      const strategicKeywords = ['pacote', 'destino', 'cliente', 'mercado', 'campanha', 'promoção', 'diferencial', 'experiência', 'segmento', 'público'];
+      strategicKeywords.forEach(kw => {
         if (action.toLowerCase().includes(kw)) score += 10;
       });
+      
+      // Keywords táticas (+5 pontos cada)
+      const tacticalKeywords = ['marketing', 'comunicação', 'digital', 'redes sociais', 'parcerias', 'preço', 'qualidade'];
+      tacticalKeywords.forEach(kw => {
+        if (action.toLowerCase().includes(kw)) score += 5;
+      });
+      
+      // Bonus por tamanho ideal (entre 50-150 chars)
+      if (action.length >= 50 && action.length <= 150) score += 5;
+      
       return { action, score };
     });
     
-    return scoredActions
+    const topActions = scoredActions
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(item => item.action);
+    
+    console.log('[MarketOverview] ✅ Top 5 ações selecionadas com scores:', scoredActions.slice(0, 5).map(a => a.score));
+    
+    return topActions;
   };
   
   const combinedInsights = getCombinedInsights();
@@ -656,27 +739,15 @@ export const MarketOverview = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-text-primary">
                 <Sparkles className="w-5 h-5 text-brand-yellow animate-pulse" />
-                💡 Insights do Dia (Resumo Inteligente)
+                💡 Insights Estratégicos (IA)
               </CardTitle>
             </CardHeader>
             <CardContent>
               {summarizedInsights ? (
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                   <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
                     {summarizedInsights}
                   </p>
-                  <div className="mt-4 pt-4 border-t border-border/50">
-                    <button
-                      onClick={() => {
-                        const fullText = combinedInsights || '';
-                        navigator.clipboard.writeText(fullText);
-                        alert('Texto completo copiado!');
-                      }}
-                      className="text-xs text-brand-blue hover:text-brand-purple transition-colors"
-                    >
-                      📋 Ver texto completo ({combinedInsights?.length} caracteres)
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12 text-text-muted">

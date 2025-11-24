@@ -55,15 +55,33 @@ export const MarketOverview = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase.functions.invoke('schedule-daily-analysis', {
-        body: { trigger: 'manual', userId: user.id }
+      console.log('[MarketOverview] 🚀 Executando análise COMPLETA com Google Trends...');
+      
+      // Chamar analyze-competitors com parâmetros para análise completa
+      const { data, error } = await supabase.functions.invoke('analyze-competitors', {
+        body: { 
+          mode: 'full',
+          include_trends: true,
+          include_paa: false,
+          is_automated: false
+        }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[MarketOverview] ❌ Erro na análise:', error);
+        throw error;
+      }
       
-      setTimeout(() => loadOverview(), 3000);
+      console.log('[MarketOverview] ✅ Análise completa iniciada:', data);
+      
+      // Aguardar um pouco mais para análise completa
+      setTimeout(() => {
+        console.log('[MarketOverview] 🔄 Recarregando dados...');
+        loadOverview();
+      }, 5000);
     } catch (error) {
       console.error('Erro ao executar análise:', error);
+      alert('Erro ao executar análise. Verifique o console.');
     } finally {
       setAnalyzing(false);
     }

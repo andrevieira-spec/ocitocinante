@@ -78,10 +78,9 @@ export const MarketOverview = () => {
   // NOVA FUNÇÃO: Combinar TODOS os textos de TODAS as análises SEM DUPLICAÇÕES
   const getCombinedInsights = () => {
     const allTexts: string[] = [];
-    const seenTexts = new Set<string>(); // Para evitar duplicatas
+    const seenTexts = new Set<string>();
     
     analyses.forEach(analysis => {
-      // Pegar o MAIOR texto disponível (prioridade: raw_response > recommendations > insights)
       const bestText = analysis.data?.raw_response?.trim() || 
                        analysis.recommendations?.trim() || 
                        analysis.insights?.trim();
@@ -97,8 +96,57 @@ export const MarketOverview = () => {
     
     return allTexts.length > 0 ? allTexts.join('\n\n═══════════════════════════════\n\n') : null;
   };
+
+  // Função para resumir insights usando IA (extração inteligente)
+  const summarizeInsights = (text: string): string => {
+    if (!text || text.length < 200) return text;
+    
+    // Extrair os pontos principais (primeiras frases de cada parágrafo)
+    const paragraphs = text.split('\n\n').filter(p => p.trim());
+    const keyPoints = paragraphs.map(p => {
+      const sentences = p.split(/[.!?]/).filter(s => s.trim());
+      return sentences[0]?.trim() || '';
+    }).filter(Boolean).slice(0, 8); // Top 8 pontos
+    
+    return keyPoints.join('.\n\n') + '.';
+  };
+
+  // Função para extrair top 5 ações recomendadas usando análise de relevância
+  const extractTop5Actions = (text: string): string[] => {
+    if (!text) return [];
+    
+    // Extrair todas as ações (linhas que começam com números, bullets ou verbos)
+    const actionPattern = /(?:^|\n)(?:\d+[\.)]|[-•*])?\s*([A-Z][^\n]{20,200})(?:[.!]|\n|$)/g;
+    const matches = [...text.matchAll(actionPattern)];
+    
+    const actions = matches.map(m => m[1].trim()).filter(action => {
+      // Filtrar ações relevantes (contém verbos de ação)
+      const actionVerbs = /\b(criar|desenvolver|implementar|lançar|focar|investir|oferecer|promover|estabelecer|aumentar|melhorar|otimizar|diversificar|expandir|aproveitar)\b/i;
+      return actionVerbs.test(action) && action.length > 30;
+    });
+    
+    // Priorizar ações com palavras-chave estratégicas
+    const scoredActions = actions.map(action => {
+      let score = 0;
+      const keywords = ['pacote', 'destino', 'cliente', 'receita', 'mercado', 'campanha', 'promoção', 'diferencial', 'experiência', 'fidelização'];
+      keywords.forEach(kw => {
+        if (action.toLowerCase().includes(kw)) score += 10;
+      });
+      return { action, score };
+    });
+    
+    return scoredActions
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(item => item.action);
+  };
   
   const combinedInsights = getCombinedInsights();
+  const summarizedInsights = combinedInsights ? summarizeInsights(combinedInsights) : null;
+  const top5Actions = combinedInsights ? extractTop5Actions(combinedInsights) : [];
+
+  console.log('[MarketOverview] 📊 Insights resumidos:', summarizedInsights?.length || 0, 'chars');
+  console.log('[MarketOverview] ✅ Top 5 ações:', top5Actions.length);
 
   console.log('[MarketOverview] strategyAnalysis:', strategyAnalysis ? 'OK' : 'VAZIO');
   console.log('[MarketOverview] trendsAnalysis:', trendsAnalysis ? 'OK' : 'VAZIO');
@@ -125,6 +173,16 @@ export const MarketOverview = () => {
   }
 
   const extractKeywords = (): string[] => {
+    // Priorizar dados da última análise estruturada
+    const latestTrends = trendsAnalysis?.data;
+    
+    // 1. Verificar se tem keywords estruturadas
+    if (latestTrends?.keywords && Array.isArray(latestTrends.keywords) && latestTrends.keywords.length > 0) {
+      console.log('[MarketOverview] ✨ Keywords extraídas dos dados estruturados:', latestTrends.keywords);
+      return latestTrends.keywords.slice(0, 5);
+    }
+    
+    // 2. Extrair do texto
     const text = (trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || '').toLowerCase();
     const keywords = new Set<string>();
     
@@ -151,13 +209,40 @@ export const MarketOverview = () => {
   };
 
   const extractDestinations = (): string[] => {
+    // Priorizar dados estruturados da última análise
+    const latestTrends = trendsAnalysis?.data;
+    
+    // 1. Verificar se tem destinations estruturadas
+    if (latestTrends?.destinations && Array.isArray(latestTrends.destinations) && latestTrends.destinations.length > 0) {
+      console.log('[MarketOverview] 🌍 Destinos extraídos dos dados estruturados:', latestTrends.destinations);
+      return latestTrends.destinations.slice(0, 5);
+    }
+    
+    // 2. Tentar extrair do timelineData
+    if (latestTrends?.timelineData && Array.isArray(latestTrends.timelineData) && latestTrends.timelineData.length > 0) {
+      const topDestinations = latestTrends.timelineData
+        .map((item: any) => ({
+          name: item.query || item.keyword || 'Desconhecido',
+          value: item.value || item.searches || item.count || 0
+        }))
+        .filter((item: any) => item.value > 0)
+        .sort((a: any, b: any) => b.value - a.value)
+        .slice(0, 5)
+        .map((item: any) => `${item.name} (${item.value} buscas)`);
+      
+      if (topDestinations.length > 0) {
+        console.log('[MarketOverview] 📊 Destinos do timelineData:', topDestinations);
+        return topDestinations;
+      }
+    }
+    
+    // 3. Extrair do texto das últimas análises
     const trendsAnalyses = analyses.filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends').slice(0, 3);
     const destinationsMap = new Map<string, number>();
     
     trendsAnalyses.forEach(analysis => {
       const text = analysis?.data?.raw_response || analysis?.insights || '';
       
-      // Buscar menções de destinos com volume
       const pattern1 = /(Gramado|Porto de Galinhas|Bonito|Fernando de Noronha|Foz do Iguaçu|Campos do Jordão|Jericoacoara|Maragogi|Búzios|Paraty|Arraial d'Ajuda|Trancoso|Natal|Fortaleza)/gi;
       
       let match;
@@ -187,17 +272,29 @@ export const MarketOverview = () => {
   };
 
   const extractOpportunity = (): string => {
-    const text = strategyAnalysis?.data?.raw_response || strategyAnalysis?.insights || '';
+    // Priorizar oportunidade estruturada da última análise
+    const latestTrends = trendsAnalysis?.data;
     
-    // Procurar por oportunidades ou recomendações no texto
-    const oppMatch = text.match(/oportunidade[s]?[:\-]\s*([^.!?\n]+)/i);
+    if (latestTrends?.opportunity && typeof latestTrends.opportunity === 'string' && latestTrends.opportunity.length > 20) {
+      console.log('[MarketOverview] 💡 Oportunidade extraída dos dados estruturados');
+      return latestTrends.opportunity;
+    }
+    
+    // Extrair do texto
+    const text = trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || strategyAnalysis?.insights || '';
+    
+    const oppMatch = text.match(/oportunidade[s]?[:\-]\s*([^.!?\n]{30,300})/i);
     if (oppMatch) return oppMatch[1].trim();
     
-    // Procurar primeira recomendação
-    const recMatch = text.match(/recomen[dação|da][s]?[:\-]\s*([^.!?\n]+)/i);
+    const recMatch = text.match(/recomen[dação|da][s]?[:\-]\s*([^.!?\n]{30,300})/i);
     if (recMatch) return recMatch[1].trim();
     
-    // Oportunidade padrão baseada em tendências atuais
+    // Extrair primeira frase significativa
+    const sentences = text.split(/[.!?]/).filter(s => s.trim().length > 50);
+    if (sentences.length > 0) {
+      return sentences[0].trim();
+    }
+    
     return 'Foco em destinos do Nordeste com pacotes all-inclusive para famílias e grupos (alta demanda detectada)';
   };
 
@@ -559,15 +656,27 @@ export const MarketOverview = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-text-primary">
                 <Sparkles className="w-5 h-5 text-brand-yellow animate-pulse" />
-                💡 Insights do Dia
+                💡 Insights do Dia (Resumo Inteligente)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {combinedInsights ? (
+              {summarizedInsights ? (
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                   <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-                    {combinedInsights}
+                    {summarizedInsights}
                   </p>
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <button
+                      onClick={() => {
+                        const fullText = combinedInsights || '';
+                        navigator.clipboard.writeText(fullText);
+                        alert('Texto completo copiado!');
+                      }}
+                      className="text-xs text-brand-blue hover:text-brand-purple transition-colors"
+                    >
+                      📋 Ver texto completo ({combinedInsights?.length} caracteres)
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12 text-text-muted">
@@ -582,18 +691,18 @@ export const MarketOverview = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-text-primary">
                 <TrendingUp className="w-5 h-5 text-success" />
-                🎯 Ações Recomendadas
+                🎯 Top 5 Ações Recomendadas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {combinedInsights ? (
-                <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border space-y-3 max-h-96 overflow-y-auto">
-                  {combinedInsights.split('\n').filter((line: string) => line.trim()).slice(0, 30).map((action: string, idx: number) => (
+              {top5Actions && top5Actions.length > 0 ? (
+                <div className="bg-background/50 backdrop-blur-sm p-4 rounded-lg border border-border space-y-3">
+                  {top5Actions.map((action: string, idx: number) => (
                     <div key={idx} className="flex items-start gap-3 p-3 bg-success/5 rounded-lg hover:bg-success/10 transition-colors">
-                      <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-xs font-bold text-success">{idx + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-sm font-bold text-success">{idx + 1}</span>
                       </div>
-                      <p className="text-sm text-text-primary leading-relaxed flex-1">{action.replace(/^[\d.•\-*]+\s*/, '')}</p>
+                      <p className="text-sm text-text-primary leading-relaxed flex-1">{action}</p>
                     </div>
                   ))}
                 </div>

@@ -373,7 +373,7 @@ export const MarketOverview = () => {
             
             // Se temos dados reais, mostrar interesse score
             if (interest > 0) {
-              return `${name} (${interest}/100 interesse)`;
+              return `${name} (${Math.round(interest)}/100)`;
             }
             // Se temos estimativa de buscas, mostrar
             if (searches > 0) {
@@ -381,8 +381,11 @@ export const MarketOverview = () => {
             }
             return name;
           }
-          return item;
-        });
+          return String(item);
+        })
+        .filter(Boolean);
+      
+      console.log('[MarketOverview] ✅ Retornando', destinations.length, 'destinos:', destinations);
       return destinations;
     }
     

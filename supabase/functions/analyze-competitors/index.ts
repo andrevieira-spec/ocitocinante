@@ -746,74 +746,23 @@ Seja específico e acionável.`;
           
           console.log('✅ Dados REAIS do Google Trends salvos');
         } else {
-          console.log('⚠️ Falha ao obter dados reais, usando análise alternativa...');
-          // Fallback para análise textual se API falhar
-          const trendsPrompt = `Analise tendências de turismo no Brasil com base em dados públicos disponíveis.`;
-          const trendsAnalysis = await analyzeWithGemini(googleApiKey, trendsPrompt, false);
-          
-          await supabase.from('market_analysis').insert({
-            analysis_type: 'google_trends',
-            data: { source: 'AI Analysis', raw_response: trendsAnalysis.data },
-            insights: trendsAnalysis.insights,
-            recommendations: trendsAnalysis.recommendations,
-            confidence_score: 0.60, // Menor confiança - dados simulados
-            is_automated
-          });
+          console.log('❌ Falha ao obter dados reais do Google Trends - análise não será salva');
+          console.log('⚠️ Somente dados reais são permitidos. Configure corretamente a coleta.');
+          // NÃO salvar dados simulados - apenas dados REAIS são aceitos
         }
         console.log('Quick Google Trends inserted');
       }
 
-      // 3) Quick People Also Ask + Trends Summary (optional)
+      // 3) Quick People Also Ask - DESABILITADO (requer scraping real)
       if (include_paa) {
-        const paaPrompt = `Liste as principais perguntas (People Also Ask) sobre turismo no Brasil.
-        
-        FORMATO:
-        ❓ 3-4 perguntas mais comuns
-        💡 1-2 oportunidades de conteúdo
-        
-        Seja direto.`;
-        console.log('🔍 Starting PAA analysis...');
-        const paaAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, paaPrompt)
-        );
-        console.log('✅ PAA analysis completed');
-        
-        await supabase.from('market_analysis').insert({
-          analysis_type: 'people_also_ask',
-          data: { raw_response: paaAnalysis.data },
-          insights: paaAnalysis.insights,
-          recommendations: paaAnalysis.recommendations,
-          confidence_score: 0.85,
-          is_automated
-        });
-        console.log('Quick PAA inserted');
+        console.log('⚠️ Quick PAA desabilitado - aguardando implementação de scraping real');
+        // NÃO usar IA para inventar perguntas
       }
 
-      // Quick Trends Summary (if both trends and PAA requested)
+      // Quick Trends Summary - DESABILITADO (requer dados reais)
       if (include_trends && include_paa) {
-        const trendsSummaryPrompt = `Crie um RESUMO RÁPIDO DE TENDÊNCIAS combinando Google Trends e PAA sobre turismo no Brasil.
-        
-        📈 TENDÊNCIAS: [2-3 pontos]
-        ❓ DÚVIDAS COMUNS: [2-3 perguntas]
-        🎯 OPORTUNIDADE: [1 ação concreta]
-        
-        Seja direto e visual.`;
-        
-        console.log('🔍 Starting Trends Summary...');
-        const trendsSummaryAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, trendsSummaryPrompt)
-        );
-        console.log('✅ Trends Summary completed');
-        
-        await supabase.from('market_analysis').insert({
-          analysis_type: 'trends',
-          data: { raw_response: trendsSummaryAnalysis.data },
-          insights: trendsSummaryAnalysis.insights,
-          recommendations: trendsSummaryAnalysis.recommendations,
-          confidence_score: 0.88,
-          is_automated
-        });
-        console.log('Quick Trends Summary inserted');
+        console.log('⚠️ Quick Trends Summary desabilitado - requer dados reais');
+        // NÃO criar resumo com dados simulados
       }
 
       return new Response(
@@ -1161,108 +1110,59 @@ Use estes dados concretos do Instagram para enriquecer sua análise de engajamen
       console.log(`Completed analysis for ${competitor.name}`);
     }
 
-    // Global Google Trends (30 dias + 24 horas + Top 10 assuntos) - AUTOMÁTICO: 24h
+    // Global Google Trends (30 dias + 24 horas) - SOMENTE DADOS REAIS
     if (include_trends) {
-      const trendsPrompt = `Analise as tendências do Google Trends para turismo no Brasil em DOIS PERÍODOS + TOP ASSUNTOS (AUTOMÁTICO: 6h da manhã):
-      
-      📈 ANÁLISE 30 DIAS:
-      - Destinos em alta
-      - Tipos de viagem mais procurados
-      - Palavras-chave emergentes
-      - Sazonalidade identificada
-      
-      ⚡ ANÁLISE ÚLTIMAS 24 HORAS:
-      - Tendências de busca do último dia
-      - Picos de interesse recentes
-      - Temas emergentes nas últimas 24h
-      
-      🔥 TOP 10 ASSUNTOS BRASIL (24H):
-      - Liste os 10 assuntos GERAIS mais pesquisados no Google Brasil nas últimas 24 horas
-      - Identifique quais assuntos podem ser aproveitados para campanhas de turismo (humor, oportunismo criativo)
-      - Marque claramente os assuntos que têm potencial de conexão com turismo
-      
-      Foco: turismo geral, dados práticos para campanhas de marketing.`;
-      console.log('🔍 Starting Google Trends analysis (SCHEDULED: 24h focus)...');
+      console.log('🔍 Coletando dados REAIS do Google Trends...');
       try {
-        const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, trendsPrompt)
-        );
-        await supabase.from('market_analysis').insert({
-          analysis_type: 'google_trends',
-          data: { raw_response: trendsAnalysis.data },
-          insights: trendsAnalysis.insights,
-          recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.85,
-          is_automated
-        });
+        // Usar SOMENTE fetchRealGoogleTrends - sem simulação
+        const realTrendsData = await fetchRealGoogleTrends([
+          'turismo Brasil', 'viagem Brasil', 'pacotes turismo', 
+          'viagens baratas', 'destinos Brasil', 'hotel Brasil',
+          'passagem aérea', 'roteiro viagem'
+        ]);
+        
+        if (realTrendsData && realTrendsData.keywords.length > 0) {
+          const topKeyword = realTrendsData.keywords[0];
+          const topDestination = realTrendsData.destinations[0];
+          
+          const insights = `Dados reais do Google Trends (últimos 7 dias):\n\n📊 DESTINO MAIS BUSCADO: ${topDestination?.name} (interesse: ${topDestination?.interest_score}/100)\n🔑 KEYWORD PRINCIPAL: ${topKeyword?.keyword} (interesse médio: ${topKeyword?.avg_interest}/100)\n\n${realTrendsData.destinations.map((d: any, i: number) => `${i+1}. ${d.name}: ${d.interest_score}/100`).join('\n')}`;
+          
+          await supabase.from('market_analysis').insert({
+            analysis_type: 'google_trends',
+            data: {
+              timestamp: new Date().toISOString(),
+              data_source: 'Google Trends API (Real Data)',
+              period: { from: new Date(Date.now() - 7*24*60*60*1000).toISOString(), to: new Date().toISOString() },
+              top_keywords: realTrendsData.keywords,
+              hot_destinations: realTrendsData.destinations,
+              trending_now: realTrendsData.trending_now
+            },
+            insights,
+            recommendations: `Focar em ${topDestination?.name} e keywords relacionadas a ${topKeyword?.keyword}`,
+            confidence_score: 0.95,
+            is_automated
+          });
+          console.log('✅ Dados REAIS do Google Trends salvos');
+        } else {
+          console.log('❌ Falha ao coletar dados reais - análise não será salva');
+        }
       } catch (e) {
-        console.error('Google Trends analysis failed:', e);
+        console.error('❌ Google Trends real data collection failed:', e);
       }
     }
 
-    // Global PAA (once per run)
+    // Global PAA (once per run) - COMENTADO: requer scraping real do Google Search
+    // TODO: Implementar scraping real das perguntas "People Also Ask" do Google
     if (include_paa) {
-      const paaPrompt = `Analise as principais perguntas que as pessoas fazem no Google (People Also Ask) sobre turismo no Brasil.
-      Identifique: dúvidas comuns, preocupações dos viajantes, tópicos de interesse, oportunidades de conteúdo.`;
-      try {
-        const paaAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, paaPrompt)
-        );
-        await supabase.from('market_analysis').insert({
-          analysis_type: 'people_also_ask',
-          data: { raw_response: paaAnalysis.data },
-          insights: paaAnalysis.insights,
-          recommendations: paaAnalysis.recommendations,
-          confidence_score: 0.85,
-          is_automated
-        });
-      } catch (e) {
-        console.error('People Also Ask analysis failed:', e);
-      }
+      console.log('⚠️ PAA analysis desabilitado - aguardando implementação de scraping real');
+      // NÃO usar IA para "inventar" perguntas - apenas coletar dados reais
     }
 
-    // Trends Summary (synthesizes Google Trends 30d + 24h + PAA + Top 10)
+    // Trends Summary - COMENTADO: aguarda dados reais do Google Trends + PAA
+    // TODO: Implementar agregação de dados REAIS coletados (não simulação)
     if (include_trends && include_paa) {
-      const trendsSummaryPrompt = `Crie um RESUMO COMPLETO DE TENDÊNCIAS combinando Google Trends (30 dias + 24h), Top Assuntos Brasil e PAA sobre turismo.
-      
-      FORMATO OBRIGATÓRIO (use emojis, dados concretos e estruturação visual):
-      
-      📈 TENDÊNCIAS 30 DIAS:
-      [5-6 bullet points sobre destinos em alta, tipos de viagem, palavras-chave emergentes, sazonalidade]
-      
-      ⚡ TENDÊNCIAS 24 HORAS:
-      [3-4 bullet points sobre picos recentes, temas emergentes do último dia]
-      
-      🔥 TOP 10 ASSUNTOS BRASIL:
-      [AUTOMÁTICO (6h): últimas 24h | MANUAL: últimas 2h]
-      [liste os 10 assuntos mais pesquisados no Google Brasil no período]
-      [marque os 3-5 assuntos com maior potencial para campanhas de turismo com humor/criatividade]
-      
-      ❓ PERGUNTAS FREQUENTES (PAA):
-      [5-6 dúvidas/questões mais comuns sobre turismo, oportunidades de conteúdo]
-      
-      🎯 OPORTUNIDADES ESTRATÉGICAS:
-      [4-5 oportunidades concretas baseadas em tendências, perguntas e assuntos sociais]
-      [inclua sugestões de campanhas aproveitando os top assuntos do momento]
-      
-      IMPORTANTE: Seja completo, didático e conciso. Use dados concretos, mantenha formato visual.`;
-      
-      try {
-        const trendsSummaryAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, trendsSummaryPrompt)
-        );
-        await supabase.from('market_analysis').insert({
-          analysis_type: 'trends',
-          data: { raw_response: trendsSummaryAnalysis.data },
-          insights: trendsSummaryAnalysis.insights,
-          recommendations: trendsSummaryAnalysis.recommendations,
-          confidence_score: 0.88,
-          is_automated
-        });
-        console.log('Trends summary inserted');
-      } catch (e) {
-        console.error('Trends summary analysis failed:', e);
-      }
+      console.log('⚠️ Trends Summary desabilitado - requer dados reais coletados primeiro');
+      // NÃO criar resumo com dados simulados - aguardar implementação completa
     }
 
     return new Response(

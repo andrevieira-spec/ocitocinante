@@ -358,16 +358,28 @@ export const MarketOverview = () => {
     // Priorizar dados estruturados da última análise
     const latestTrends = trendsAnalysis?.data;
     
-    // 1. Verificar hot_destinations (formato da Edge Function)
+    console.log('[MarketOverview] 🔍 Verificando fonte de dados:', latestTrends?.data_source || 'não especificada');
+    
+    // 1. Verificar hot_destinations com dados REAIS do Google Trends
     if (latestTrends?.hot_destinations && Array.isArray(latestTrends.hot_destinations) && latestTrends.hot_destinations.length > 0) {
-      console.log('[MarketOverview] 🌍 Destinos extraídos de hot_destinations:', latestTrends.hot_destinations);
+      console.log('[MarketOverview] 🌍 Destinos REAIS do Google Trends:', latestTrends.hot_destinations);
       const destinations = latestTrends.hot_destinations
         .slice(0, 5)
         .map((item: any) => {
           if (typeof item === 'object') {
             const name = item.name || item.destination || '';
-            const mentions = item.mentions || item.score * 100 || 0;
-            return `${name} (${Math.round(mentions)} buscas)`;
+            const interest = item.interest_score || item.avg_interest || 0;
+            const searches = item.estimated_searches || item.relative_searches || 0;
+            
+            // Se temos dados reais, mostrar interesse score
+            if (interest > 0) {
+              return `${name} (${interest}/100 interesse)`;
+            }
+            // Se temos estimativa de buscas, mostrar
+            if (searches > 0) {
+              return `${name} (~${searches} buscas)`;
+            }
+            return name;
           }
           return item;
         });
@@ -390,15 +402,15 @@ export const MarketOverview = () => {
         .filter((item: any) => item.value > 0)
         .sort((a: any, b: any) => b.value - a.value)
         .slice(0, 5)
-        .map((item: any) => `${item.name} (${item.value} buscas)`);
+        .map((item: any) => `${item.name} (${item.value}/100)`);
       
       if (topDestinations.length > 0) {
-        console.log('[MarketOverview] 📊 Destinos do timelineData:', topDestinations);
+        console.log('[MarketOverview] 📊 Destinos do timelineData');
         return topDestinations;
       }
     }
     
-    // 3. Extrair do texto das últimas análises
+    // 4. Extrair do texto das últimas análises
     const trendsAnalyses = analyses.filter(a => a.analysis_type === 'google_trends' || a.analysis_type === 'trends').slice(0, 3);
     const destinationsMap = new Map<string, number>();
     
@@ -418,19 +430,18 @@ export const MarketOverview = () => {
     
     // Se não encontrou destinos, usar dados de exemplo
     if (destinationsMap.size === 0) {
+      console.log('[MarketOverview] ⚠️ Nenhum dado disponível - aguardando primeira análise');
       return [
-        'Gramado (2.400 buscas)',
-        'Porto de Galinhas (1.950 buscas)',
-        'Bonito (1.800 buscas)',
-        'Fernando de Noronha (1.650 buscas)',
-        'Campos do Jordão (1.500 buscas)'
+        'Aguardando dados...',
+        'Execute uma análise',
+        'para ver tendências reais'
       ];
     }
     
     return Array.from(destinationsMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
-      .map(([dest, count]) => `${dest} (${count * 150} buscas)`);
+      .map(([dest]) => dest);
   };
 
   const extractOpportunity = (): string => {
@@ -791,7 +802,7 @@ export const MarketOverview = () => {
                   <ul className="space-y-1 text-sm">
                     {keywords.map((kw, i) => (
                       <li key={i} className="truncate text-text-primary flex items-center gap-2">
-                        <span className="text-brand-orange font-bold">{i + 1}</span>
+                        <span className="text-brand-orange">•</span>
                         {kw}
                       </li>
                     ))}
@@ -807,18 +818,39 @@ export const MarketOverview = () => {
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-text-primary">
                   <MapPin className="w-4 h-4 text-brand-orange" />
                   Destinos em Alta
+                  {trendsAnalysis?.data?.data_source === 'Google Trends API (Real Data)' && (
+                    <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-green-500/20 text-green-400 rounded">
+                      ✓ Real
+                    </span>
+                  )}
+                  {trendsAnalysis?.data?.metadata?.confidence_score && trendsAnalysis.data.metadata.confidence_score < 0.7 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-yellow-500/20 text-yellow-400 rounded">
+                      ⚠ IA
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {destinations.length > 0 ? (
-                  <ul className="space-y-1 text-sm">
-                    {destinations.map((dest, i) => (
-                      <li key={i} className="truncate text-text-primary flex items-center gap-2">
-                        <span className="text-brand-blue font-bold">{i + 1}</span>
-                        {dest}
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="space-y-1 text-sm">
+                      {destinations.map((dest, i) => (
+                        <li key={i} className="truncate text-text-primary flex items-center gap-2">
+                          <span className="text-brand-blue">•</span>
+                          {dest}
+                        </li>
+                      ))}
+                    </ul>
+                    {trendsAnalysis?.data?.data_source === 'Google Trends API (Real Data)' ? (
+                      <p className="text-xs text-green-400/80 mt-2">
+                        ✓ Google Trends (7 dias)
+                      </p>
+                    ) : (
+                      <p className="text-xs text-text-muted mt-2 italic">
+                        *Baseado em análise de IA de tendências e menções
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <p className="text-xs text-text-muted">Aguardando análise</p>
                 )}

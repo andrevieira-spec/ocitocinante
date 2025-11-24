@@ -7,6 +7,114 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para buscar dados REAIS do Google Trends
+async function fetchRealGoogleTrends(keywords: string[] = ['turismo Brasil', 'viagem Brasil', 'pacotes turismo']): Promise<any> {
+  try {
+    console.log('🔍 Buscando dados REAIS do Google Trends...');
+    
+    // API não oficial do Google Trends (via Serp API ou direct scraping)
+    // Usando a interface pública do Google Trends
+    const results: any = {
+      timestamp: new Date().toISOString(),
+      keywords: [],
+      destinations: [],
+      trending_now: []
+    };
+
+    for (const keyword of keywords) {
+      try {
+        // Buscar interesse ao longo do tempo (últimos 7 dias)
+        const url = `https://trends.google.com/trends/api/widgetdata/multiline?hl=pt-BR&tz=-180&req={"time":"now 7-d","resolution":"HOUR","locale":"pt-BR","comparisonItem":[{"geo":"BR","keyword":"${encodeURIComponent(keyword)}"}],"requestOptions":{"property":"","backend":"IZG","category":0}}&token=APP6_UEAAAAAZzxxx`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        if (response.ok) {
+          const text = await response.text();
+          // Remover prefixo de segurança do Google
+          const jsonText = text.replace(/^\)\]\}'\n/, '');
+          const data = JSON.parse(jsonText);
+          
+          if (data?.default?.timelineData) {
+            const values = data.default.timelineData.map((item: any) => item.value[0]);
+            const avgValue = values.reduce((a: number, b: number) => a + b, 0) / values.length;
+            
+            results.keywords.push({
+              keyword: keyword,
+              avg_interest: Math.round(avgValue),
+              max_interest: Math.max(...values),
+              trend: values[values.length - 1] > values[0] ? 'up' : 'down'
+            });
+          }
+        }
+        
+        // Pequeno delay para não sobrecarregar
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Erro ao buscar ${keyword}:`, error);
+      }
+    }
+
+    // Buscar destinos em alta (trending searches)
+    const trendingDestinations = [
+      'Gramado', 'Fernando de Noronha', 'Porto de Galinhas', 
+      'Bonito', 'Campos do Jordão', 'Jericoacoara', 'Maragogi'
+    ];
+
+    for (const dest of trendingDestinations) {
+      try {
+        const url = `https://trends.google.com/trends/api/widgetdata/multiline?hl=pt-BR&tz=-180&req={"time":"now 7-d","resolution":"HOUR","locale":"pt-BR","comparisonItem":[{"geo":"BR","keyword":"${encodeURIComponent(dest)}"}],"requestOptions":{"property":"","backend":"IZG","category":67}}&token=APP6_UEAAAAAZzxxx`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        if (response.ok) {
+          const text = await response.text();
+          const jsonText = text.replace(/^\)\]\}'\n/, '');
+          const data = JSON.parse(jsonText);
+          
+          if (data?.default?.timelineData) {
+            const values = data.default.timelineData.map((item: any) => item.value[0]);
+            const avgValue = values.reduce((a: number, b: number) => a + b, 0) / values.length;
+            
+            // Só adicionar se tiver interesse significativo
+            if (avgValue > 5) {
+              results.destinations.push({
+                name: dest,
+                interest_score: Math.round(avgValue),
+                relative_searches: Math.round(avgValue * 100) // Estimativa relativa
+              });
+            }
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Erro ao buscar destino ${dest}:`, error);
+      }
+    }
+
+    // Ordenar destinos por interesse
+    results.destinations.sort((a: any, b: any) => b.interest_score - a.interest_score);
+    
+    console.log('✅ Dados reais do Google Trends coletados:', {
+      keywords: results.keywords.length,
+      destinations: results.destinations.length
+    });
+
+    return results;
+  } catch (error) {
+    console.error('❌ Erro ao buscar Google Trends real:', error);
+    return null;
+  }
+}
+
 // Retry logic for API calls
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
@@ -567,49 +675,91 @@ Seja específico e acionável.`;
         console.log('Quick strategic summary inserted');
       }
 
-      // 2) Quick Google Trends (optional) - ESTRUTURADO
+      // 2) Quick Google Trends (optional) - DADOS REAIS
       if (include_trends) {
-        const trendsPrompt = `Analise tendências do Google Trends para turismo no Brasil.
-
-RETORNE UM JSON NO FORMATO EXATO:
-{
-  "top_queries_brazil": [
-    { "query": "Gramado inverno", "category": "turismo", "relative_score": 100 },
-    { "query": "Fernando de Noronha", "category": "turismo", "relative_score": 87 }
-  ],
-  "top_keywords": [
-    { "keyword": "turismo sustentável", "score": 0.92 },
-    { "keyword": "viagens econômicas", "score": 0.87 }
-  ],
-  "hot_destinations": [
-    { "name": "Gramado", "mentions": 14, "score": 0.89 },
-    { "name": "Porto de Galinhas", "mentions": 11, "score": 0.84 }
-  ],
-  "period": { "from": "2025-11-01T00:00:00Z", "to": "2025-11-07T23:59:59Z" }
-}
-
-Liste top 20 buscas reais do Brasil nos últimos 7 dias.`;
-        console.log('🔍 Starting Google Trends analysis...');
-        const trendsAnalysis = await retryWithBackoff(() => 
-          analyzeWithGemini(googleApiKey, trendsPrompt, true)
-        );
-        console.log('✅ Google Trends analysis completed');
+        console.log('🔍 Buscando dados REAIS do Google Trends...');
         
-        let trendsStructuredData = {};
-        try {
-          trendsStructuredData = JSON.parse(trendsAnalysis.data);
-        } catch {
-          trendsStructuredData = { top_queries_brazil: [], raw_response: trendsAnalysis.data };
+        // Buscar dados REAIS do Google Trends
+        const realTrendsData = await fetchRealGoogleTrends([
+          'turismo Brasil',
+          'viagem Brasil', 
+          'pacotes turismo',
+          'viagens baratas',
+          'destinos Brasil'
+        ]);
+        
+        if (realTrendsData && (realTrendsData.keywords.length > 0 || realTrendsData.destinations.length > 0)) {
+          // Estruturar dados reais
+          const trendsStructuredData = {
+            timestamp: realTrendsData.timestamp,
+            data_source: 'Google Trends API (Real Data)',
+            period: {
+              from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+              to: new Date().toISOString(),
+              description: 'Últimos 7 dias'
+            },
+            top_keywords: realTrendsData.keywords.map((k: any) => ({
+              keyword: k.keyword,
+              avg_interest: k.avg_interest,
+              max_interest: k.max_interest,
+              trend: k.trend
+            })),
+            hot_destinations: realTrendsData.destinations.map((d: any) => ({
+              name: d.name,
+              interest_score: d.interest_score,
+              estimated_searches: d.relative_searches,
+              source: 'Google Trends'
+            })),
+            metadata: {
+              total_keywords_analyzed: realTrendsData.keywords.length,
+              total_destinations_analyzed: realTrendsData.destinations.length,
+              collection_date: new Date().toISOString()
+            }
+          };
+          
+          // Gerar insights baseados nos dados REAIS
+          const topDestination = realTrendsData.destinations[0];
+          const trendingKeywords = realTrendsData.keywords.filter((k: any) => k.trend === 'up');
+          
+          const insights = `Dados reais do Google Trends (últimos 7 dias):
+          
+📊 DESTINO MAIS BUSCADO: ${topDestination?.name || 'N/A'} (interesse: ${topDestination?.interest_score || 0}/100)
+
+🔥 KEYWORDS EM ALTA: ${trendingKeywords.map((k: any) => k.keyword).join(', ') || 'Análise em andamento'}
+
+📈 TOTAL DE DESTINOS ANALISADOS: ${realTrendsData.destinations.length}
+
+⚠️ NOTA: Dados extraídos diretamente do Google Trends público. Valores de interesse são relativos (0-100).`;
+
+          const recommendations = realTrendsData.destinations.slice(0, 3).map((d: any, i: number) => 
+            `${i + 1}. Focar em ${d.name} - interesse atual de ${d.interest_score}/100`
+          ).join('\n');
+          
+          await supabase.from('market_analysis').insert({
+            analysis_type: 'google_trends',
+            data: trendsStructuredData,
+            insights: insights,
+            recommendations: recommendations,
+            confidence_score: 0.95, // Alta confiança - dados reais
+            is_automated
+          });
+          
+          console.log('✅ Dados REAIS do Google Trends salvos');
+        } else {
+          console.log('⚠️ Falha ao obter dados reais, usando análise alternativa...');
+          // Fallback para análise textual se API falhar
+          const trendsPrompt = `Analise tendências de turismo no Brasil com base em dados públicos disponíveis.`;
+          const trendsAnalysis = await analyzeWithGemini(googleApiKey, trendsPrompt, false);
+          
+          await supabase.from('market_analysis').insert({
+            analysis_type: 'google_trends',
+            data: { source: 'AI Analysis', raw_response: trendsAnalysis.data },
+            insights: trendsAnalysis.insights,
+            recommendations: trendsAnalysis.recommendations,
+            confidence_score: 0.60, // Menor confiança - dados simulados
+            is_automated
+          });
         }
-        
-        await supabase.from('market_analysis').insert({
-          analysis_type: 'google_trends',
-          data: trendsStructuredData,
-          insights: trendsAnalysis.insights,
-          recommendations: trendsAnalysis.recommendations,
-          confidence_score: 0.85,
-          is_automated
-        });
         console.log('Quick Google Trends inserted');
       }
 

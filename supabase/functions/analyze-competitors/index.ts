@@ -184,61 +184,227 @@ async function fetchXUserData(username: string, bearerToken: string) {
   }
 }
 
-// Instagram (Meta) API integration
-async function fetchInstagramData(instagramUrl: string, userToken: string) {
+// Instagram Web Scraping (sem API - scraping público)
+async function fetchInstagramData(instagramUrl: string) {
   try {
-    // Extract username from Instagram URL
     const match = instagramUrl.match(/instagram\.com\/([^/?]+)/);
     if (!match) return null;
 
     const username = match[1];
-    console.log(`📸 Fetching Instagram data for: ${username}`);
+    console.log(`📸 Scraping Instagram (público) para: ${username}`);
 
-    // First, search for the Instagram Business Account ID
-    const searchResponse = await fetch(
-      `https://graph.facebook.com/v18.0/ig_hashtag_search?user_id=${username}&q=${username}&access_token=${userToken}`
-    );
+    // Scraping da página pública do Instagram (simula navegador)
+    const response = await fetch(`https://www.instagram.com/${username}/?__a=1&__d=dis`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
+      }
+    });
 
-    if (!searchResponse.ok) {
-      console.error(`Instagram search error: ${searchResponse.status}`);
-      // Try alternative: get account info directly if we have the numeric ID
-      return null;
+    if (!response.ok) {
+      console.error(`❌ Instagram scraping erro ${response.status} para ${username}`);
+      // Fallback: scraping via HTML parsing
+      return await scrapeInstagramViaHTML(username);
     }
 
-    // Get account basic info and recent media
-    // Note: This requires the Instagram Business Account to be linked to a Facebook Page
-    const accountResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${username}?fields=id,username,followers_count,follows_count,media_count,profile_picture_url&access_token=${userToken}`
-    );
+    const data = await response.json();
+    const user = data?.graphql?.user || data?.data?.user;
 
-    if (!accountResponse.ok) {
-      console.error(`Instagram account error: ${accountResponse.status}`);
-      return null;
+    if (!user) {
+      console.log('⚠️ Instagram retornou dados vazios, tentando HTML scraping...');
+      return await scrapeInstagramViaHTML(username);
     }
 
-    const accountData = await accountResponse.json();
-    const accountId = accountData.id;
+    // Extrair posts recentes e calcular engajamento
+    const posts = user.edge_owner_to_timeline_media?.edges || [];
+    const media = posts.slice(0, 12).map((edge: any) => {
+      const node = edge.node;
+      const likes = node.edge_liked_by?.count || 0;
+      const comments = node.edge_media_to_comment?.count || 0;
+      
+      return {
+        id: node.id,
+        caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || '',
+        media_type: node.__typename === 'GraphVideo' ? 'VIDEO' : 'IMAGE',
+        permalink: `https://www.instagram.com/p/${node.shortcode}/`,
+        timestamp: new Date(node.taken_at_timestamp * 1000).toISOString(),
+        like_count: likes,
+        comments_count: comments,
+        engagement: likes + comments
+      };
+    });
 
-    // Get recent media with engagement metrics
-    const mediaResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${accountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=10&access_token=${userToken}`
-    );
+    const followers = user.edge_followed_by?.count || 0;
+    const totalEngagement = media.reduce((sum: number, post: any) => sum + post.engagement, 0);
+    const avgEngagementRate = followers > 0 ? ((totalEngagement / media.length) / followers * 100).toFixed(2) : '0';
 
-    if (!mediaResponse.ok) {
-      console.error(`Instagram media error: ${mediaResponse.status}`);
-      return null;
-    }
-
-    const mediaData = await mediaResponse.json();
-    
-    console.log(`✅ Retrieved ${mediaData.data?.length || 0} posts from Instagram`);
+    console.log(`✅ Instagram scraped: ${media.length} posts, ${followers} seguidores, ${avgEngagementRate}% engajamento`);
     
     return {
-      account: accountData,
-      media: mediaData.data || []
+      account: {
+        username: user.username,
+        full_name: user.full_name,
+        followers_count: followers,
+        following_count: user.edge_follow?.count || 0,
+        posts_count: user.edge_owner_to_timeline_media?.count || 0,
+        biography: user.biography,
+        profile_pic_url: user.profile_pic_url_hd,
+        avg_engagement_rate: avgEngagementRate
+      },
+      media: media
     };
   } catch (error) {
-    console.error('Error fetching Instagram data:', error);
+    console.error('❌ Erro ao fazer scraping do Instagram:', error);
+    return null;
+  }
+}
+
+// Fallback: scraping via HTML quando JSON API não funciona
+async function scrapeInstagramViaHTML(username: string) {
+  try {
+    console.log(`🔄 Tentando HTML scraping para @${username}...`);
+    
+    const response = await fetch(`https://www.instagram.com/${username}/`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'pt-BR,pt;q=0.9',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`❌ HTML scraping falhou: ${response.status}`);
+      return null;
+    }
+
+    const html = await response.text();
+    
+    // Extrair dados do JSON embutido no HTML
+    const scriptMatch = html.match(/<script type="application\/ld\+json">({[\s\S]*?})<\/script>/);
+    if (scriptMatch) {
+      const jsonData = JSON.parse(scriptMatch[1]);
+      
+      return {
+        account: {
+          username: username,
+          full_name: jsonData.name || username,
+          followers_count: 0, // Não disponível no schema público
+          biography: jsonData.description || '',
+          avg_engagement_rate: 'N/A'
+        },
+        media: []
+      };
+    }
+
+    console.log('⚠️ Instagram scraping: dados limitados (perfil privado ou bloqueio)');
+    return null;
+  } catch (error) {
+    console.error('❌ Erro no HTML scraping:', error);
+    return null;
+  }
+}
+
+// TikTok Web Scraping (sem API - scraping público)
+async function fetchTikTokData(tiktokUrl: string) {
+  try {
+    const match = tiktokUrl.match(/tiktok\.com\/@([^/?]+)/);
+    if (!match) return null;
+
+    const username = match[1];
+    console.log(`🎵 Scraping TikTok (público) para: @${username}`);
+
+    // TikTok tem proteção contra scraping, usar API pública não oficial
+    const response = await fetch(`https://www.tiktok.com/@${username}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`❌ TikTok scraping erro ${response.status} para @${username}`);
+      return null;
+    }
+
+    const html = await response.text();
+    
+    // TikTok embute dados em <script id="__UNIVERSAL_DATA_FOR_REHYDRATION__">
+    const scriptMatch = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application\/json">([\s\S]*?)<\/script>/);
+    
+    if (scriptMatch) {
+      try {
+        const data = JSON.parse(scriptMatch[1]);
+        const userData = data?.__DEFAULT_SCOPE__?.['webapp.user-detail']?.userInfo?.user;
+        const videoList = data?.__DEFAULT_SCOPE__?.['webapp.user-detail']?.itemList || [];
+
+        if (!userData) {
+          console.log('⚠️ TikTok: dados do usuário não encontrados');
+          return null;
+        }
+
+        // Calcular engajamento dos vídeos
+        const videos = videoList.slice(0, 12).map((video: any) => {
+          const stats = video.stats || {};
+          return {
+            id: video.id,
+            description: video.desc || '',
+            video_url: `https://www.tiktok.com/@${username}/video/${video.id}`,
+            created_at: new Date(video.createTime * 1000).toISOString(),
+            likes: stats.diggCount || 0,
+            comments: stats.commentCount || 0,
+            shares: stats.shareCount || 0,
+            views: stats.playCount || 0,
+            engagement: (stats.diggCount || 0) + (stats.commentCount || 0) + (stats.shareCount || 0)
+          };
+        });
+
+        const followers = userData.stats?.followerCount || 0;
+        const totalEngagement = videos.reduce((sum: number, v: any) => sum + v.engagement, 0);
+        const avgEngagementRate = followers > 0 ? ((totalEngagement / videos.length) / followers * 100).toFixed(2) : '0';
+
+        console.log(`✅ TikTok scraped: ${videos.length} vídeos, ${followers} seguidores, ${avgEngagementRate}% engajamento`);
+
+        return {
+          account: {
+            username: userData.uniqueId,
+            nickname: userData.nickname,
+            followers_count: followers,
+            following_count: userData.stats?.followingCount || 0,
+            videos_count: userData.stats?.videoCount || 0,
+            likes_count: userData.stats?.heartCount || 0,
+            biography: userData.signature || '',
+            avatar_url: userData.avatarLarger,
+            avg_engagement_rate: avgEngagementRate
+          },
+          videos: videos
+        };
+      } catch (parseError) {
+        console.error('❌ Erro ao parsear dados do TikTok:', parseError);
+        return null;
+      }
+    }
+
+    console.log('⚠️ TikTok scraping: estrutura HTML não reconhecida (possível bloqueio)');
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao fazer scraping do TikTok:', error);
     return null;
   }
 }
@@ -466,28 +632,53 @@ Seja específico e use dados reais.`;
             }
           }
 
-          // Fetch real Instagram data with health check
+          // Fetch real Instagram data via scraping (sem API)
           let instagramData = null;
-          if (competitor.instagram_url && metaUserToken) {
+          if (competitor.instagram_url) {
             try {
-              instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
-              apiHealthStatus.instagram_api.healthy = true;
+              instagramData = await fetchInstagramData(competitor.instagram_url);
+              apiHealthStatus.instagram_api.healthy = instagramData !== null;
               
               await supabase.from('api_tokens').upsert({
-                api_name: 'META_USER_TOKEN',
-                is_healthy: true,
-                last_error: null,
+                api_name: 'INSTAGRAM_SCRAPING',
+                is_healthy: instagramData !== null,
+                last_error: instagramData ? null : 'Scraping retornou dados vazios',
                 last_health_check: new Date().toISOString()
               });
             } catch (error) {
-              console.error('Instagram API failed:', error);
+              console.error('Instagram scraping failed:', error);
               apiHealthStatus.instagram_api.healthy = false;
-              apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do Instagram';
+              apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao fazer scraping do Instagram';
               
               await supabase.from('api_tokens').upsert({
-                api_name: 'META_USER_TOKEN',
+                api_name: 'INSTAGRAM_SCRAPING',
                 is_healthy: false,
                 last_error: apiHealthStatus.instagram_api.error,
+                last_health_check: new Date().toISOString()
+              });
+            }
+          }
+
+          // Fetch real TikTok data via scraping (sem API)
+          let tiktokData = null;
+          if (competitor.tiktok_url) {
+            try {
+              tiktokData = await fetchTikTokData(competitor.tiktok_url);
+              console.log(tiktokData ? `✅ TikTok scraped: @${tiktokData.account.username}` : '⚠️ TikTok scraping retornou null');
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'TIKTOK_SCRAPING',
+                is_healthy: tiktokData !== null,
+                last_error: tiktokData ? null : 'Scraping retornou dados vazios',
+                last_health_check: new Date().toISOString()
+              });
+            } catch (error) {
+              console.error('TikTok scraping failed:', error);
+              
+              await supabase.from('api_tokens').upsert({
+                api_name: 'TIKTOK_SCRAPING',
+                is_healthy: false,
+                last_error: error instanceof Error ? error.message : 'Falha ao fazer scraping do TikTok',
                 last_health_check: new Date().toISOString()
               });
             }
@@ -859,17 +1050,17 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
           }
         }
 
-        // Fetch real Instagram data with health check
+        // Fetch real Instagram data via scraping (sem API)
         let instagramData = null;
-        if (competitor.instagram_url && metaUserToken) {
+        if (competitor.instagram_url) {
           try {
-            instagramData = await fetchInstagramData(competitor.instagram_url, metaUserToken);
-            apiHealthStatus.instagram_api.healthy = true;
+            instagramData = await fetchInstagramData(competitor.instagram_url);
+            apiHealthStatus.instagram_api.healthy = instagramData !== null;
             
             await supabase.from('api_tokens').upsert({
-              api_name: 'META_USER_TOKEN',
-              is_healthy: true,
-              last_error: null,
+              api_name: 'INSTAGRAM_SCRAPING',
+              is_healthy: instagramData !== null,
+              last_error: instagramData ? null : 'Scraping retornou dados vazios',
               last_health_check: new Date().toISOString()
             });
           } catch (error) {
@@ -878,9 +1069,34 @@ Seja DIRETO, use DADOS CONCRETOS observados no site e redes sociais.`;
             apiHealthStatus.instagram_api.error = error instanceof Error ? error.message : 'Falha ao buscar dados do Instagram';
             
             await supabase.from('api_tokens').upsert({
-              api_name: 'META_USER_TOKEN',
+              api_name: 'INSTAGRAM_SCRAPING',
               is_healthy: false,
               last_error: apiHealthStatus.instagram_api.error,
+              last_health_check: new Date().toISOString()
+            });
+          }
+        }
+
+        // Fetch real TikTok data via scraping (sem API)
+        let tiktokData = null;
+        if (competitor.tiktok_url) {
+          try {
+            tiktokData = await fetchTikTokData(competitor.tiktok_url);
+            console.log(tiktokData ? `✅ TikTok scraped: @${tiktokData.account.username}` : '⚠️ TikTok scraping retornou null');
+            
+            await supabase.from('api_tokens').upsert({
+              api_name: 'TIKTOK_SCRAPING',
+              is_healthy: tiktokData !== null,
+              last_error: tiktokData ? null : 'Scraping retornou dados vazios',
+              last_health_check: new Date().toISOString()
+            });
+          } catch (error) {
+            console.error(`TikTok scraping failed for ${competitor.name}:`, error);
+            
+            await supabase.from('api_tokens').upsert({
+              api_name: 'TIKTOK_SCRAPING',
+              is_healthy: false,
+              last_error: error instanceof Error ? error.message : 'Falha ao fazer scraping do TikTok',
               last_health_check: new Date().toISOString()
             });
           }
@@ -983,6 +1199,39 @@ Posts recentes:
 ${postsInfo}
 
 Use estes dados concretos do Instagram para enriquecer sua análise de engajamento, identificar formatos que performam melhor e entender o público-alvo.`;
+        }
+
+        // Add real TikTok data to prompt if available
+        if (tiktokData && tiktokData.videos.length > 0) {
+          const videosInfo = tiktokData.videos.slice(0, 10).map((video: any) => {
+            return `
+Vídeo: "${video.description?.substring(0, 150) || 'Sem descrição'}..."
+📊 Métricas: ${video.likes} likes, ${video.comments} comentários, ${video.shares} shares, ${video.views} views
+💬 Engajamento total: ${video.engagement} interações
+📅 Data: ${new Date(video.created_at).toLocaleDateString('pt-BR')}
+🔗 Link: ${video.video_url}`;
+          }).join('\n');
+
+          const totalEngagement = tiktokData.videos.reduce((acc: number, v: any) => acc + v.engagement, 0);
+          const avgEngagement = Math.round(totalEngagement / tiktokData.videos.length);
+
+          const accountInfo = `
+👤 Perfil: @${tiktokData.account.username} (${tiktokData.account.nickname})
+👥 Seguidores: ${tiktokData.account.followers_count.toLocaleString()}
+🎬 Vídeos totais: ${tiktokData.account.videos_count}
+❤️ Likes totais: ${tiktokData.account.likes_count.toLocaleString()}
+📈 Taxa de engajamento: ${tiktokData.account.avg_engagement_rate}%`;
+
+          socialPrompt += `\n\n🎵 DADOS REAIS DO TIKTOK:
+${accountInfo}
+
+📈 Total de vídeos analisados: ${tiktokData.videos.length}
+📊 Engajamento médio por vídeo: ${avgEngagement} interações
+
+Vídeos recentes:
+${videosInfo}
+
+Use estes dados concretos do TikTok para identificar tendências de vídeo, formatos virais e estratégias de conteúdo curto que performam melhor.`;
         }
 
         socialPrompt += `\n\nSeja EXTREMAMENTE CONCRETO, use DADOS REAIS e EXEMPLOS ESPECÍFICOS observados nas redes sociais.`;

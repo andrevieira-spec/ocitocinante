@@ -101,53 +101,105 @@ export const MarketOverview = () => {
   const summarizeInsights = (text: string): string => {
     if (!text || text.length < 200) return text;
     
-    // Remover cabeçalhos de tipo de análise
-    const cleanText = text.replace(/\[[\w_]+\]\n/g, '');
+    // Remover cabeçalhos de tipo de análise e frases introdutórias genéricas
+    let cleanText = text.replace(/\[[\w_]+\]\n/g, '');
     
-    // Separar em parágrafos e sentenças
-    const paragraphs = cleanText.split(/\n{2,}/).filter(p => p.trim() && p.length > 50);
-    
-    // Extrair insights principais (frases que contêm palavras-chave estratégicas)
-    const strategicKeywords = [
-      'oportunidade', 'tendência', 'crescimento', 'demanda', 'mercado',
-      'estratégia', 'diferencial', 'vantagem', 'posicionamento', 'segmento',
-      'cliente', 'público', 'comportamento', 'preferência', 'expectativa',
-      'receita', 'lucro', 'conversão', 'resultado', 'performance'
+    // Remover frases introdutórias repetitivas (analista estratégico, apresento análise, etc)
+    const introPatterns = [
+      /Como analista estratégico[^.!?]*[.!?]/gi,
+      /apresento uma análise[^.!?]*[.!?]/gi,
+      /realizei uma análise[^.!?]*[.!?]/gi,
+      /seguem? an[aá]lise[^.!?]*[.!?]/gi,
+      /a seguir[^.!?]*[.!?]/gi,
+      /apresento a seguir[^.!?]*[.!?]/gi,
+      /baseada? em dados[^.!?]*[.!?]/gi,
+      /com foco em[^.!?]*[.!?]/gi
     ];
     
-    const keyInsights: string[] = [];
-    
-    paragraphs.forEach(paragraph => {
-      const sentences = paragraph.split(/[.!?]+/).filter(s => s.trim().length > 40);
-      
-      sentences.forEach(sentence => {
-        const cleanSentence = sentence.trim();
-        // Calcular relevância baseada em keywords
-        const relevance = strategicKeywords.filter(kw => 
-          cleanSentence.toLowerCase().includes(kw)
-        ).length;
-        
-        if (relevance > 0 && cleanSentence.length > 50 && cleanSentence.length < 250) {
-          keyInsights.push({ text: cleanSentence, score: relevance });
-        }
-      });
+    introPatterns.forEach(pattern => {
+      cleanText = cleanText.replace(pattern, '');
     });
     
-    // Ordenar por relevância e pegar top 10
-    const topInsights = keyInsights
-      .sort((a: any, b: any) => b.score - a.score)
-      .slice(0, 10)
-      .map((item: any) => item.text);
+    // Separar em sentenças
+    const sentences = cleanText
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 50 && s.length < 350);
+    
+    // Palavras-chave de CONTEÚDO REAL (não introduções)
+    const contentKeywords = [
+      'crescimento', 'demanda', 'mercado', 'tendência', 'busca',
+      'destino', 'pacote', 'viagem', 'turismo', 'brasileiro',
+      'cliente', 'público', 'comportamento', 'preferência',
+      'receita', 'conversão', 'oportunidade', 'estratégia',
+      'nordeste', 'gramado', 'praia', 'ecoturismo', 'resort',
+      'aumento', 'queda', 'alta', 'baixa', 'volume',
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'verão', 'inverno'
+    ];
+    
+    // Anti-keywords (frases que queremos evitar)
+    const avoidKeywords = [
+      'analista', 'análise', 'apresento', 'realizei', 'baseada',
+      'concisa', 'didática', 'acionável', 'aprofundada', 'detalhada',
+      'sênior', 'estratégico', 'mercado de turismo', 'seguir'
+    ];
+    
+    const scoredSentences: Array<{text: string, score: number}> = [];
+    const seenSentences = new Set<string>();
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase();
+      
+      // Pular sentenças duplicadas ou muito similares
+      const normalized = lowerSentence.replace(/[^a-z0-9]/g, '');
+      if (seenSentences.has(normalized)) return;
+      seenSentences.add(normalized);
+      
+      // Calcular score
+      let score = 0;
+      
+      // Penalizar frases com anti-keywords
+      let penalty = 0;
+      avoidKeywords.forEach(kw => {
+        if (lowerSentence.includes(kw)) penalty += 15;
+      });
+      
+      // Premiar frases com content keywords
+      contentKeywords.forEach(kw => {
+        if (lowerSentence.includes(kw)) score += 10;
+      });
+      
+      // Bonus para frases com números (dados concretos)
+      if (/\d+/.test(sentence)) score += 15;
+      
+      // Bonus para frases com símbolos de destaque (emojis, asteriscos)
+      if (/[📈📊🎯💡✨🔥⭐]/u.test(sentence)) score += 5;
+      if (/\*\*/.test(sentence)) score += 5;
+      
+      // Penalizar frases muito curtas ou muito longas
+      if (sentence.length < 80) penalty += 10;
+      if (sentence.length > 250) penalty += 5;
+      
+      const finalScore = score - penalty;
+      
+      if (finalScore > 0) {
+        scoredSentences.push({ text: sentence, score: finalScore });
+      }
+    });
+    
+    // Ordenar por score e pegar top 8 únicas
+    const topInsights = scoredSentences
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map(item => item.text.trim());
     
     if (topInsights.length === 0) {
-      // Fallback: pegar primeiras frases de cada parágrafo
-      return paragraphs.slice(0, 8).map(p => {
-        const firstSentence = p.split(/[.!?]/)[0]?.trim();
-        return firstSentence;
-      }).filter(Boolean).join('.\n\n') + '.';
+      return 'Nenhum insight relevante encontrado. Execute uma nova análise.';
     }
     
-    console.log('[MarketOverview] 🧠 IA extraiu', topInsights.length, 'insights de', paragraphs.length, 'parágrafos');
+    console.log('[MarketOverview] 🧠 IA filtrou', sentences.length, 'frases → extraiu', topInsights.length, 'insights únicos');
+    console.log('[MarketOverview] 📊 Scores:', scoredSentences.slice(0, 8).map(s => s.score));
+    
     return topInsights.join('.\n\n') + '.';
   };
 

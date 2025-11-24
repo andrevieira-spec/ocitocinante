@@ -288,36 +288,47 @@ export const MarketOverview = () => {
   console.log('[MarketOverview] socialAnalysis:', socialAnalysis ? 'OK' : 'VAZIO');
   console.log('[MarketOverview] pricingAnalysis:', pricingAnalysis ? 'OK' : 'VAZIO');
   
-  if (strategyAnalysis) {
-    console.log('[MarketOverview] strategyAnalysis.insights tamanho:', strategyAnalysis.insights?.length || 0);
-    console.log('[MarketOverview] strategyAnalysis.recommendations tamanho:', strategyAnalysis.recommendations?.length || 0);
-    console.log('[MarketOverview] strategyAnalysis.data?.raw_response tamanho:', strategyAnalysis.data?.raw_response?.length || 0);
-  }
   if (trendsAnalysis) {
-    console.log('[MarketOverview] trendsAnalysis.insights tamanho:', trendsAnalysis.insights?.length || 0);
-    console.log('[MarketOverview] trendsAnalysis.recommendations tamanho:', trendsAnalysis.recommendations?.length || 0);
-    console.log('[MarketOverview] trendsAnalysis.data?.raw_response tamanho:', trendsAnalysis.data?.raw_response?.length || 0);
-  }
-  if (pricingAnalysis) {
-    console.log('[MarketOverview] pricingAnalysis COMPLETA:', pricingAnalysis);
-    console.log('[MarketOverview] pricingAnalysis.data:', pricingAnalysis.data);
-  }
-  if (socialAnalysis) {
-    console.log('[MarketOverview] socialAnalysis COMPLETA:', socialAnalysis);
-    console.log('[MarketOverview] socialAnalysis.data:', socialAnalysis.data);
+    console.log('[MarketOverview] 🔍 trendsAnalysis COMPLETA:', trendsAnalysis);
+    console.log('[MarketOverview] 🔍 trendsAnalysis.data:', trendsAnalysis.data);
+    console.log('[MarketOverview] 🔍 trendsAnalysis.data.keywords:', trendsAnalysis.data?.keywords);
+    console.log('[MarketOverview] 🔍 trendsAnalysis.data.destinations:', trendsAnalysis.data?.destinations);
+    console.log('[MarketOverview] 🔍 trendsAnalysis.data.opportunity:', trendsAnalysis.data?.opportunity);
+    console.log('[MarketOverview] 🔍 trendsAnalysis.data.timelineData:', trendsAnalysis.data?.timelineData);
+    console.log('[MarketOverview] 🔍 trendsAnalysis.analyzed_at:', trendsAnalysis.analyzed_at);
   }
 
   const extractKeywords = (): string[] => {
     // Priorizar dados da última análise estruturada
     const latestTrends = trendsAnalysis?.data;
     
-    // 1. Verificar se tem keywords estruturadas
+    // 1. Verificar se tem keywords estruturadas (vários formatos possíveis)
+    if (latestTrends?.top_keywords && Array.isArray(latestTrends.top_keywords) && latestTrends.top_keywords.length > 0) {
+      console.log('[MarketOverview] ✨ Keywords extraídas de top_keywords:', latestTrends.top_keywords);
+      // Se for array de objetos {keyword, score}, extrair só os keywords
+      if (typeof latestTrends.top_keywords[0] === 'object') {
+        return latestTrends.top_keywords
+          .map((item: any) => item.keyword || item.name || '')
+          .filter(Boolean)
+          .slice(0, 5);
+      }
+      return latestTrends.top_keywords.slice(0, 5);
+    }
+    
     if (latestTrends?.keywords && Array.isArray(latestTrends.keywords) && latestTrends.keywords.length > 0) {
-      console.log('[MarketOverview] ✨ Keywords extraídas dos dados estruturados:', latestTrends.keywords);
+      console.log('[MarketOverview] ✨ Keywords extraídas de keywords:', latestTrends.keywords);
       return latestTrends.keywords.slice(0, 5);
     }
     
-    // 2. Extrair do texto
+    // 2. Tentar extrair de top_queries_brazil
+    if (latestTrends?.top_queries_brazil && Array.isArray(latestTrends.top_queries_brazil) && latestTrends.top_queries_brazil.length > 0) {
+      console.log('[MarketOverview] ✨ Keywords extraídas de top_queries_brazil:', latestTrends.top_queries_brazil);
+      return latestTrends.top_queries_brazil
+        .slice(0, 5)
+        .map((item: any) => item.query || item);
+    }
+    
+    // 3. Extrair do texto
     const text = (trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || '').toLowerCase();
     const keywords = new Set<string>();
     
@@ -347,13 +358,29 @@ export const MarketOverview = () => {
     // Priorizar dados estruturados da última análise
     const latestTrends = trendsAnalysis?.data;
     
-    // 1. Verificar se tem destinations estruturadas
+    // 1. Verificar hot_destinations (formato da Edge Function)
+    if (latestTrends?.hot_destinations && Array.isArray(latestTrends.hot_destinations) && latestTrends.hot_destinations.length > 0) {
+      console.log('[MarketOverview] 🌍 Destinos extraídos de hot_destinations:', latestTrends.hot_destinations);
+      const destinations = latestTrends.hot_destinations
+        .slice(0, 5)
+        .map((item: any) => {
+          if (typeof item === 'object') {
+            const name = item.name || item.destination || '';
+            const mentions = item.mentions || item.score * 100 || 0;
+            return `${name} (${Math.round(mentions)} buscas)`;
+          }
+          return item;
+        });
+      return destinations;
+    }
+    
+    // 2. Verificar destinations
     if (latestTrends?.destinations && Array.isArray(latestTrends.destinations) && latestTrends.destinations.length > 0) {
-      console.log('[MarketOverview] 🌍 Destinos extraídos dos dados estruturados:', latestTrends.destinations);
+      console.log('[MarketOverview] 🌍 Destinos extraídos de destinations:', latestTrends.destinations);
       return latestTrends.destinations.slice(0, 5);
     }
     
-    // 2. Tentar extrair do timelineData
+    // 3. Tentar extrair do timelineData
     if (latestTrends?.timelineData && Array.isArray(latestTrends.timelineData) && latestTrends.timelineData.length > 0) {
       const topDestinations = latestTrends.timelineData
         .map((item: any) => ({
@@ -411,25 +438,53 @@ export const MarketOverview = () => {
     const latestTrends = trendsAnalysis?.data;
     
     if (latestTrends?.opportunity && typeof latestTrends.opportunity === 'string' && latestTrends.opportunity.length > 20) {
-      console.log('[MarketOverview] 💡 Oportunidade extraída dos dados estruturados');
+      console.log('[MarketOverview] 💡 Oportunidade extraída de campo estruturado');
       return latestTrends.opportunity;
     }
     
-    // Extrair do texto
-    const text = trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || strategyAnalysis?.insights || '';
+    // Extrair do texto usando múltiplos padrões
+    const text = trendsAnalysis?.data?.raw_response || trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '';
     
-    const oppMatch = text.match(/oportunidade[s]?[:\-]\s*([^.!?\n]{30,300})/i);
-    if (oppMatch) return oppMatch[1].trim();
-    
-    const recMatch = text.match(/recomen[dação|da][s]?[:\-]\s*([^.!?\n]{30,300})/i);
-    if (recMatch) return recMatch[1].trim();
-    
-    // Extrair primeira frase significativa
-    const sentences = text.split(/[.!?]/).filter(s => s.trim().length > 50);
-    if (sentences.length > 0) {
-      return sentences[0].trim();
+    // Padrão 1: 🎯 OPORTUNIDADE: ou 🎯 OPORTUNIDADES:
+    const emojiPattern = /🎯\s*OPORTUNIDADE[S]?[:\-]\s*([^🎯\n]{50,400})/i;
+    const emojiMatch = text.match(emojiPattern);
+    if (emojiMatch) {
+      console.log('[MarketOverview] 💡 Oportunidade extraída de padrão com emoji');
+      return emojiMatch[1].trim().replace(/\[.*?\]/g, '').trim();
     }
     
+    // Padrão 2: Linha começando com "Oportunidade:"
+    const oppPattern = /(?:^|\n)\s*Oportunidade[s]?[:\-]\s*([^\n]{50,400})/i;
+    const oppMatch = text.match(oppPattern);
+    if (oppMatch) {
+      console.log('[MarketOverview] 💡 Oportunidade extraída de padrão simples');
+      return oppMatch[1].trim();
+    }
+    
+    // Padrão 3: Procurar seção "OPORTUNIDADES ESTRATÉGICAS"
+    const strategicPattern = /OPORTUNIDADES ESTRATÉGICAS[:\-]?\s*\n\s*([^\n]{50,400})/i;
+    const strategicMatch = text.match(strategicPattern);
+    if (strategicMatch) {
+      console.log('[MarketOverview] 💡 Oportunidade extraída de seção estratégica');
+      return strategicMatch[1].trim().replace(/^\*\s*/, '').replace(/^\d+[\.)]\s*/, '');
+    }
+    
+    // Padrão 4: Primeira frase após mencionar "oportunidade"
+    const contextPattern = /\boportunidade[s]?\b[^.!?]*[.!?]\s*([A-ZÀÁÂÃÉÊÍÓÔÕÚÇ][^.!?]{50,300})/i;
+    const contextMatch = text.match(contextPattern);
+    if (contextMatch) {
+      console.log('[MarketOverview] 💡 Oportunidade extraída de contexto');
+      return contextMatch[1].trim();
+    }
+    
+    // Fallback: recomendação
+    const recMatch = text.match(/recomen[dação|da][s]?[:\-]\s*([^.!?\n]{30,300})/i);
+    if (recMatch) {
+      console.log('[MarketOverview] 💡 Oportunidade extraída de recomendação');
+      return recMatch[1].trim();
+    }
+    
+    console.log('[MarketOverview] ⚠️ Usando oportunidade padrão (nenhuma encontrada)');
     return 'Foco em destinos do Nordeste com pacotes all-inclusive para famílias e grupos (alta demanda detectada)';
   };
 
@@ -437,9 +492,12 @@ export const MarketOverview = () => {
   const destinations = extractDestinations();
   const opportunity = extractOpportunity();
 
-  console.log('[MarketOverview] keywords:', keywords);
-  console.log('[MarketOverview] destinations:', destinations);
-  console.log('[MarketOverview] opportunity:', opportunity);
+  console.log('[MarketOverview] ===== EXTRAÇÃO DE KPIs =====');
+  console.log('[MarketOverview] 🏷️  Keywords extraídas:', keywords);
+  console.log('[MarketOverview] 🌍 Destinos extraídos:', destinations);
+  console.log('[MarketOverview] 💡 Oportunidade extraída:', opportunity);
+  console.log('[MarketOverview] 📅 Data da última análise:', trendsAnalysis?.analyzed_at);
+  console.log('[MarketOverview] ==============================');
 
   if (loading) {
     return <div className="text-center py-8">Carregando visão geral...</div>;

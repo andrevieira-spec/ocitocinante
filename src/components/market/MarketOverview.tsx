@@ -205,7 +205,12 @@ export const MarketOverview = () => {
 
   // Função para extrair top 5 ações recomendadas usando análise de relevância aprimorada
   const extractTop5Actions = (text: string): string[] => {
-    if (!text) return [];
+    if (!text) {
+      console.log('[MarketOverview] ⚠️ Nenhum texto para extrair ações');
+      return [];
+    }
+    
+    console.log('[MarketOverview] 📝 Texto de entrada tem', text.length, 'caracteres');
     
     // Remover cabeçalhos
     const cleanText = text.replace(/\[[\w_]+\]\n/g, '');
@@ -222,8 +227,9 @@ export const MarketOverview = () => {
     
     const allMatches = new Set<string>();
     
-    patterns.forEach(pattern => {
+    patterns.forEach((pattern, idx) => {
       const matches = [...cleanText.matchAll(pattern)];
+      console.log(`[MarketOverview] 🔍 Pattern ${idx+1} encontrou ${matches.length} matches`);
       matches.forEach(match => {
         const action = match[1]?.trim();
         if (action && action.length >= 30) {
@@ -236,7 +242,12 @@ export const MarketOverview = () => {
     
     const actions = Array.from(allMatches);
     
-    console.log('[MarketOverview] 🎯 IA encontrou', actions.length, 'ações potenciais');
+    console.log('[MarketOverview] 🎯 IA encontrou', actions.length, 'ações únicas após deduplicação');
+    
+    if (actions.length === 0) {
+      console.log('[MarketOverview] ⚠️ Nenhuma ação encontrada com os patterns. Primeiras 500 chars do texto:', cleanText.substring(0, 500));
+      return [];
+    }
     
     // Scoring de relevância
     const scoredActions = actions.map(action => {
@@ -266,12 +277,15 @@ export const MarketOverview = () => {
       return { action, score };
     });
     
+    // Garantir que sempre retorna 5 ações (ou quantas tiver, se menos de 5)
     const topActions = scoredActions
       .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
+      .slice(0, Math.min(5, scoredActions.length))
       .map(item => item.action);
     
-    console.log('[MarketOverview] ✅ Top 5 ações selecionadas com scores:', scoredActions.slice(0, 5).map(a => a.score));
+    console.log('[MarketOverview] ✅ Top', topActions.length, 'ações selecionadas');
+    console.log('[MarketOverview] 📊 Scores das top ações:', scoredActions.slice(0, 5).map(a => `${a.score}pts`));
+    console.log('[MarketOverview] 📋 Ações:', topActions);
     
     return topActions;
   };
@@ -359,17 +373,25 @@ export const MarketOverview = () => {
     const latestTrends = trendsAnalysis?.data;
     
     console.log('[MarketOverview] 🔍 Verificando fonte de dados:', latestTrends?.data_source || 'não especificada');
+    console.log('[MarketOverview] 🔍 hot_destinations type:', typeof latestTrends?.hot_destinations);
+    console.log('[MarketOverview] 🔍 hot_destinations length:', latestTrends?.hot_destinations?.length);
+    console.log('[MarketOverview] 🔍 hot_destinations RAW:', JSON.stringify(latestTrends?.hot_destinations));
     
     // 1. Verificar hot_destinations com dados REAIS do Google Trends
     if (latestTrends?.hot_destinations && Array.isArray(latestTrends.hot_destinations) && latestTrends.hot_destinations.length > 0) {
-      console.log('[MarketOverview] 🌍 Destinos REAIS do Google Trends:', latestTrends.hot_destinations);
+      console.log('[MarketOverview] 🌍 Processando', latestTrends.hot_destinations.length, 'destinos do Google Trends');
+      
       const destinations = latestTrends.hot_destinations
         .slice(0, 5)
-        .map((item: any) => {
-          if (typeof item === 'object') {
+        .map((item: any, idx: number) => {
+          console.log(`[MarketOverview] 🔍 Destino ${idx+1}:`, typeof item, JSON.stringify(item));
+          
+          if (typeof item === 'object' && item !== null) {
             const name = item.name || item.destination || '';
             const interest = item.interest_score || item.avg_interest || 0;
             const searches = item.estimated_searches || item.relative_searches || 0;
+            
+            console.log(`[MarketOverview]   → name: "${name}", interest: ${interest}, searches: ${searches}`);
             
             // Se temos dados reais, mostrar interesse score
             if (interest > 0) {
@@ -381,11 +403,15 @@ export const MarketOverview = () => {
             }
             return name;
           }
-          return String(item);
+          
+          // Se for string diretamente
+          const strValue = String(item);
+          console.log(`[MarketOverview]   → string value: "${strValue}"`);
+          return strValue;
         })
-        .filter(Boolean);
+        .filter(dest => dest && dest.length > 0);
       
-      console.log('[MarketOverview] ✅ Retornando', destinations.length, 'destinos:', destinations);
+      console.log('[MarketOverview] ✅ Retornando', destinations.length, 'destinos processados:', destinations);
       return destinations;
     }
     

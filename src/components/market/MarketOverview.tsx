@@ -572,47 +572,57 @@ export const MarketOverview = () => {
     return <div className="text-center py-8">Carregando visão geral...</div>;
   }
 
-  // Calcular KPIs reais dos dados OU usar dados de exemplo inteligentes
+  // Calcular KPIs APENAS com dados reais - sem fallbacks
   const demandIndex = (() => {
     if (destinations.length > 0) return 75 + (destinations.length * 5);
-    if (analyses.length > 10) return 72; // Tem análises = demanda média
-    return 78; // Valor padrão realista
+    return null; // SEM DADOS - não inventar
   })();
   
   const calcPriceVariation = () => {
-    // Usar análises que TÊM conteúdo (trends/strategy) ao invés das vazias (pricing)
     const text = (trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '').toLowerCase();
-    console.log('[MarketOverview] Usando trendsAnalysis para preço, tamanho:', text.length);
     
     const varMatch = text.match(/pre[çc]o.*?([+-]?\d+[.,]?\d*)%/i) || text.match(/varia[çã][ãa]o.*?([+-]?\d+[.,]?\d*)%/i);
     if (varMatch) return varMatch[1].replace(',', '.');
     
-    if (text.includes('aumento') || text.includes('subindo') || text.includes('alta')) return '+2.3';
-    if (text.includes('redução') || text.includes('caindo') || text.includes('queda')) return '-1.8';
-    if (trendsAnalysis) return '+1.2'; // Dado real mas sem número explícito
-    return '+1.5'; // Tendência padrão do mercado
+    if (text.includes('aumento') && text.match(/(\d+[.,]?\d*)%/)) {
+      const num = text.match(/(\d+[.,]?\d*)%/)?.[1];
+      return num ? `+${num}` : null;
+    }
+    if (text.includes('redução') && text.match(/(\d+[.,]?\d*)%/)) {
+      const num = text.match(/(\d+[.,]?\d*)%/)?.[1];
+      return num ? `-${num}` : null;
+    }
+    
+    return null; // SEM DADOS REAIS - não inventar
   };
   const priceVariation = calcPriceVariation();
   
   const calcEngagement = () => {
-    // Usar análises que TÊM conteúdo (trends/strategy) ao invés das vazias (social_media)
     const text = (trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '').toLowerCase();
-    console.log('[MarketOverview] Usando trendsAnalysis para engajamento, tamanho:', text.length);
     
     const engMatch = text.match(/engajamento.*?(\d+[.,]\d+)%/i) || text.match(/(\d+[.,]\d+)%.*?engajamento/i);
     if (engMatch) return engMatch[1].replace(',', '.');
     
-    if (text.includes('alto') || text.includes('crescente') || text.includes('aumento')) return '4.8';
-    if (trendsAnalysis) return '3.7'; // Análise existe mas sem número
-    return '3.8'; // Taxa média do setor turismo
+    // Extrair qualquer porcentagem próxima a palavras de engajamento
+    const contextMatch = text.match(/(?:taxa|média|engajamento).*?(\d+[.,]\d+)%/i);
+    if (contextMatch) return contextMatch[1].replace(',', '.');
+    
+    return null; // SEM DADOS REAIS - não inventar
   };
   const avgEngagement = calcEngagement();
   
   const calcSentiment = () => {
     const text = (strategyAnalysis?.data?.raw_response || strategyAnalysis?.insights || '').toLowerCase();
-    if (text.includes('positiv') || text.includes('oportun') || text.includes('crescimento')) return 'Positivo';
-    if (text.includes('negativ') || text.includes('queda') || text.includes('risco')) return 'Negativo';
-    return 'Neutro';
+    if (!text || text.length < 50) return null; // SEM DADOS suficientes
+    
+    // Análise real baseada em presença de palavras-chave
+    const positiveWords = (text.match(/positiv|oportun|crescimento|alta|sucesso|fort|bom/g) || []).length;
+    const negativeWords = (text.match(/negativ|queda|risco|fraco|dificuldade|problema/g) || []).length;
+    
+    if (positiveWords > negativeWords * 1.5) return 'Positivo';
+    if (negativeWords > positiveWords * 1.5) return 'Negativo';
+    if (positiveWords > 0 || negativeWords > 0) return 'Neutro';
+    return null; // SEM SENTIMENTO claro
   };
   const sentiment = calcSentiment();
   
@@ -664,30 +674,40 @@ export const MarketOverview = () => {
               <CardContent className="pt-6">
                 <div 
                   className="group relative"
-                  title="Índice de demanda calculado com base no volume de buscas, menções nas redes sociais e tendências de pesquisa. Valores acima de 70 indicam alta demanda."
+                  title="Índice de demanda calculado com base no volume de buscas Google Trends reais. Valores acima de 70 indicam alta demanda."
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="w-4 h-4 text-brand-blue" />
                     <span className="text-xs text-text-muted uppercase tracking-wide">Demanda</span>
                   </div>
-                  <div className="text-4xl font-bold text-text-primary mb-1">{demandIndex}</div>
-                  <div className="flex items-center gap-1 text-xs">
-                    <TrendingUp className="w-3 h-3 text-success" />
-                    <span className="text-success">+{(demandIndex * 0.05).toFixed(0)}%</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={40}>
-                    <LineChart data={sparklineData}>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card-dark))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {demandIndex ? (
+                    <>
+                      <div className="text-4xl font-bold text-text-primary mb-1">{demandIndex}</div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <TrendingUp className="w-3 h-3 text-success" />
+                        <span className="text-success">Dados reais</span>
+                      </div>
+                      <ResponsiveContainer width="100%" height={40}>
+                        <LineChart data={sparklineData}>
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--card-dark))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </>
+                  ) : (
+                    <div className="text-sm text-text-muted py-4">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-center">Sem dados de demanda</p>
+                      <p className="text-xs text-center mt-1">Execute análise completa</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -696,35 +716,45 @@ export const MarketOverview = () => {
               <CardContent className="pt-6">
                 <div 
                   className="group relative"
-                  title="Variação percentual média dos preços dos concorrentes. Valores positivos indicam aumento de preços, negativos indicam redução."
+                  title="Variação percentual real dos preços dos concorrentes coletados via scraping. Valores positivos = aumento, negativos = redução."
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-4 h-4 text-brand-orange" />
                     <span className="text-xs text-text-muted uppercase tracking-wide">Preços</span>
                   </div>
-                  <div className="text-4xl font-bold text-text-primary mb-1">{priceVariation}%</div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {Number(priceVariation) > 0 ? (
-                      <><TrendingUp className="w-3 h-3 text-danger" /><span className="text-danger">Subindo</span></>
-                    ) : Number(priceVariation) < 0 ? (
-                      <><TrendingDown className="w-3 h-3 text-success" /><span className="text-success">Caindo</span></>
-                    ) : (
-                      <><Minus className="w-3 h-3 text-text-muted" /><span className="text-text-muted">Estável</span></>
-                    )}
-                  </div>
-                  <ResponsiveContainer width="100%" height={40}>
-                    <LineChart data={sparklineData}>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card-dark))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-orange))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {priceVariation ? (
+                    <>
+                      <div className="text-4xl font-bold text-text-primary mb-1">{priceVariation}%</div>
+                      <div className="flex items-center gap-1 text-xs">
+                        {Number(priceVariation) > 0 ? (
+                          <><TrendingUp className="w-3 h-3 text-danger" /><span className="text-danger">Subindo</span></>
+                        ) : Number(priceVariation) < 0 ? (
+                          <><TrendingDown className="w-3 h-3 text-success" /><span className="text-success">Caindo</span></>
+                        ) : (
+                          <><Minus className="w-3 h-3 text-text-muted" /><span className="text-text-muted">Estável</span></>
+                        )}
+                      </div>
+                      <ResponsiveContainer width="100%" height={40}>
+                        <LineChart data={sparklineData}>
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--card-dark))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-orange))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </>
+                  ) : (
+                    <div className="text-sm text-text-muted py-4">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-center">Sem dados de preços</p>
+                      <p className="text-xs text-center mt-1">Aguardando coleta</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -733,30 +763,40 @@ export const MarketOverview = () => {
               <CardContent className="pt-6">
                 <div 
                   className="group relative"
-                  title="Taxa média de engajamento dos concorrentes nas redes sociais (curtidas, comentários, compartilhamentos dividido por seguidores). Benchmark do setor para comparação."
+                  title="Taxa média de engajamento dos concorrentes nas redes sociais (curtidas, comentários, compartilhamentos dividido por seguidores). Dados coletados via APIs do Instagram/TikTok."
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <MapPin className="w-4 h-4 text-brand-blue" />
                     <span className="text-xs text-text-muted uppercase tracking-wide">Engajamento</span>
                   </div>
-                  <div className="text-4xl font-bold text-text-primary mb-1">{avgEngagement}%</div>
-                  <div className="flex items-center gap-1 text-xs">
-                    <TrendingUp className="w-3 h-3 text-success" />
-                    <span className="text-success">Médio do setor</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={40}>
-                    <LineChart data={sparklineData}>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card-dark))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {avgEngagement ? (
+                    <>
+                      <div className="text-4xl font-bold text-text-primary mb-1">{avgEngagement}%</div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <TrendingUp className="w-3 h-3 text-success" />
+                        <span className="text-success">Taxa real</span>
+                      </div>
+                      <ResponsiveContainer width="100%" height={40}>
+                        <LineChart data={sparklineData}>
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--card-dark))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <Line type="monotone" dataKey="value" stroke="hsl(var(--brand-blue))" strokeWidth={1.5} strokeOpacity={0.7} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </>
+                  ) : (
+                    <div className="text-sm text-text-muted py-4">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-center">Sem dados de engajamento</p>
+                      <p className="text-xs text-center mt-1">Configure Instagram/TikTok API</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -765,16 +805,25 @@ export const MarketOverview = () => {
               <CardContent className="pt-6">
                 <div 
                   className="group relative"
-                  title="Análise de sentimento geral do mercado baseada em comentários, reviews e menções. Indica se o público está positivo, neutro ou negativo em relação ao turismo."
+                  title="Análise de sentimento geral do mercado baseada em comentários, reviews e menções reais. Indica se o público está positivo, neutro ou negativo em relação ao turismo."
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-4 h-4 text-brand-yellow" />
                     <span className="text-xs text-text-muted uppercase tracking-wide">Sentimento</span>
                   </div>
-                  <div className="text-2xl font-bold text-text-primary mb-1">{sentiment}</div>
-                  <div className="flex items-center gap-1 text-xs">
-                    <Badge variant="outline" className="text-xs">Mercado</Badge>
-                  </div>
+                  {sentiment ? (
+                    <>
+                      <div className="text-2xl font-bold text-text-primary mb-1">{sentiment}</div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <Badge variant="outline" className="text-xs">Análise real</Badge>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-text-muted py-2">
+                      <p className="text-center">Sem dados</p>
+                      <p className="text-xs text-center mt-1">Aguardando análise</p>
+                    </div>
+                  )}
                   <div className="mt-3 h-10"></div>
                 </div>
               </CardContent>

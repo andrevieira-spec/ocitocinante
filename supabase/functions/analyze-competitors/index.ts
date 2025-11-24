@@ -7,15 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Função para buscar dados REAIS do Google Trends
-// CORRIGIDO: Agora usa proxy reverso confiável (SerpAPI ou dados simulados realistas)
+// Função para buscar dados REAIS do Google Trends via SerpAPI
 async function fetchRealGoogleTrends(keywords: string[] = ['turismo Brasil', 'viagem Brasil', 'pacotes turismo']): Promise<any> {
   try {
-    console.log('🔍 Buscando dados REAIS do Google Trends...');
+    console.log('🔍 Buscando dados REAIS do Google Trends via SerpAPI...');
     
-    // NOTA: A API direta do Google Trends requer token dinâmico e bloqueia scraping
-    // SOLUÇÃO: Usar dados SIMULADOS mas REALISTAS baseados em padrões reais de busca
-    // TODO: Integrar SerpAPI ou DataForSEO para dados reais pagos (ver DEPLOY_EDGE_FUNCTION.md)
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+    if (!SERPAPI_KEY) {
+      console.error('❌ SERPAPI_KEY não configurada - configure em Supabase Dashboard > Settings > Edge Functions');
+      return null;
+    }
     
     const results: any = {
       timestamp: new Date().toISOString(),
@@ -24,73 +25,81 @@ async function fetchRealGoogleTrends(keywords: string[] = ['turismo Brasil', 'vi
       trending_now: []
     };
 
-    // Simular interesse por keywords (dados realistas baseados em sazonalidade)
-    const keywordInterest: { [key: string]: number } = {
-      'turismo Brasil': 78,
-      'viagem Brasil': 82,
-      'pacotes turismo': 65,
-      'viagens baratas': 71,
-      'destinos Brasil': 68
-    };
-
+    // Buscar interesse real por keywords via SerpAPI
     for (const keyword of keywords) {
-      const baseInterest = keywordInterest[keyword] || 50;
-      const randomVariation = Math.floor(Math.random() * 20) - 10; // ±10%
-      const avgValue = Math.max(30, Math.min(100, baseInterest + randomVariation));
-      
-      results.keywords.push({
-        keyword: keyword,
-        avg_interest: avgValue,
-        max_interest: Math.min(100, avgValue + Math.floor(Math.random() * 15)),
-        trend: Math.random() > 0.4 ? 'up' : 'down'
-      });
-      
-      console.log(`📊 ${keyword}: ${avgValue} pontos de interesse`);
+      try {
+        const url = `https://serpapi.com/search.json?engine=google_trends&q=${encodeURIComponent(keyword)}&data_type=TIMESERIES&geo=BR&api_key=${SERPAPI_KEY}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error(`❌ SerpAPI erro ${response.status} para "${keyword}"`);
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        if (data.interest_over_time?.timeline_data) {
+          const values = data.interest_over_time.timeline_data.map((item: any) => item.values?.[0]?.value || 0);
+          const avgValue = Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
+          const maxValue = Math.max(...values);
+          
+          results.keywords.push({
+            keyword: keyword,
+            avg_interest: avgValue,
+            max_interest: maxValue,
+            trend: values[values.length - 1] > values[0] ? 'up' : 'down'
+          });
+          
+          console.log(`✅ ${keyword}: ${avgValue} pontos (real)`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300)); // Rate limiting
+      } catch (error) {
+        console.error(`❌ Erro ao buscar "${keyword}":`, error);
+      }
     }
 
-    // Destinos em alta (baseado em padrões reais de busca 2024)
-    const destinationsData = [
-      { name: 'Gramado', interest: 85 },
-      { name: 'Fernando de Noronha', interest: 78 },
-      { name: 'Porto de Galinhas', interest: 72 },
-      { name: 'Bonito', interest: 68 },
-      { name: 'Campos do Jordão', interest: 65 },
-      { name: 'Jericoacoara', interest: 61 },
-      { name: 'Maragogi', interest: 58 },
-      { name: 'Arraial do Cabo', interest: 55 },
-      { name: 'Chapada Diamantina', interest: 52 },
-      { name: 'Foz do Iguaçu', interest: 50 }
-    ];
-
-    // Adicionar variação realista
-    for (const dest of destinationsData) {
-      const randomVariation = Math.floor(Math.random() * 15) - 7;
-      const finalInterest = Math.max(30, Math.min(100, dest.interest + randomVariation));
+    // Buscar destinos em alta via SerpAPI (trending searches)
+    try {
+      const trendsUrl = `https://serpapi.com/search.json?engine=google_trends&data_type=GEO_MAP&geo=BR&category=67&api_key=${SERPAPI_KEY}`;
+      const response = await fetch(trendsUrl);
       
-      if (finalInterest > 40) {
-        results.destinations.push({
-          name: dest.name,
-          interest_score: finalInterest,
-          relative_searches: Math.round(finalInterest * 1.2) // Conversão para escala de buscas
-        });
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.interest_by_region) {
+          const topRegions = data.interest_by_region
+            .sort((a: any, b: any) => (b.value || 0) - (a.value || 0))
+            .slice(0, 10);
+          
+          for (const region of topRegions) {
+            results.destinations.push({
+              name: region.location,
+              interest_score: region.value || 0,
+              relative_searches: Math.round((region.value || 0) * 1.2)
+            });
+          }
+          
+          console.log(`✅ ${results.destinations.length} destinos reais coletados`);
+        }
       }
+    } catch (error) {
+      console.error('❌ Erro ao buscar destinos trending:', error);
     }
 
     // Ordenar destinos por interesse
     results.destinations.sort((a: any, b: any) => b.interest_score - a.interest_score);
-    
-    // Pegar apenas top 5
     results.destinations = results.destinations.slice(0, 5);
     
-    console.log('✅ Dados realistas do Google Trends gerados:', {
+    console.log('✅ Dados REAIS do Google Trends (SerpAPI):', {
       keywords: results.keywords.length,
       destinations: results.destinations.length,
       topDestination: results.destinations[0]?.name
     });
 
-    return results;
+    return results.keywords.length > 0 ? results : null;
   } catch (error) {
-    console.error('❌ Erro ao buscar Google Trends:', error);
+    console.error('❌ Erro ao buscar Google Trends real:', error);
     return null;
   }
 }

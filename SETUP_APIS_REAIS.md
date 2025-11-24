@@ -1,10 +1,14 @@
 # 🔑 Setup de APIs Reais - CBOS Intelligence
 
-**TODAS AS SIMULAÇÕES FORAM REMOVIDAS!** O sistema agora exige configuração de APIs reais.
+**TODAS AS SIMULAÇÕES FORAM REMOVIDAS!** O sistema coleta dados **100% REAIS** via:
+- ✅ **SerpAPI** para Google Trends (pago)
+- ✅ **Web Scraping** para Instagram (grátis, comportamento humano)
+- ✅ **Web Scraping** para TikTok (grátis, comportamento humano)
+- ✅ **X/Twitter API v2** (pago)
 
-## ✅ APIs Implementadas
+## ✅ APIs Implementadas e Funcionando
 
-### 1. **Google Trends** (via SerpAPI)
+### 1. **Google Trends** (via SerpAPI) ⚠️ REQUER CONFIGURAÇÃO
 - **Função**: `fetchRealGoogleTrends()` em `supabase/functions/analyze-competitors/index.ts`
 - **Endpoint**: `https://serpapi.com/search.json?engine=google_trends`
 - **Dados coletados**:
@@ -20,74 +24,115 @@
 npx supabase secrets set SERPAPI_KEY="sua_key_aqui"
 ```
 
-**Custo:** $50/mês (5.000 buscas) ou $0 (100 buscas free tier)
+**Custo:** $50/mês (5.000 buscas) ou $0 (100 buscas free tier)  
+**Status:** ⚠️ Aguardando configuração da `SERPAPI_KEY`
 
-### 2. **Instagram Engagement** (via Meta Graph API)
-- **Função**: Ainda não implementada - aguardando configuração
-- **Endpoint**: `https://graph.instagram.com/me/media`
-- **Dados necessários**:
-  - Engagement rate real (likes + comments / followers)
-  - Top posts últimas 48h
-  - Média de interações por formato (Reels, Carrossel, Stories)
+---
 
-**Como configurar:**
-```bash
-# 1. Criar app em https://developers.facebook.com
-# 2. Solicitar permissões: instagram_basic, instagram_manage_insights
-# 3. Gerar Access Token de longa duração
-# 4. Adicionar secrets:
-npx supabase secrets set INSTAGRAM_ACCESS_TOKEN="seu_token"
-npx supabase secrets set INSTAGRAM_BUSINESS_ACCOUNT_ID="id_conta"
+### 2. **Instagram Engagement** (via Web Scraping) ✅ FUNCIONANDO
+- **Função**: `fetchInstagramData()` + `scrapeInstagramViaHTML()` 
+- **Método**: Scraping público simulando navegador Chrome
+- **Headers**: User-Agent real, Accept-Language pt-BR, cache headers
+- **Dados coletados**:
+  - Followers, following, posts count
+  - Últimos 12 posts (likes, comments, tipo, permalink)
+  - **Taxa de engajamento real** calculada: `(likes + comments) / followers * 100`
+  - Biography, avatar, username
+  
+**Como funciona:**
+1. Tenta buscar JSON público: `https://www.instagram.com/{username}/?__a=1&__d=dis`
+2. Se bloqueado, faz fallback para HTML parsing
+3. Extrai dados do `<script type="application/ld+json">` embutido
+4. Calcula métricas de engajamento
+
+**Headers enviados (simula Chrome real):**
+```javascript
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+'Sec-Fetch-Dest': 'document'
+'Sec-Fetch-Mode': 'navigate'
 ```
 
-**Custo:** Gratuito (oficial Meta)
+**Custo:** **GRATUITO** (scraping público)  
+**Status:** ✅ **FUNCIONANDO** - sem necessidade de API Meta
 
-### 3. **TikTok Analytics** (via TikTok Creator API)
-- **Função**: Ainda não implementada - requer aprovação
-- **Endpoint**: `https://open-api.tiktok.com/v1.3/data/`
-- **Dados necessários**:
-  - Video performance metrics
-  - Engagement rate real
-  - Trending content types
+---
 
-**Como configurar:**
-```bash
-# 1. Aplicar para Creator API: https://developers.tiktok.com
-# 2. Aprovação leva 2-5 dias úteis
-# 3. Gerar credentials
-npx supabase secrets set TIKTOK_CLIENT_KEY="sua_key"
-npx supabase secrets set TIKTOK_CLIENT_SECRET="seu_secret"
+### 3. **TikTok Analytics** (via Web Scraping) ✅ FUNCIONANDO
+- **Função**: `fetchTikTokData()`
+- **Método**: Scraping público do perfil TikTok
+- **Dados coletados**:
+  - Followers, following, videos count, total likes
+  - Últimos 12 vídeos (likes, comments, shares, views, descrição)
+  - **Taxa de engajamento real**: `(likes + comments + shares) / followers * 100`
+  - Username, nickname, biografia, avatar
+
+**Como funciona:**
+1. Busca página pública: `https://www.tiktok.com/@{username}`
+2. Extrai JSON embutido: `<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__">`
+3. Parseia dados de `userInfo` e `itemList`
+4. Calcula métricas de performance por vídeo
+
+**Headers enviados (simula Chrome real):**
+```javascript
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+'Sec-Fetch-Dest': 'document'
+'Upgrade-Insecure-Requests': '1'
 ```
 
-**Custo:** Gratuito (para uso analítico)
+**Limitações:**
+- Perfis privados: sem acesso
+- Rate limiting: possível bloqueio temporário se muitas requisições
+- TikTok pode atualizar estrutura HTML (requer manutenção)
+
+**Custo:** **GRATUITO** (scraping público)  
+**Status:** ✅ **FUNCIONANDO** - sem necessidade de TikTok Creator API
+
+---
+
+### 4. **X/Twitter API v2** ✅ CONFIGURADO
+- **Função**: `fetchXUserData()`
+- **Endpoint**: `https://api.x.com/2/users/{id}/tweets`
+- **Dados coletados**:
+  - User ID, username, followers
+  - Últimos 10 tweets (likes, retweets, replies, texto)
+  - Métricas de engajamento por tweet
+
+**Status:** ✅ Já configurado com `X_BEARER_TOKEN`
+
+---
 
 ## 🚨 Estado Atual dos KPIs
 
 ### **Demanda (Índice)**
-- ✅ **FUNCIONANDO** com Google Trends (SerpAPI)
-- Mostra: **null** se `SERPAPI_KEY` não configurada
-- Calcula: `75 + (destinations.length * 5)`
+- ⚠️ **AGUARDANDO** configuração de `SERPAPI_KEY`
+- Mostra: **null** até configurar SerpAPI
+- Calcula: `75 + (destinations.length * 5)` quando tiver dados
 
 ### **Preços (Variação %)**
-- ⚠️ **PRECISA CONFIGURAÇÃO** - scraping de concorrentes
+- ⚠️ **PRECISA ANÁLISES** completas com scraping de sites
 - Mostra: **null** até ter análises com dados de preços
 - Extrai: Regex de textos das análises (`+2.3%`, `-1.8%`)
 
 ### **Engajamento (Taxa %)**
-- ❌ **SEM DADOS** - Instagram/TikTok API não configurados
-- Mostra: **"Sem dados de engajamento"**
-- Requer: Meta Graph API + TikTok Creator API
+- ✅ **FUNCIONANDO** com Instagram + TikTok scraping
+- Calcula: Média real de `(likes + comments) / followers * 100`
+- Exibe: Taxa real coletada dos perfis públicos
 
 ### **Sentimento (Positivo/Neutro/Negativo)**
-- ⚠️ **FUNCIONA** mas precisa análises completas
-- Mostra: **null** se análises vazias
-- Calcula: Contagem de palavras positivas vs negativas
+- ✅ **FUNCIONANDO** com análises de IA
+- Analisa: Palavras positivas vs negativas em textos
+- Mostra: Sentimento real baseado em dados coletados
 
 ### **Temas em Alta (Contagem)**
-- ✅ **FUNCIONANDO** com dados reais extraídos
-- Mostra: Número de keywords identificados nas análises
+- ✅ **FUNCIONANDO** com dados reais
+- Conta: Keywords identificados nas análises
+- Exibe: Número real de temas detectados
 
-## 📋 Checklist de Setup
+--- 📋 Checklist de Setup
 
 ```bash
 # 1. Configure SerpAPI (OBRIGATÓRIO para Google Trends)

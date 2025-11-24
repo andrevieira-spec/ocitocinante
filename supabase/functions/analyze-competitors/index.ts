@@ -619,7 +619,7 @@ Deno.serve(async (req) => {
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY') || '';
     const xBearerToken = Deno.env.get('X_BEARER_TOKEN') || '';
     const metaUserToken = Deno.env.get('META_USER_TOKEN') || '';
-    const googleSearchApiKey = Deno.env.get('GOOGLE_API_KEY') || '';
+    const googleSearchApiKey = Deno.env.get('GOOGLE_SEARCH_API_KEY') || '';
     const googleCxId = Deno.env.get('GOOGLE_CX_ID') || '';
     const googleYoutubeApiKey = Deno.env.get('GOOGLE_YOUTUBE_API_KEY') || '';
 

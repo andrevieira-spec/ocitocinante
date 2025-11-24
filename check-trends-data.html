@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Trends Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Verificar Dados do Google Trends</h1>
+    <button onclick="checkData()">Verificar Última Análise</button>
+    <pre id="output"></pre>
+
+    <script>
+        const supabase = window.supabase.createClient(
+            'https://wtpyatordibtxxeayxfr.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0cHlhdG9yZGlidHh4ZWF5eGZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDczNzQsImV4cCI6MjA3ODM4MzM3NH0.QaxWb-9SniAjALtU-IXJIvPQbXXBt9RCGXdvaWcji2Y'
+        );
+
+        async function checkData() {
+            const output = document.getElementById('output');
+            output.textContent = 'Carregando...\n';
+
+            // Buscar TODAS as análises para ver que tipos existem
+            const { data: allData, error: allError } = await supabase
+                .from('market_analysis')
+                .select('id, analysis_type, analyzed_at')
+                .order('analyzed_at', { ascending: false })
+                .limit(30);
+
+            if (allError) {
+                output.textContent = 'ERRO: ' + JSON.stringify(allError, null, 2);
+                return;
+            }
+
+            output.textContent = `=== ANÁLISES NO BANCO (últimas 30) ===\n`;
+            output.textContent += allData.map(a => `${a.analyzed_at} | ${a.analysis_type} | ID: ${a.id}`).join('\n');
+            output.textContent += `\n\n=== TOTAL: ${allData.length} análises ===\n\n`;
+
+            // Buscar última análise de google_trends OU trends
+            const { data, error } = await supabase
+                .from('market_analysis')
+                .select('*')
+                .in('analysis_type', ['google_trends', 'trends'])
+                .order('analyzed_at', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                output.textContent += '\nERRO ao buscar trends: ' + JSON.stringify(error, null, 2);
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                output.textContent += '\n❌ Nenhuma análise google_trends ou trends encontrada!';
+                output.textContent += '\n\n⚠️ VOCÊ PRECISA EXECUTAR UMA NOVA ANÁLISE!';
+                return;
+            }
+
+            const analysis = data[0];
+            
+            output.textContent += `\n\n=== ÚLTIMA ANÁLISE TRENDS ===
+ID: ${analysis.id}
+Data: ${analysis.analyzed_at}
+Tipo: ${analysis.analysis_type}
+
+=== DATA OBJECT ===
+${JSON.stringify(analysis.data, null, 2)}
+
+=== HOT_DESTINATIONS ===
+${JSON.stringify(analysis.data?.hot_destinations, null, 2)}
+
+=== TOP_KEYWORDS ===
+${JSON.stringify(analysis.data?.top_keywords, null, 2)}
+
+=== DATA_SOURCE ===
+${analysis.data?.data_source}
+
+=== INSIGHTS (primeiros 500 chars) ===
+${(analysis.insights || '').substring(0, 500)}
+
+=== RECOMMENDATIONS (primeiros 500 chars) ===
+${(analysis.recommendations || '').substring(0, 500)}
+`;
+        }
+    </script>
+</body>
+</html>

@@ -10,10 +10,11 @@ import { CompetitorsList } from '@/components/competitors/CompetitorsList';
 import { AccessRequestsManager } from '@/components/admin/AccessRequestsManager';
 import { GoogleApiHealthCheck } from '@/components/admin/GoogleApiHealthCheck';
 import { ExportImportManager } from '@/components/admin/ExportImportManager';
+import { DatabaseDiagnostics } from '@/components/admin/DatabaseDiagnostics';
 import { CanvaIntegration } from '@/components/canva/CanvaIntegration';
 import { BackToHomeButton } from '@/components/navigation/BackToHomeButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users, Palette, Activity, Package } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, Brain, TrendingUp, UserCheck, Sparkles, Users, Palette, Activity, Package, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
@@ -130,6 +131,10 @@ export default function Admin() {
               <Package className="w-4 h-4" />
               Export/Import
             </TabsTrigger>
+            <TabsTrigger value="diagnostics" className="gap-2">
+              <Database className="w-4 h-4" />
+              Diagnóstico DB
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="dashboard" className="flex-1 m-0 overflow-y-auto">
@@ -161,6 +166,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="export-import" className="flex-1 m-0 overflow-y-auto p-6">
           <ExportImportManager />
+        </TabsContent>
+        <TabsContent value="diagnostics" className="flex-1 m-0 overflow-y-auto p-6">
+          <DatabaseDiagnostics />
         </TabsContent>
       </Tabs>
     </div>

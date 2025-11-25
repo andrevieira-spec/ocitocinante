@@ -579,7 +579,40 @@ export const MarketOverview = () => {
   })();
   
   const calcPriceVariation = () => {
-    // 1. Buscar dados estruturados de preços (se houver scraping de preços)
+    // 1. Buscar preços médios extraídos das redes sociais
+    const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media' || a.analysis_type === 'quick');
+    const prices: number[] = [];
+    
+    for (const analysis of socialAnalyses) {
+      if (analysis.data?.instagram?.account?.avg_price) {
+        prices.push(analysis.data.instagram.account.avg_price);
+      }
+      if (analysis.data?.tiktok?.account?.avg_price) {
+        prices.push(analysis.data.tiktok.account.avg_price);
+      }
+      // Extrair preços individuais dos posts
+      if (analysis.data?.instagram?.media) {
+        const postPrices = analysis.data.instagram.media
+          .flatMap((post: any) => post.prices || [])
+          .filter((p: number) => p > 0);
+        prices.push(...postPrices);
+      }
+      if (analysis.data?.tiktok?.videos) {
+        const videoPrices = analysis.data.tiktok.videos
+          .flatMap((video: any) => video.prices || [])
+          .filter((p: number) => p > 0);
+        prices.push(...videoPrices);
+      }
+    }
+    
+    // Se encontrou preços, calcular média e retornar como "variação"
+    if (prices.length > 0) {
+      const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+      // Retornar preço médio formatado (não é variação, mas valor real)
+      return avgPrice.toFixed(0);
+    }
+    
+    // 2. Buscar dados estruturados de variação de preços (se houver)
     const priceAnalyses = analyses.filter(a => a.analysis_type === 'pricing' || a.analysis_type === 'quick');
     for (const analysis of priceAnalyses) {
       if (analysis.data?.price_variation) {
@@ -590,7 +623,7 @@ export const MarketOverview = () => {
       }
     }
     
-    // 2. Buscar no texto da análise
+    // 3. Buscar no texto da análise
     const text = (trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '').toLowerCase();
     
     const varMatch = text.match(/pre[çc]o.*?([+-]?\d+[.,]?\d*)%/i) || text.match(/varia[çã][ãa]o.*?([+-]?\d+[.,]?\d*)%/i);
@@ -751,9 +784,13 @@ export const MarketOverview = () => {
                   </div>
                   {priceVariation ? (
                     <>
-                      <div className="text-4xl font-bold text-text-primary mb-1">{priceVariation}%</div>
+                      <div className="text-4xl font-bold text-text-primary mb-1">
+                        {Number(priceVariation) > 100 ? `R$${Number(priceVariation).toLocaleString('pt-BR')}` : `${priceVariation}%`}
+                      </div>
                       <div className="flex items-center gap-1 text-xs">
-                        {Number(priceVariation) > 0 ? (
+                        {Number(priceVariation) > 100 ? (
+                          <><span className="text-text-muted">Preço médio</span></>
+                        ) : Number(priceVariation) > 0 ? (
                           <><TrendingUp className="w-3 h-3 text-danger" /><span className="text-danger">Subindo</span></>
                         ) : Number(priceVariation) < 0 ? (
                           <><TrendingDown className="w-3 h-3 text-success" /><span className="text-success">Caindo</span></>

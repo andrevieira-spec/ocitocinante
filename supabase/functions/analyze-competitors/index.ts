@@ -7,6 +7,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função auxiliar para extrair preços de textos (posts, descrições, etc.)
+function extractPricesFromText(text: string): number[] {
+  if (!text) return [];
+  
+  const prices: number[] = [];
+  
+  // Padrões de preços brasileiros
+  // R$ 1.999,00 | R$1999 | 1.999,00 | 1999 | a partir de R$ 500
+  const patterns = [
+    /R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/gi,  // R$ 1.999,00
+    /(?:^|\s)(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)(?:\s*reais?)/gi,  // 1999 reais
+    /(?:partir de|desde|por apenas|de)\s*R?\$?\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/gi  // a partir de R$ 500
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      const priceStr = match[1].replace(/\./g, '').replace(',', '.');
+      const price = parseFloat(priceStr);
+      if (price >= 100 && price <= 50000) { // Preços razoáveis para viagens
+        prices.push(price);
+      }
+    }
+  }
+  
+  return prices;
+}
+
 // Função para buscar dados REAIS do Google Trends via scraping direto (GRÁTIS)
 async function fetchRealGoogleTrends(keywords: string[] = ['turismo Brasil', 'viagem Brasil', 'pacotes turismo']): Promise<any> {
   try {
@@ -423,24 +451,30 @@ async function fetchInstagramData(instagramUrl: string) {
       const node = edge.node;
       const likes = node.edge_liked_by?.count || 0;
       const comments = node.edge_media_to_comment?.count || 0;
+      const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || '';
       
       return {
         id: node.id,
-        caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || '',
+        caption: caption,
         media_type: node.__typename === 'GraphVideo' ? 'VIDEO' : 'IMAGE',
         permalink: `https://www.instagram.com/p/${node.shortcode}/`,
         timestamp: new Date(node.taken_at_timestamp * 1000).toISOString(),
         like_count: likes,
         comments_count: comments,
-        engagement: likes + comments
+        engagement: likes + comments,
+        prices: extractPricesFromText(caption)
       };
     });
 
     const followers = user.edge_followed_by?.count || 0;
     const totalEngagement = media.reduce((sum: number, post: any) => sum + post.engagement, 0);
     const avgEngagementRate = followers > 0 ? ((totalEngagement / media.length) / followers * 100).toFixed(2) : '0';
+    
+    // Extrair todos os preços encontrados
+    const allPrices = media.flatMap((post: any) => post.prices || []);
+    const avgPrice = allPrices.length > 0 ? (allPrices.reduce((a, b) => a + b, 0) / allPrices.length) : null;
 
-    console.log(`✅ Instagram scraped: ${media.length} posts, ${followers} seguidores, ${avgEngagementRate}% engajamento`);
+    console.log(`✅ Instagram scraped: ${media.length} posts, ${followers} seguidores, ${avgEngagementRate}% engajamento, ${allPrices.length} preços encontrados`);
     
     return {
       account: {
@@ -451,7 +485,9 @@ async function fetchInstagramData(instagramUrl: string) {
         posts_count: user.edge_owner_to_timeline_media?.count || 0,
         biography: user.biography,
         profile_pic_url: user.profile_pic_url_hd,
-        avg_engagement_rate: avgEngagementRate
+        avg_engagement_rate: avgEngagementRate,
+        avg_price: avgPrice,
+        prices_found: allPrices.length
       },
       media: media
     };
@@ -556,24 +592,31 @@ async function fetchTikTokData(tiktokUrl: string) {
         // Calcular engajamento dos vídeos
         const videos = videoList.slice(0, 12).map((video: any) => {
           const stats = video.stats || {};
+          const description = video.desc || '';
+          
           return {
             id: video.id,
-            description: video.desc || '',
+            description: description,
             video_url: `https://www.tiktok.com/@${username}/video/${video.id}`,
             created_at: new Date(video.createTime * 1000).toISOString(),
             likes: stats.diggCount || 0,
             comments: stats.commentCount || 0,
             shares: stats.shareCount || 0,
             views: stats.playCount || 0,
-            engagement: (stats.diggCount || 0) + (stats.commentCount || 0) + (stats.shareCount || 0)
+            engagement: (stats.diggCount || 0) + (stats.commentCount || 0) + (stats.shareCount || 0),
+            prices: extractPricesFromText(description)
           };
         });
 
         const followers = userData.stats?.followerCount || 0;
         const totalEngagement = videos.reduce((sum: number, v: any) => sum + v.engagement, 0);
         const avgEngagementRate = followers > 0 ? ((totalEngagement / videos.length) / followers * 100).toFixed(2) : '0';
+        
+        // Extrair todos os preços encontrados
+        const allPrices = videos.flatMap((video: any) => video.prices || []);
+        const avgPrice = allPrices.length > 0 ? (allPrices.reduce((a, b) => a + b, 0) / allPrices.length) : null;
 
-        console.log(`✅ TikTok scraped: ${videos.length} vídeos, ${followers} seguidores, ${avgEngagementRate}% engajamento`);
+        console.log(`✅ TikTok scraped: ${videos.length} vídeos, ${followers} seguidores, ${avgEngagementRate}% engajamento, ${allPrices.length} preços encontrados`);
 
         return {
           account: {
@@ -585,7 +628,9 @@ async function fetchTikTokData(tiktokUrl: string) {
             likes_count: userData.stats?.heartCount || 0,
             biography: userData.signature || '',
             avatar_url: userData.avatarLarger,
-            avg_engagement_rate: avgEngagementRate
+            avg_engagement_rate: avgEngagementRate,
+            avg_price: avgPrice,
+            prices_found: allPrices.length
           },
           videos: videos
         };

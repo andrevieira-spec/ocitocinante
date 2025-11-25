@@ -125,7 +125,8 @@ export const DatabaseDiagnostics = () => {
       if (error) throw error;
 
       alert(`✅ ${diagnostics.emptyIds.length} análises vazias deletadas com sucesso!`);
-      runDiagnostics(); // Rerun diagnostics
+      // Force page reload to clear all caches
+      window.location.reload();
     } catch (error) {
       console.error('Erro ao deletar análises:', error);
       alert('Erro ao deletar análises. Veja o console.');

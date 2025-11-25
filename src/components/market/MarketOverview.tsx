@@ -673,15 +673,20 @@ export const MarketOverview = () => {
       if (analysis.data?.instagram?.media) {
         const postPrices = analysis.data.instagram.media
           .flatMap((post: any) => post.prices || [])
+          .map((p: any) => typeof p === 'object' ? p.value : p)
           .filter((p: number) => p > 0);
-        console.log('[MarketOverview] ✅ [NOVA] Instagram posts com preços:', postPrices.length, 'preços:', postPrices);
+        console.log('[MarketOverview] ✅ [NOVA] Instagram posts com preços:', postPrices.length, 'preços:', postPrices.slice(0, 5));
         prices.push(...postPrices);
       }
       if (analysis.data?.tiktok?.videos) {
         const videoPrices = analysis.data.tiktok.videos
           .flatMap((video: any) => video.prices || [])
+          .map((p: any) => typeof p === 'object' ? p.value : p)
           .filter((p: number) => p > 0);
-        console.log('[MarketOverview] ✅ [NOVA] TikTok vídeos com preços:', videoPrices.length, 'preços:', videoPrices);
+        console.log('[MarketOverview] ✅ [NOVA] TikTok vídeos com preços:', analysis.data.tiktok.videos.length, 'preços encontrados:', videoPrices.length);
+        if (videoPrices.length === 0 && analysis.data.tiktok.videos.length > 0) {
+          console.log('[MarketOverview] ⚠️ TikTok tem', analysis.data.tiktok.videos.length, 'vídeos mas 0 preços extraídos');
+        }
         prices.push(...videoPrices);
       }
       
@@ -712,7 +717,7 @@ export const MarketOverview = () => {
       }
     }
     
-    console.log('[MarketOverview] Total de preços encontrados:', prices.length, 'valores:', prices);
+    console.log('[MarketOverview] Total de preços encontrados:', prices.length, 'valores:', prices.slice(0, 10));
     
     // Se encontrou preços, calcular média e retornar como "variação"
     if (prices.length > 0) {
@@ -721,7 +726,11 @@ export const MarketOverview = () => {
       return avgPrice.toFixed(0);
     }
     
-    console.log('[MarketOverview] ⚠️ Nenhum preço encontrado, tentando texto...');
+    console.log('[MarketOverview] ⚠️ Nenhum preço encontrado nas análises');
+    console.log('[MarketOverview] 💡 TikTok scraping pode estar falhando (anti-bot protection)');
+    console.log('[MarketOverview] 💡 Verifique URLs dos concorrentes ou execute nova análise');
+    
+    // Fallback: tentar extrair do texto usando regex
     
     // 2. Buscar dados estruturados de variação de preços (se houver)
     const priceAnalyses = analyses.filter(a => a.analysis_type === 'pricing' || a.analysis_type === 'quick');
@@ -771,6 +780,25 @@ export const MarketOverview = () => {
         const rate = analysis.data.tiktok.account.avg_engagement_rate;
         console.log('[MarketOverview] ✅ [NOVA] TikTok engagement:', rate);
         return typeof rate === 'number' ? rate.toFixed(2) : rate;
+      }
+      
+      // CALCULAR MANUALMENTE se TikTok tem vídeos mas não tem avg_engagement_rate
+      if (analysis.data?.tiktok?.videos && Array.isArray(analysis.data.tiktok.videos) && analysis.data.tiktok.videos.length > 0) {
+        const videos = analysis.data.tiktok.videos;
+        const totalEngagement = videos.reduce((sum: number, v: any) => 
+          sum + (v.likes || 0) + (v.comments || 0) + (v.shares || 0), 0
+        );
+        const totalViews = videos.reduce((sum: number, v: any) => sum + (v.views || 0), 0);
+        
+        if (totalViews > 0) {
+          const calculatedRate = ((totalEngagement / totalViews) * 100).toFixed(2);
+          console.log('[MarketOverview] 🧮 Calculado TikTok engagement:', calculatedRate, '% de', videos.length, 'vídeos');
+          console.log('[MarketOverview]    Total engagement:', totalEngagement, 'Total views:', totalViews);
+          return calculatedRate;
+        } else {
+          console.log('[MarketOverview] ⚠️ TikTok tem', videos.length, 'vídeos mas 0 views - possível scraping falho');
+          return '0.00'; // TikTok scraping falhou
+        }
       }
       
       // 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA (instagram_metrics)
@@ -953,7 +981,10 @@ export const MarketOverview = () => {
                     <div className="text-sm text-text-muted py-4">
                       <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p className="text-center">Sem dados de preços</p>
-                      <p className="text-xs text-center mt-1">Aguardando coleta</p>
+                      <p className="text-xs text-center mt-1 text-orange-400">
+                        ⚠️ TikTok scraping pode estar bloqueado
+                      </p>
+                      <p className="text-xs text-center mt-1">Execute nova análise ou verifique URLs</p>
                     </div>
                   )}
                 </div>
@@ -995,7 +1026,9 @@ export const MarketOverview = () => {
                     <div className="text-sm text-text-muted py-4">
                       <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p className="text-center">Sem dados de engajamento</p>
-                      <p className="text-xs text-center mt-1">Configure Instagram/TikTok API</p>
+                      <p className="text-xs text-center mt-1 text-orange-400">
+                        {avgEngagement === '0.00' ? '⚠️ TikTok retornou 0 views (scraping falhou)' : '⚠️ Configure APIs ou verifique URLs'}
+                      </p>
                     </div>
                   )}
                 </div>

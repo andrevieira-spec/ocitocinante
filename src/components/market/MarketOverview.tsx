@@ -31,20 +31,29 @@ export const MarketOverview = () => {
 
   const loadOverview = async () => {
     try {
-      const { data, error } = await supabase
-        .from('market_analysis')
-        .select('*')
-        .in('analysis_type', ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends', 'strategy', 'quick'])
-        .order('analyzed_at', { ascending: false })
-        .limit(20); // Aumentar para 20 para ter mais dados
-
-      if (error) throw error;
-      console.log('[MarketOverview] ===== DADOS CARREGADOS =====');
-      console.log('[MarketOverview] Total de análises:', data?.length);
+      // 🔥 BUSCAR APENAS A ÚLTIMA ANÁLISE DE CADA TIPO (NÃO 20!)
+      const types = ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends', 'strategy', 'quick'];
+      const allLatestAnalyses: Analysis[] = [];
       
-      if (data && data.length > 0) {
+      for (const type of types) {
+        const { data, error } = await supabase
+          .from('market_analysis')
+          .select('*')
+          .eq('analysis_type', type)
+          .order('analyzed_at', { ascending: false })
+          .limit(1); // ← APENAS 1 ANÁLISE (A MAIS RECENTE) POR TIPO
+        
+        if (data && data.length > 0) {
+          allLatestAnalyses.push(data[0]);
+        }
+      }
+
+      console.log('[MarketOverview] ===== DADOS CARREGADOS (ÚLTIMA ANÁLISE DE CADA TIPO) =====');
+      console.log('[MarketOverview] Total de análises:', allLatestAnalyses.length);
+      
+      if (allLatestAnalyses.length > 0) {
         // Log detalhado de cada análise
-        data.forEach((analysis, idx) => {
+        allLatestAnalyses.forEach((analysis, idx) => {
           console.log(`[MarketOverview] Análise ${idx + 1}:`, {
             id: analysis.id,
             type: analysis.analysis_type,
@@ -65,16 +74,15 @@ export const MarketOverview = () => {
             } : null
           });
           
-          // NOVO: Log dos campos de texto críticos
-          if (idx < 3) { // Só logar as 3 mais recentes para não poluir
-            console.log(`[MarketOverview] 📝 Análise ${idx + 1} - insights (200 chars):`, analysis.insights?.substring(0, 200) || '(vazio)');
-            console.log(`[MarketOverview] 📝 Análise ${idx + 1} - recommendations (200 chars):`, analysis.recommendations?.substring(0, 200) || '(vazio)');
-          }
+          // Log dos campos de texto críticos
+          console.log(`[MarketOverview] 📝 Análise ${idx + 1} - insights (200 chars):`, analysis.insights?.substring(0, 200) || '(vazio)');
+          console.log(`[MarketOverview] 📝 Análise ${idx + 1} - recommendations (200 chars):`, analysis.recommendations?.substring(0, 200) || '(vazio)');
+          console.log(`[MarketOverview] 📅 Análise ${idx + 1} - data:`, new Date(analysis.analyzed_at || analysis.created_at).toLocaleString('pt-BR'));
         });
       }
       
       console.log('[MarketOverview] ==============================');
-      setAnalyses(data || []);
+      setAnalyses(allLatestAnalyses);
     } catch (error) {
       console.error('Erro ao carregar visão geral:', error);
     } finally {
@@ -863,7 +871,7 @@ export const MarketOverview = () => {
         <h2 className="text-3xl font-bold text-foreground">Visão Executiva</h2>
         <p className="text-sm text-text-muted mt-1">
           {analyses.length > 0 
-            ? `Última atualização: ${new Date(analyses[0].analyzed_at).toLocaleString('pt-BR', { 
+            ? `Última atualização: ${new Date(analyses[0].analyzed_at || analyses[0].created_at).toLocaleString('pt-BR', { 
                 day: '2-digit',
                 month: '2-digit',
                 hour: '2-digit', 
@@ -871,6 +879,11 @@ export const MarketOverview = () => {
               })}`
             : 'Dados aguardando análise'}
         </p>
+        {analyses.length > 0 && (
+          <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-400">
+            💡 <strong>Mostrando dados da ÚLTIMA análise de cada tipo</strong> - Se executou nova análise, os dados abaixo devem refletir a mais recente
+          </div>
+        )}
       </div>
 
       {analyses.length === 0 ? (

@@ -9,18 +9,39 @@ export const DatabaseDiagnostics = () => {
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [viewMode, setViewMode] = useState<'latest' | 'last20'>('latest'); // NEW
 
   const runDiagnostics = async () => {
     setLoading(true);
     try {
-      // Buscar últimas 20 análises
-      const { data: analyses, error } = await supabase
-        .from('market_analysis')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
+      let analyses: any[] = [];
+      
+      if (viewMode === 'latest') {
+        // 🔥 BUSCAR APENAS A ÚLTIMA DE CADA TIPO
+        const types = ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends', 'strategy', 'quick'];
+        for (const type of types) {
+          const { data, error } = await supabase
+            .from('market_analysis')
+            .select('*')
+            .eq('analysis_type', type)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          if (data && data.length > 0) {
+            analyses.push(data[0]);
+          }
+        }
+      } else {
+        // Buscar últimas 20 análises (modo antigo)
+        const { data, error } = await supabase
+          .from('market_analysis')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20);
 
-      if (error) throw error;
+        if (error) throw error;
+        analyses = data || [];
+      }
 
       // Analisar dados
       const stats = {
@@ -144,23 +165,41 @@ export const DatabaseDiagnostics = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button 
-          onClick={runDiagnostics} 
-          disabled={loading}
-          className="w-full"
-        >
-          {loading ? (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Analisando...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Executar Diagnóstico
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={runDiagnostics} 
+            disabled={loading}
+            className="flex-1"
+          >
+            {loading ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Analisando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Executar Diagnóstico
+              </>
+            )}
+          </Button>
+          <Button
+            variant={viewMode === 'latest' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('latest')}
+            title="Mostra apenas a última análise de cada tipo (RECOMENDADO)"
+          >
+            Última por tipo
+          </Button>
+          <Button
+            variant={viewMode === 'last20' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('last20')}
+            title="Mostra as últimas 20 análises (todas)"
+          >
+            Últimas 20
+          </Button>
+        </div>
 
         {diagnostics && (
           <div className="space-y-4">

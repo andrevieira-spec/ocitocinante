@@ -579,6 +579,18 @@ export const MarketOverview = () => {
   })();
   
   const calcPriceVariation = () => {
+    // 1. Buscar dados estruturados de preços (se houver scraping de preços)
+    const priceAnalyses = analyses.filter(a => a.analysis_type === 'pricing' || a.analysis_type === 'quick');
+    for (const analysis of priceAnalyses) {
+      if (analysis.data?.price_variation) {
+        return analysis.data.price_variation.toFixed(1);
+      }
+      if (analysis.data?.avg_price_change) {
+        return analysis.data.avg_price_change.toFixed(1);
+      }
+    }
+    
+    // 2. Buscar no texto da análise
     const text = (trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '').toLowerCase();
     
     const varMatch = text.match(/pre[çc]o.*?([+-]?\d+[.,]?\d*)%/i) || text.match(/varia[çã][ãa]o.*?([+-]?\d+[.,]?\d*)%/i);
@@ -593,21 +605,36 @@ export const MarketOverview = () => {
       return num ? `-${num}` : null;
     }
     
-    return null; // SEM DADOS REAIS - não inventar
+    return null; // SEM DADOS REAIS
   };
   const priceVariation = calcPriceVariation();
   
   const calcEngagement = () => {
+    // 1. Buscar dados estruturados de social media
+    const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media' || a.analysis_type === 'quick');
+    for (const analysis of socialAnalyses) {
+      // Tentar extrair do campo data (onde ficam os dados do scraping)
+      if (analysis.data?.instagram?.account?.avg_engagement_rate) {
+        return analysis.data.instagram.account.avg_engagement_rate.toFixed(2);
+      }
+      if (analysis.data?.tiktok?.account?.avg_engagement_rate) {
+        return analysis.data.tiktok.account.avg_engagement_rate.toFixed(2);
+      }
+      if (analysis.data?.youtube?.channel?.avg_engagement_rate) {
+        return analysis.data.youtube.channel.avg_engagement_rate.toFixed(2);
+      }
+    }
+    
+    // 2. Buscar no texto da análise como fallback
     const text = (trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '').toLowerCase();
     
     const engMatch = text.match(/engajamento.*?(\d+[.,]\d+)%/i) || text.match(/(\d+[.,]\d+)%.*?engajamento/i);
     if (engMatch) return engMatch[1].replace(',', '.');
     
-    // Extrair qualquer porcentagem próxima a palavras de engajamento
     const contextMatch = text.match(/(?:taxa|média|engajamento).*?(\d+[.,]\d+)%/i);
     if (contextMatch) return contextMatch[1].replace(',', '.');
     
-    return null; // SEM DADOS REAIS - não inventar
+    return null; // SEM DADOS REAIS
   };
   const avgEngagement = calcEngagement();
   

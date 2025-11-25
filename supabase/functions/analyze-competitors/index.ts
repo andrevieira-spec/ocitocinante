@@ -1192,12 +1192,31 @@ Seja específico e acionável.`;
           structuredData = { summary: {}, insights_of_day: [], raw_response: strategyAnalysis.data };
         }
         
+        // Limpar insights: remover blocos JSON e manter apenas texto
+        let cleanInsights = strategyAnalysis.insights;
+        let cleanRecommendations = strategyAnalysis.recommendations;
+        
+        // Remover blocos JSON (```json...```, `json{...}`, objetos JSON soltos)
+        cleanInsights = cleanInsights
+          .replace(/```json[\s\S]*?```/gi, '')
+          .replace(/```[\s\S]*?```/gi, '')
+          .replace(/`\s*json[\s\S]*?\{[\s\S]*?\}/gi, '')
+          .replace(/\{\s*"[^"]*":\s*[\s\S]*?\}/g, '')
+          .trim();
+        
+        cleanRecommendations = cleanRecommendations
+          .replace(/```json[\s\S]*?```/gi, '')
+          .replace(/```[\s\S]*?```/gi, '')
+          .replace(/`\s*json[\s\S]*?\{[\s\S]*?\}/gi, '')
+          .replace(/\{\s*"[^"]*":\s*[\s\S]*?\}/g, '')
+          .trim();
+        
         await supabase.from('market_analysis').insert({
           competitor_id: competitor.id,
           analysis_type: 'strategic_insights',
           data: structuredData,
-          insights: strategyAnalysis.insights,
-          recommendations: strategyAnalysis.recommendations,
+          insights: cleanInsights,
+          recommendations: cleanRecommendations,
           confidence_score: 0.90,
           is_automated
         });

@@ -64,6 +64,12 @@ export const MarketOverview = () => {
               avgPrice: analysis.data.tiktok.account?.avg_price
             } : null
           });
+          
+          // NOVO: Log dos campos de texto críticos
+          if (idx < 3) { // Só logar as 3 mais recentes para não poluir
+            console.log(`[MarketOverview] 📝 Análise ${idx + 1} - insights (200 chars):`, analysis.insights?.substring(0, 200) || '(vazio)');
+            console.log(`[MarketOverview] 📝 Análise ${idx + 1} - recommendations (200 chars):`, analysis.recommendations?.substring(0, 200) || '(vazio)');
+          }
         });
       }
       

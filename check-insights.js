@@ -21,13 +21,12 @@ if (typesError) {
   });
 }
 
-// Pegar TODAS as análises de pricing e strategic_insights
+// Pegar as ÚLTIMAS 3 análises (mais recentes)
 const { data, error } = await supabase
   .from('market_analysis')
   .select('id, analysis_type, insights, recommendations, data, created_at')
-  .in('analysis_type', ['pricing', 'strategic_insights'])
   .order('created_at', { ascending: false })
-  .limit(5);
+  .limit(3);
 
 if (error) {
   console.error('Erro:', error);

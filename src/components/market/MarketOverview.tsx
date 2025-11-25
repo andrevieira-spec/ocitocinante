@@ -146,10 +146,16 @@ export const MarketOverview = () => {
   const summarizeInsights = (text: string): string => {
     if (!text || text.length < 200) return text;
     
-    // Remover cabeçalhos de tipo de análise e frases introdutórias genéricas
-    let cleanText = text.replace(/\[[\w_]+\]\n/g, '');
+    // 1. REMOVER BLOCOS JSON/CODE ANTES DE TUDO
+    let cleanText = text
+      .replace(/```json[\s\S]*?```/gi, '')
+      .replace(/```[\s\S]*?```/gi, '')
+      .replace(/``json[\s\S]*?/gi, '');
     
-    // Remover frases introdutórias repetitivas (analista estratégico, apresento análise, etc)
+    // 2. Remover cabeçalhos de tipo de análise e frases introdutórias genéricas
+    cleanText = cleanText.replace(/\[[\w_]+\]\n/g, '');
+    
+    // 3. Remover frases introdutórias repetitivas (analista estratégico, apresento análise, etc)
     const introPatterns = [
       /Como analista estratégico[^.!?]*[.!?]/gi,
       /apresento uma análise[^.!?]*[.!?]/gi,
@@ -255,10 +261,16 @@ export const MarketOverview = () => {
       return [];
     }
     
-    console.log('[MarketOverview] 📝 Texto de entrada tem', text.length, 'caracteres');
+    // 1. REMOVER BLOCOS JSON/CODE ANTES DE TUDO
+    const cleanText = text
+      .replace(/```json[\s\S]*?```/gi, '')
+      .replace(/```[\s\S]*?```/gi, '')
+      .replace(/``json[\s\S]*?/gi, '');
     
-    // Extrair frases completas que contenham recomendações/insights
-    const allSentences = text
+    console.log('[MarketOverview] 📝 Texto de entrada tem', cleanText.length, 'caracteres');
+    
+    // 2. Extrair frases completas que contenham recomendações/insights
+    const allSentences = cleanText
       .split(/\n+/)
       .map(s => s.trim())
       .filter(s => s.length >= 40 && s.length <= 400)
@@ -285,7 +297,7 @@ export const MarketOverview = () => {
     ];
     
     patterns.forEach((pattern, idx) => {
-      const matches = [...text.matchAll(pattern)];
+      const matches = [...cleanText.matchAll(pattern)];
       console.log(`[MarketOverview] 🔍 Pattern ${idx+1} encontrou ${matches.length} matches adicionais`);
       matches.forEach(match => {
         const action = match[1]?.trim();
@@ -301,7 +313,7 @@ export const MarketOverview = () => {
     console.log('[MarketOverview] 🎯 Total de', actions.length, 'ações/insights únicos extraídos');
     
     if (actions.length === 0) {
-      console.log('[MarketOverview] ⚠️ Nenhuma ação encontrada. Primeiras 800 chars do texto:', text.substring(0, 800));
+      console.log('[MarketOverview] ⚠️ Nenhuma ação encontrada. Primeiras 800 chars do texto:', cleanText.substring(0, 800));
       return [];
     }
     

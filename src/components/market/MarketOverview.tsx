@@ -150,7 +150,10 @@ export const MarketOverview = () => {
     let cleanText = text
       .replace(/```json[\s\S]*?```/gi, '')
       .replace(/```[\s\S]*?```/gi, '')
-      .replace(/``json[\s\S]*?/gi, '');
+      .replace(/``json[\s\S]*?``/gi, '')
+      .replace(/``[\s\S]*?``/gi, '')
+      .replace(/`json[\s\S]*?`/gi, '')
+      .replace(/\{[\s\S]*?"summary"[\s\S]*?\}/gi, '');
     
     // 2. Remover cabeçalhos de tipo de análise e frases introdutórias genéricas
     cleanText = cleanText.replace(/\[[\w_]+\]\n/g, '');
@@ -265,7 +268,10 @@ export const MarketOverview = () => {
     const cleanText = text
       .replace(/```json[\s\S]*?```/gi, '')
       .replace(/```[\s\S]*?```/gi, '')
-      .replace(/``json[\s\S]*?/gi, '');
+      .replace(/``json[\s\S]*?``/gi, '')
+      .replace(/``[\s\S]*?``/gi, '')
+      .replace(/`json[\s\S]*?`/gi, '')
+      .replace(/\{[\s\S]*?"summary"[\s\S]*?\}/gi, '');
     
     console.log('[MarketOverview] 📝 Texto de entrada tem', cleanText.length, 'caracteres');
     

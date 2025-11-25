@@ -34,13 +34,40 @@ export const MarketOverview = () => {
       const { data, error } = await supabase
         .from('market_analysis')
         .select('*')
-        .in('analysis_type', ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends', 'strategy'])
+        .in('analysis_type', ['social_media', 'pricing', 'strategic_insights', 'google_trends', 'trends', 'strategy', 'quick'])
         .order('analyzed_at', { ascending: false })
         .limit(20); // Aumentar para 20 para ter mais dados
 
       if (error) throw error;
-      console.log('[MarketOverview] Análises carregadas:', data?.length);
-      console.log('[MarketOverview] Primeira análise:', data?.[0]);
+      console.log('[MarketOverview] ===== DADOS CARREGADOS =====');
+      console.log('[MarketOverview] Total de análises:', data?.length);
+      
+      if (data && data.length > 0) {
+        // Log detalhado de cada análise
+        data.forEach((analysis, idx) => {
+          console.log(`[MarketOverview] Análise ${idx + 1}:`, {
+            id: analysis.id,
+            type: analysis.analysis_type,
+            date: analysis.analyzed_at,
+            hasData: !!analysis.data,
+            dataKeys: analysis.data ? Object.keys(analysis.data) : [],
+            instagram: analysis.data?.instagram ? {
+              hasAccount: !!analysis.data.instagram.account,
+              hasMedia: !!analysis.data.instagram.media,
+              avgEngagement: analysis.data.instagram.account?.avg_engagement_rate,
+              avgPrice: analysis.data.instagram.account?.avg_price
+            } : null,
+            tiktok: analysis.data?.tiktok ? {
+              hasAccount: !!analysis.data.tiktok.account,
+              hasVideos: !!analysis.data.tiktok.videos,
+              avgEngagement: analysis.data.tiktok.account?.avg_engagement_rate,
+              avgPrice: analysis.data.tiktok.account?.avg_price
+            } : null
+          });
+        });
+      }
+      
+      console.log('[MarketOverview] ==============================');
       setAnalyses(data || []);
     } catch (error) {
       console.error('Erro ao carregar visão geral:', error);
@@ -579,38 +606,80 @@ export const MarketOverview = () => {
   })();
   
   const calcPriceVariation = () => {
+    console.log('[MarketOverview] ===== CALCULANDO PREÇOS =====');
+    
     // 1. Buscar preços médios extraídos das redes sociais
     const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media' || a.analysis_type === 'quick');
+    console.log('[MarketOverview] Análises sociais para preços:', socialAnalyses.length);
+    
     const prices: number[] = [];
     
     for (const analysis of socialAnalyses) {
+      console.log('[MarketOverview] Verificando análise', analysis.id, 'para preços');
+      
+      // NOVA ESTRUTURA (com instagram.media[] e tiktok.videos[])
       if (analysis.data?.instagram?.account?.avg_price) {
+        console.log('[MarketOverview] ✅ [NOVA] Instagram avg_price:', analysis.data.instagram.account.avg_price);
         prices.push(analysis.data.instagram.account.avg_price);
       }
       if (analysis.data?.tiktok?.account?.avg_price) {
+        console.log('[MarketOverview] ✅ [NOVA] TikTok avg_price:', analysis.data.tiktok.account.avg_price);
         prices.push(analysis.data.tiktok.account.avg_price);
       }
-      // Extrair preços individuais dos posts
+      
+      // Extrair preços individuais dos posts (nova estrutura)
       if (analysis.data?.instagram?.media) {
         const postPrices = analysis.data.instagram.media
           .flatMap((post: any) => post.prices || [])
           .filter((p: number) => p > 0);
+        console.log('[MarketOverview] ✅ [NOVA] Instagram posts com preços:', postPrices.length, 'preços:', postPrices);
         prices.push(...postPrices);
       }
       if (analysis.data?.tiktok?.videos) {
         const videoPrices = analysis.data.tiktok.videos
           .flatMap((video: any) => video.prices || [])
           .filter((p: number) => p > 0);
+        console.log('[MarketOverview] ✅ [NOVA] TikTok vídeos com preços:', videoPrices.length, 'preços:', videoPrices);
         prices.push(...videoPrices);
       }
+      
+      // 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA (instagram_metrics)
+      if (analysis.data?.instagram_metrics?.account?.avg_price) {
+        console.log('[MarketOverview] ✅ [ANTIGA] Instagram_metrics avg_price:', analysis.data.instagram_metrics.account.avg_price);
+        prices.push(analysis.data.instagram_metrics.account.avg_price);
+      }
+      if (analysis.data?.tiktok_metrics?.account?.avg_price) {
+        console.log('[MarketOverview] ✅ [ANTIGA] TikTok_metrics avg_price:', analysis.data.tiktok_metrics.account.avg_price);
+        prices.push(analysis.data.tiktok_metrics.account.avg_price);
+      }
+      
+      // Extrair preços dos sample_posts (estrutura antiga)
+      if (analysis.data?.instagram_metrics?.sample_posts) {
+        const samplePrices = analysis.data.instagram_metrics.sample_posts
+          .flatMap((post: any) => post.prices || [])
+          .filter((p: number) => p > 0);
+        console.log('[MarketOverview] ✅ [ANTIGA] Instagram sample_posts com preços:', samplePrices.length, 'preços:', samplePrices);
+        prices.push(...samplePrices);
+      }
+      if (analysis.data?.tiktok_metrics?.sample_videos) {
+        const samplePrices = analysis.data.tiktok_metrics.sample_videos
+          .flatMap((video: any) => video.prices || [])
+          .filter((p: number) => p > 0);
+        console.log('[MarketOverview] ✅ [ANTIGA] TikTok sample_videos com preços:', samplePrices.length, 'preços:', samplePrices);
+        prices.push(...samplePrices);
+      }
     }
+    
+    console.log('[MarketOverview] Total de preços encontrados:', prices.length, 'valores:', prices);
     
     // Se encontrou preços, calcular média e retornar como "variação"
     if (prices.length > 0) {
       const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-      // Retornar preço médio formatado (não é variação, mas valor real)
+      console.log('[MarketOverview] ✅ Preço médio calculado:', avgPrice);
       return avgPrice.toFixed(0);
     }
+    
+    console.log('[MarketOverview] ⚠️ Nenhum preço encontrado, tentando texto...');
     
     // 2. Buscar dados estruturados de variação de preços (se houver)
     const priceAnalyses = analyses.filter(a => a.analysis_type === 'pricing' || a.analysis_type === 'quick');
@@ -645,28 +714,54 @@ export const MarketOverview = () => {
   const calcEngagement = () => {
     // 1. Buscar dados estruturados de social media
     const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media' || a.analysis_type === 'quick');
+    console.log('[MarketOverview] Analisando engajamento de', socialAnalyses.length, 'análises');
+    
     for (const analysis of socialAnalyses) {
-      // Tentar extrair do campo data (onde ficam os dados do scraping)
+      console.log('[MarketOverview] Análise', analysis.id);
+      
+      // NOVA ESTRUTURA (instagram.account.avg_engagement_rate)
       if (analysis.data?.instagram?.account?.avg_engagement_rate) {
-        return analysis.data.instagram.account.avg_engagement_rate.toFixed(2);
+        const rate = analysis.data.instagram.account.avg_engagement_rate;
+        console.log('[MarketOverview] ✅ [NOVA] Instagram engagement:', rate);
+        return typeof rate === 'number' ? rate.toFixed(2) : rate;
       }
       if (analysis.data?.tiktok?.account?.avg_engagement_rate) {
-        return analysis.data.tiktok.account.avg_engagement_rate.toFixed(2);
+        const rate = analysis.data.tiktok.account.avg_engagement_rate;
+        console.log('[MarketOverview] ✅ [NOVA] TikTok engagement:', rate);
+        return typeof rate === 'number' ? rate.toFixed(2) : rate;
       }
-      if (analysis.data?.youtube?.channel?.avg_engagement_rate) {
-        return analysis.data.youtube.channel.avg_engagement_rate.toFixed(2);
+      
+      // 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA (instagram_metrics)
+      if (analysis.data?.instagram_metrics?.account?.avg_engagement) {
+        const rate = analysis.data.instagram_metrics.account.avg_engagement;
+        console.log('[MarketOverview] ✅ [ANTIGA] Instagram_metrics engagement:', rate);
+        return typeof rate === 'number' ? rate.toFixed(2) : rate;
+      }
+      if (analysis.data?.tiktok_metrics?.account?.avg_engagement_rate) {
+        const rate = analysis.data.tiktok_metrics.account.avg_engagement_rate;
+        console.log('[MarketOverview] ✅ [ANTIGA] TikTok_metrics engagement:', rate);
+        return typeof rate === 'number' ? rate.toFixed(2) : rate;
       }
     }
+    
+    console.log('[MarketOverview] ⚠️ Nenhum dado estruturado de engajamento encontrado');
     
     // 2. Buscar no texto da análise como fallback
     const text = (trendsAnalysis?.insights || trendsAnalysis?.recommendations || strategyAnalysis?.insights || '').toLowerCase();
     
     const engMatch = text.match(/engajamento.*?(\d+[.,]\d+)%/i) || text.match(/(\d+[.,]\d+)%.*?engajamento/i);
-    if (engMatch) return engMatch[1].replace(',', '.');
+    if (engMatch) {
+      console.log('[MarketOverview] ✅ Engajamento extraído do texto:', engMatch[1]);
+      return engMatch[1].replace(',', '.');
+    }
     
     const contextMatch = text.match(/(?:taxa|média|engajamento).*?(\d+[.,]\d+)%/i);
-    if (contextMatch) return contextMatch[1].replace(',', '.');
+    if (contextMatch) {
+      console.log('[MarketOverview] ✅ Engajamento extraído do contexto:', contextMatch[1]);
+      return contextMatch[1].replace(',', '.');
+    }
     
+    console.log('[MarketOverview] ❌ Nenhum dado de engajamento encontrado');
     return null; // SEM DADOS REAIS
   };
   const avgEngagement = calcEngagement();
@@ -933,23 +1028,25 @@ export const MarketOverview = () => {
                           : 'Monitoramento ativo de tendências de mercado'}
                       </p>
                       <p className="text-xs text-text-muted mt-1">
-                        {Number(priceVariation) > 2 
+                        {priceVariation && Number(priceVariation) > 2 
                           ? 'Preços em alta - considere ajustar estratégia' 
                           : 'Preços estáveis - boa janela para promoções'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 p-3 bg-success/10 rounded-lg border border-success/20">
-                    <Sparkles className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-text-primary font-medium">
-                        Engajamento em alta de {avgEngagement}%
-                      </p>
-                      <p className="text-xs text-text-muted mt-1">
-                        Continue investindo em conteúdo de alto desempenho
-                      </p>
+                  {avgEngagement && (
+                    <div className="flex items-start gap-3 p-3 bg-success/10 rounded-lg border border-success/20">
+                      <Sparkles className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm text-text-primary font-medium">
+                          Engajamento em alta de {avgEngagement}%
+                        </p>
+                        <p className="text-xs text-text-muted mt-1">
+                          Continue investindo em conteúdo de alto desempenho
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-text-muted text-center py-4">

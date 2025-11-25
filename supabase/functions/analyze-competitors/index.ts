@@ -1078,7 +1078,16 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo curto
           );
           console.log('✅ Social media analysis completed');
           
-          const analysisData: any = { raw_response: socialAnalysis.data };
+          const analysisData: any = { 
+            raw_response: socialAnalysis.data,
+            // SALVAR DADOS COMPLETOS DAS REDES SOCIAIS (com preços extraídos)
+            instagram: instagramData || null,
+            tiktok: tiktokData || null,
+            youtube: youtubeData || null,
+            x: xData || null
+          };
+          
+          // Manter resumos para compatibilidade
           if (xData) {
             analysisData.x_metrics = {
               username: xData.user?.username,
@@ -1094,15 +1103,35 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo curto
             analysisData.instagram_metrics = {
               followers: instagramData.account.followers_count,
               posts_analyzed: instagramData.media.length,
+              avg_engagement: instagramData.account.avg_engagement_rate,
+              avg_price: instagramData.account.avg_price,
+              prices_found: instagramData.account.prices_found,
               sample_posts: instagramData.media.slice(0, 3).map((p: any) => ({
                 caption: p.caption?.substring(0, 100),
                 likes: p.like_count,
                 comments: p.comments_count,
                 type: p.media_type,
-                permalink: p.permalink
+                permalink: p.permalink,
+                prices: p.prices || []
               }))
             };
           }
+          if (tiktokData) {
+            analysisData.tiktok_metrics = {
+              followers: tiktokData.account.followers_count,
+              videos_analyzed: tiktokData.videos.length,
+              avg_engagement: tiktokData.account.avg_engagement_rate,
+              avg_price: tiktokData.account.avg_price,
+              prices_found: tiktokData.account.prices_found
+            };
+          }
+          
+          console.log('💾 Salvando análise social com dados completos:', {
+            hasInstagram: !!instagramData,
+            hasInstagramPrices: instagramData?.account?.prices_found || 0,
+            hasTikTok: !!tiktokData,
+            hasTikTokPrices: tiktokData?.account?.prices_found || 0
+          });
           
           await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
@@ -1110,7 +1139,7 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo curto
             data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: (xData || instagramData) ? 0.95 : 0.85,
+            confidence_score: (xData || instagramData || tiktokData) ? 0.95 : 0.85,
             is_automated
           });
           console.log('Quick social media analysis inserted');
@@ -1561,7 +1590,15 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo, form
             analyzeWithGemini(googleApiKey, socialPrompt)
           );
           
-          const analysisData: any = { raw_response: socialAnalysis.data };
+          const analysisData: any = { 
+            raw_response: socialAnalysis.data,
+            // SALVAR DADOS COMPLETOS DAS REDES SOCIAIS (com preços extraídos)
+            instagram: instagramData || null,
+            tiktok: tiktokData || null,
+            x: xData || null
+          };
+          
+          // Manter resumos para compatibilidade
           if (xData) {
             analysisData.x_metrics = {
               tweets_analyzed: xData.tweets.length,
@@ -1581,7 +1618,10 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo, form
               account: {
                 username: instagramData.account.username,
                 followers: instagramData.account.followers_count,
-                total_posts: instagramData.account.media_count
+                total_posts: instagramData.account.media_count,
+                avg_engagement: instagramData.account.avg_engagement_rate,
+                avg_price: instagramData.account.avg_price,
+                prices_found: instagramData.account.prices_found
               },
               posts_analyzed: instagramData.media.length,
               total_engagement: instagramData.media.reduce((acc: number, p: any) => {
@@ -1593,10 +1633,30 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo, form
                 comments: p.comments_count,
                 type: p.media_type,
                 timestamp: p.timestamp,
-                permalink: p.permalink
+                permalink: p.permalink,
+                prices: p.prices || []
               }))
             };
           }
+          if (tiktokData) {
+            analysisData.tiktok_metrics = {
+              account: {
+                username: tiktokData.account.username,
+                followers: tiktokData.account.followers_count,
+                avg_engagement: tiktokData.account.avg_engagement_rate,
+                avg_price: tiktokData.account.avg_price,
+                prices_found: tiktokData.account.prices_found
+              },
+              videos_analyzed: tiktokData.videos.length
+            };
+          }
+          
+          console.log('💾 Salvando análise social com dados completos (scheduled):', {
+            hasInstagram: !!instagramData,
+            hasInstagramPrices: instagramData?.account?.prices_found || 0,
+            hasTikTok: !!tiktokData,
+            hasTikTokPrices: tiktokData?.account?.prices_found || 0
+          });
           
           const { error: socialError } = await supabase.from('market_analysis').insert({
             competitor_id: competitor.id,
@@ -1604,7 +1664,7 @@ Use estes dados concretos do TikTok para identificar tendências de vídeo, form
             data: analysisData,
             insights: socialAnalysis.insights,
             recommendations: socialAnalysis.recommendations,
-            confidence_score: (xData || instagramData) ? 0.95 : 0.80,
+            confidence_score: (xData || instagramData || tiktokData) ? 0.95 : 0.80,
             is_automated
           });
           if (socialError) console.error('Error inserting social analysis:', socialError);

@@ -63,6 +63,7 @@ export const ProductPricing = () => {
           const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
           const competitorName = competitorMap.get(analysis.competitor_id) || 'Concorrente';
           
+          // ===== NOVA ESTRUTURA (instagram.media[] e tiktok.videos[]) =====
           // Extrair posts do Instagram com preços
           if (dataObj.instagram?.media && Array.isArray(dataObj.instagram.media)) {
             dataObj.instagram.media.forEach((post: any) => {
@@ -99,6 +100,49 @@ export const ProductPricing = () => {
                   comments: video.comments || 0,
                   engagement: video.engagement || 0,
                   posted_at: video.created_at || analysis.analyzed_at,
+                  scraped_at: analysis.analyzed_at
+                });
+              }
+            });
+          }
+          
+          // ===== 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA =====
+          // Extrair sample_posts do instagram_metrics (estrutura antiga)
+          if (dataObj.instagram_metrics?.sample_posts && Array.isArray(dataObj.instagram_metrics.sample_posts)) {
+            dataObj.instagram_metrics.sample_posts.forEach((post: any, idx: number) => {
+              if (post.prices && post.prices.length > 0) {
+                extractedPosts.push({
+                  id: `ig-old-${analysis.id}-${idx}`,
+                  platform: 'Instagram',
+                  competitor_name: competitorName,
+                  caption: post.caption || '',
+                  prices: post.prices,
+                  post_url: post.permalink || '',
+                  likes: post.like_count || 0,
+                  comments: post.comments_count || 0,
+                  engagement: (post.like_count || 0) + (post.comments_count || 0),
+                  posted_at: analysis.analyzed_at,
+                  scraped_at: analysis.analyzed_at
+                });
+              }
+            });
+          }
+          
+          // Extrair sample_videos do tiktok_metrics (estrutura antiga)
+          if (dataObj.tiktok_metrics?.sample_videos && Array.isArray(dataObj.tiktok_metrics.sample_videos)) {
+            dataObj.tiktok_metrics.sample_videos.forEach((video: any, idx: number) => {
+              if (video.prices && video.prices.length > 0) {
+                extractedPosts.push({
+                  id: `tt-old-${analysis.id}-${idx}`,
+                  platform: 'TikTok',
+                  competitor_name: competitorName,
+                  caption: video.description || '',
+                  prices: video.prices,
+                  post_url: video.video_url || '',
+                  likes: video.likes || 0,
+                  comments: video.comments || 0,
+                  engagement: (video.likes || 0) + (video.comments || 0),
+                  posted_at: analysis.analyzed_at,
                   scraped_at: analysis.analyzed_at
                 });
               }

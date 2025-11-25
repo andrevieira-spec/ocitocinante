@@ -148,12 +148,14 @@ export const MarketOverview = () => {
     
     // 1. REMOVER BLOCOS JSON/CODE ANTES DE TUDO
     let cleanText = text
+      // Remover markdown code blocks
       .replace(/```json[\s\S]*?```/gi, '')
       .replace(/```[\s\S]*?```/gi, '')
-      .replace(/``json[\s\S]*?``/gi, '')
-      .replace(/``[\s\S]*?``/gi, '')
-      .replace(/`json[\s\S]*?`/gi, '')
-      .replace(/\{[\s\S]*?"summary"[\s\S]*?\}/gi, '');
+      // Remover marcadores inline ` `json
+      .replace(/`\s*json[\s\S]*?\{[\s\S]*?\}/gi, '')
+      // Remover objetos JSON completos
+      .replace(/\{\s*"summary"[\s\S]*?\}/gi, '')
+      .replace(/\{\s*"demand_index"[\s\S]*?\}/gi, '');
     
     // 2. Remover cabeçalhos de tipo de análise e frases introdutórias genéricas
     cleanText = cleanText.replace(/\[[\w_]+\]\n/g, '');
@@ -266,12 +268,14 @@ export const MarketOverview = () => {
     
     // 1. REMOVER BLOCOS JSON/CODE ANTES DE TUDO
     const cleanText = text
+      // Remover markdown code blocks
       .replace(/```json[\s\S]*?```/gi, '')
       .replace(/```[\s\S]*?```/gi, '')
-      .replace(/``json[\s\S]*?``/gi, '')
-      .replace(/``[\s\S]*?``/gi, '')
-      .replace(/`json[\s\S]*?`/gi, '')
-      .replace(/\{[\s\S]*?"summary"[\s\S]*?\}/gi, '');
+      // Remover marcadores inline ` `json
+      .replace(/`\s*json[\s\S]*?\{[\s\S]*?\}/gi, '')
+      // Remover objetos JSON completos
+      .replace(/\{\s*"summary"[\s\S]*?\}/gi, '')
+      .replace(/\{\s*"demand_index"[\s\S]*?\}/gi, '');
     
     console.log('[MarketOverview] 📝 Texto de entrada tem', cleanText.length, 'caracteres');
     

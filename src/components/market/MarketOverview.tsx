@@ -371,7 +371,20 @@ export const MarketOverview = () => {
   
   const combinedInsights = getCombinedInsights();
   const summarizedInsights = combinedInsights ? summarizeInsights(combinedInsights) : null;
-  const top5Actions = combinedInsights ? extractTop5Actions(combinedInsights) : [];
+  
+  // Extrair ações direto do campo recommendations (não do texto combinado)
+  const getAllRecommendations = () => {
+    const allRecs: string[] = [];
+    analyses.forEach(analysis => {
+      if (analysis.recommendations?.trim()) {
+        allRecs.push(analysis.recommendations.trim());
+      }
+    });
+    return allRecs.join('\n\n');
+  };
+  
+  const recommendationsText = getAllRecommendations();
+  const top5Actions = recommendationsText ? extractTop5Actions(recommendationsText) : [];
 
   console.log('[MarketOverview] 📊 Insights resumidos:', summarizedInsights?.length || 0, 'chars');
   console.log('[MarketOverview] ✅ Top 5 ações:', top5Actions.length);

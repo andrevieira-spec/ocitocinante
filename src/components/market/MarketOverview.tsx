@@ -126,9 +126,10 @@ export const MarketOverview = () => {
     const seenTexts = new Set<string>();
     
     analyses.forEach(analysis => {
-      const bestText = analysis.data?.raw_response?.trim() || 
+      // PRIORIDADE: insights (limpo) > recommendations > raw_response (pode ter JSON)
+      const bestText = analysis.insights?.trim() || 
                        analysis.recommendations?.trim() || 
-                       analysis.insights?.trim();
+                       analysis.data?.raw_response?.trim();
       
       if (bestText && !seenTexts.has(bestText)) {
         allTexts.push(`[${analysis.analysis_type}]\n${bestText}`);

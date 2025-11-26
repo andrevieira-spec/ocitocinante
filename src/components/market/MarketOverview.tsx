@@ -665,7 +665,35 @@ export const MarketOverview = () => {
     const prices: number[] = [];
     
     for (const analysis of socialAnalyses) {
-      console.log('[MarketOverview] Verificando análise', analysis.id, 'para preços');
+      console.log('[MarketOverview] =====================================');
+      console.log('[MarketOverview] 🔍 ANÁLISE ID:', analysis.id);
+      console.log('[MarketOverview] 🔍 TIPO:', analysis.analysis_type);
+      console.log('[MarketOverview] 🔍 DATA COMPLETA:', JSON.stringify(analysis.data, null, 2).substring(0, 1000));
+      console.log('[MarketOverview] 🔍 TEM INSTAGRAM?', !!analysis.data?.instagram);
+      console.log('[MarketOverview] 🔍 TEM TIKTOK?', !!analysis.data?.tiktok);
+      
+      if (analysis.data?.instagram) {
+        console.log('[MarketOverview] 📸 Instagram:', {
+          hasAccount: !!analysis.data.instagram.account,
+          hasMedia: !!analysis.data.instagram.media,
+          mediaCount: analysis.data.instagram.media?.length || 0,
+          avgPrice: analysis.data.instagram.account?.avg_price
+        });
+      }
+      
+      if (analysis.data?.tiktok) {
+        console.log('[MarketOverview] 🎵 TikTok:', {
+          hasAccount: !!analysis.data.tiktok.account,
+          hasVideos: !!analysis.data.tiktok.videos,
+          videosCount: analysis.data.tiktok.videos?.length || 0,
+          avgPrice: analysis.data.tiktok.account?.avg_price,
+          firstVideo: analysis.data.tiktok.videos?.[0] ? {
+            hasPrices: !!analysis.data.tiktok.videos[0].prices,
+            pricesCount: analysis.data.tiktok.videos[0].prices?.length || 0
+          } : 'sem vídeos'
+        });
+      }
+      console.log('[MarketOverview] =====================================');
       
       // NOVA ESTRUTURA (com instagram.media[] e tiktok.videos[])
       if (analysis.data?.instagram?.account?.avg_price) {
@@ -773,10 +801,26 @@ export const MarketOverview = () => {
   const calcEngagement = () => {
     // 1. Buscar dados estruturados de social media
     const socialAnalyses = analyses.filter(a => a.analysis_type === 'social_media' || a.analysis_type === 'quick');
+    console.log('[MarketOverview] ===== CALCULANDO ENGAJAMENTO =====');
     console.log('[MarketOverview] Analisando engajamento de', socialAnalyses.length, 'análises');
     
     for (const analysis of socialAnalyses) {
-      console.log('[MarketOverview] Análise', analysis.id);
+      console.log('[MarketOverview] =====================================');
+      console.log('[MarketOverview] 🔍 ANÁLISE ID:', analysis.id);
+      console.log('[MarketOverview] 🔍 Instagram engagement rate:', analysis.data?.instagram?.account?.avg_engagement_rate);
+      console.log('[MarketOverview] 🔍 TikTok engagement rate:', analysis.data?.tiktok?.account?.avg_engagement_rate);
+      console.log('[MarketOverview] 🔍 TikTok videos count:', analysis.data?.tiktok?.videos?.length || 0);
+      
+      if (analysis.data?.tiktok?.videos && analysis.data.tiktok.videos.length > 0) {
+        const v = analysis.data.tiktok.videos[0];
+        console.log('[MarketOverview] 🔍 Primeiro vídeo TikTok:', {
+          likes: v.likes || 0,
+          comments: v.comments || 0,
+          shares: v.shares || 0,
+          views: v.views || 0
+        });
+      }
+      console.log('[MarketOverview] =====================================');
       
       // NOVA ESTRUTURA (instagram.account.avg_engagement_rate)
       if (analysis.data?.instagram?.account?.avg_engagement_rate) {

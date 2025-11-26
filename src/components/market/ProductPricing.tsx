@@ -36,18 +36,25 @@ export const ProductPricing = () => {
 
   const loadPosts = async () => {
     try {
-      console.log('[ProductPricing] Buscando posts com preços das redes sociais...');
+      console.log('[ProductPricing] ===== BUSCANDO POSTS COM PREÇOS =====');
       
-      // Buscar análises sociais recentes
-      const { data: analyses, error } = await supabase
+      // 🔥 BUSCAR APENAS A ÚLTIMA ANÁLISE SOCIAL (NÃO 10!)
+      const { data: latestSocial, error } = await supabase
         .from('market_analysis')
         .select('*')
-        .in('analysis_type', ['social_media', 'quick'])
+        .eq('analysis_type', 'social_media')
         .order('analyzed_at', { ascending: false })
-        .limit(10);
+        .limit(1);
 
       if (error) throw error;
-      console.log(`[ProductPricing] Carregadas ${analyses?.length || 0} análises`);
+      
+      const analyses = latestSocial || [];
+      console.log(`[ProductPricing] Carregadas ${analyses.length} análises (ÚLTIMA social_media)`);
+      
+      if (analyses.length > 0) {
+        console.log('[ProductPricing] 📅 Data da análise:', new Date(analyses[0].analyzed_at || analyses[0].created_at).toLocaleString('pt-BR'));
+        console.log('[ProductPricing] 🔍 Dados completos:', JSON.stringify(analyses[0].data, null, 2).substring(0, 500));
+      }
 
       const extractedPosts: PostWithPrice[] = [];
       
@@ -63,11 +70,30 @@ export const ProductPricing = () => {
           const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
           const competitorName = competitorMap.get(analysis.competitor_id) || 'Concorrente';
           
+          console.log('[ProductPricing] 🔍 Estrutura do dataObj:', {
+            hasInstagram: !!dataObj.instagram,
+            hasInstagramMedia: !!dataObj.instagram?.media,
+            instagramMediaCount: dataObj.instagram?.media?.length || 0,
+            hasTikTok: !!dataObj.tiktok,
+            hasTikTokVideos: !!dataObj.tiktok?.videos,
+            tiktokVideosCount: dataObj.tiktok?.videos?.length || 0
+          });
+          
           // ===== NOVA ESTRUTURA (instagram.media[] e tiktok.videos[]) =====
           // Extrair posts do Instagram com preços
           if (dataObj.instagram?.media && Array.isArray(dataObj.instagram.media)) {
-            dataObj.instagram.media.forEach((post: any) => {
+            console.log('[ProductPricing] 📸 Processando', dataObj.instagram.media.length, 'posts do Instagram');
+            
+            dataObj.instagram.media.forEach((post: any, postIdx: number) => {
+              console.log(`[ProductPricing] 📸 Post ${postIdx + 1}/${dataObj.instagram.media.length}:`, {
+                id: post.id,
+                hasPrices: !!post.prices,
+                pricesCount: post.prices?.length || 0,
+                caption: post.caption?.substring(0, 50) || 'sem legenda'
+              });
+              
               if (post.prices && post.prices.length > 0) {
+                console.log('[ProductPricing] 💰 Post COM preços:', post.prices);
                 extractedPosts.push({
                   id: `ig-${post.id}`,
                   platform: 'Instagram',
@@ -87,8 +113,18 @@ export const ProductPricing = () => {
           
           // Extrair vídeos do TikTok com preços
           if (dataObj.tiktok?.videos && Array.isArray(dataObj.tiktok.videos)) {
-            dataObj.tiktok.videos.forEach((video: any) => {
+            console.log('[ProductPricing] 🎵 Processando', dataObj.tiktok.videos.length, 'vídeos do TikTok');
+            
+            dataObj.tiktok.videos.forEach((video: any, videoIdx: number) => {
+              console.log(`[ProductPricing] 🎵 Vídeo ${videoIdx + 1}/${dataObj.tiktok.videos.length}:`, {
+                id: video.id,
+                hasPrices: !!video.prices,
+                pricesCount: video.prices?.length || 0,
+                description: video.description?.substring(0, 50) || 'sem descrição'
+              });
+              
               if (video.prices && video.prices.length > 0) {
+                console.log('[ProductPricing] 💰 Vídeo COM preços:', video.prices);
                 extractedPosts.push({
                   id: `tt-${video.id}`,
                   platform: 'TikTok',
@@ -154,7 +190,18 @@ export const ProductPricing = () => {
       // Ordenar por engajamento
       extractedPosts.sort((a, b) => b.engagement - a.engagement);
       
-      console.log(`[ProductPricing] ${extractedPosts.length} posts com preços encontrados`);
+      console.log('[ProductPricing] ✅ RESULTADO FINAL:', {
+        totalPostsComPrecos: extractedPosts.length,
+        porPlataforma: {
+          Instagram: extractedPosts.filter(p => p.platform === 'Instagram').length,
+          TikTok: extractedPosts.filter(p => p.platform === 'TikTok').length
+        }
+      });
+      
+      if (extractedPosts.length === 0) {
+        console.warn('[ProductPricing] ⚠️ NENHUM post com preços foi encontrado!');
+      }
+      
       setPosts(extractedPosts);
     } catch (error) {
       console.error('Erro ao carregar posts com preços:', error);

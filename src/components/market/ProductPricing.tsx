@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Package, Instagram, Music } from 'lucide-react';
+import { ExternalLink, Package, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,9 +36,9 @@ export const ProductPricing = () => {
 
   const loadPosts = async () => {
     try {
-      console.log('[ProductPricing] ===== BUSCANDO POSTS COM PREÇOS =====');
+      console.log('[ProductPricing] ===== BUSCANDO POSTS DO INSTAGRAM COM PREÇOS =====');
       
-      // 🔥 BUSCAR APENAS A ÚLTIMA ANÁLISE SOCIAL (NÃO 10!)
+      // 🔥 BUSCAR APENAS A ÚLTIMA ANÁLISE SOCIAL (SOMENTE INSTAGRAM)
       const { data: latestSocial, error } = await supabase
         .from('market_analysis')
         .select('*')
@@ -49,11 +49,11 @@ export const ProductPricing = () => {
       if (error) throw error;
       
       const analyses = latestSocial || [];
-      console.log(`[ProductPricing] Carregadas ${analyses.length} análises (ÚLTIMA social_media)`);
+      console.log(`[ProductPricing] 📸 Carregadas ${analyses.length} análises de Instagram`);
       
       if (analyses.length > 0) {
         console.log('[ProductPricing] 📅 Data da análise:', new Date(analyses[0].analyzed_at || analyses[0].created_at).toLocaleString('pt-BR'));
-        console.log('[ProductPricing] 🔍 Dados completos:', JSON.stringify(analyses[0].data, null, 2).substring(0, 500));
+        console.log('[ProductPricing] 📸 Dados Instagram:', JSON.stringify(analyses[0].data?.instagram, null, 2).substring(0, 500));
       }
 
       const extractedPosts: PostWithPrice[] = [];
@@ -70,16 +70,15 @@ export const ProductPricing = () => {
           const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
           const competitorName = competitorMap.get(analysis.competitor_id) || 'Concorrente';
           
-          console.log('[ProductPricing] 🔍 Estrutura do dataObj:', {
+          console.log('[ProductPricing] 📸 Estrutura do Instagram:', {
             hasInstagram: !!dataObj.instagram,
             hasInstagramMedia: !!dataObj.instagram?.media,
             instagramMediaCount: dataObj.instagram?.media?.length || 0,
-            hasTikTok: !!dataObj.tiktok,
-            hasTikTokVideos: !!dataObj.tiktok?.videos,
-            tiktokVideosCount: dataObj.tiktok?.videos?.length || 0
+            hasInstagramMetrics: !!dataObj.instagram_metrics,
+            instagramMetricsPosts: dataObj.instagram_metrics?.sample_posts?.length || 0
           });
           
-          // ===== NOVA ESTRUTURA (instagram.media[] e tiktok.videos[]) =====
+          // ===== NOVA ESTRUTURA (instagram.media[]) =====
           // Extrair posts do Instagram com preços
           if (dataObj.instagram?.media && Array.isArray(dataObj.instagram.media)) {
             console.log('[ProductPricing] 📸 Processando', dataObj.instagram.media.length, 'posts do Instagram');
@@ -111,40 +110,10 @@ export const ProductPricing = () => {
             });
           }
           
-          // Extrair vídeos do TikTok com preços
-          if (dataObj.tiktok?.videos && Array.isArray(dataObj.tiktok.videos)) {
-            console.log('[ProductPricing] 🎵 Processando', dataObj.tiktok.videos.length, 'vídeos do TikTok');
-            
-            dataObj.tiktok.videos.forEach((video: any, videoIdx: number) => {
-              console.log(`[ProductPricing] 🎵 Vídeo ${videoIdx + 1}/${dataObj.tiktok.videos.length}:`, {
-                id: video.id,
-                hasPrices: !!video.prices,
-                pricesCount: video.prices?.length || 0,
-                description: video.description?.substring(0, 50) || 'sem descrição'
-              });
-              
-              if (video.prices && video.prices.length > 0) {
-                console.log('[ProductPricing] 💰 Vídeo COM preços:', video.prices);
-                extractedPosts.push({
-                  id: `tt-${video.id}`,
-                  platform: 'TikTok',
-                  competitor_name: competitorName,
-                  caption: video.description || '',
-                  prices: video.prices,
-                  post_url: video.video_url || '',
-                  likes: video.likes || 0,
-                  comments: video.comments || 0,
-                  engagement: video.engagement || 0,
-                  posted_at: video.created_at || analysis.analyzed_at,
-                  scraped_at: analysis.analyzed_at
-                });
-              }
-            });
-          }
-          
           // ===== 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA =====
           // Extrair sample_posts do instagram_metrics (estrutura antiga)
           if (dataObj.instagram_metrics?.sample_posts && Array.isArray(dataObj.instagram_metrics.sample_posts)) {
+            console.log('[ProductPricing] 📸 Processando estrutura antiga:', dataObj.instagram_metrics.sample_posts.length, 'posts');
             dataObj.instagram_metrics.sample_posts.forEach((post: any, idx: number) => {
               if (post.prices && post.prices.length > 0) {
                 extractedPosts.push({
@@ -163,46 +132,24 @@ export const ProductPricing = () => {
               }
             });
           }
-          
-          // Extrair sample_videos do tiktok_metrics (estrutura antiga)
-          if (dataObj.tiktok_metrics?.sample_videos && Array.isArray(dataObj.tiktok_metrics.sample_videos)) {
-            dataObj.tiktok_metrics.sample_videos.forEach((video: any, idx: number) => {
-              if (video.prices && video.prices.length > 0) {
-                extractedPosts.push({
-                  id: `tt-old-${analysis.id}-${idx}`,
-                  platform: 'TikTok',
-                  competitor_name: competitorName,
-                  caption: video.description || '',
-                  prices: video.prices,
-                  post_url: video.video_url || '',
-                  likes: video.likes || 0,
-                  comments: video.comments || 0,
-                  engagement: (video.likes || 0) + (video.comments || 0),
-                  posted_at: analysis.analyzed_at,
-                  scraped_at: analysis.analyzed_at
-                });
-              }
-            });
-          }
         });
       }
 
-      // Ordenar por engajamento
-      extractedPosts.sort((a, b) => b.engagement - a.engagement);
+      // Filtrar apenas Instagram e ordenar por engajamento
+      const instagramPosts = extractedPosts.filter(p => p.platform === 'Instagram');
+      instagramPosts.sort((a, b) => b.engagement - a.engagement);
       
       console.log('[ProductPricing] ✅ RESULTADO FINAL:', {
-        totalPostsComPrecos: extractedPosts.length,
-        porPlataforma: {
-          Instagram: extractedPosts.filter(p => p.platform === 'Instagram').length,
-          TikTok: extractedPosts.filter(p => p.platform === 'TikTok').length
-        }
+        totalPostsInstagram: instagramPosts.length,
+        comPrecos: instagramPosts.filter(p => p.prices.length > 0).length
       });
       
-      if (extractedPosts.length === 0) {
-        console.warn('[ProductPricing] ⚠️ NENHUM post com preços foi encontrado!');
+      if (instagramPosts.length === 0) {
+        console.warn('[ProductPricing] ⚠️ NENHUM post do Instagram com preços foi encontrado!');
+        console.warn('[ProductPricing] 💡 Verifique se o Instagram está sendo coletado nas análises');
       }
       
-      setPosts(extractedPosts);
+      setPosts(instagramPosts);
     } catch (error) {
       console.error('Erro ao carregar posts com preços:', error);
       toast({
@@ -226,8 +173,8 @@ export const ProductPricing = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-pulse" />
-          <p className="text-muted-foreground">Carregando posts com preços...</p>
+          <Instagram className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-pulse" />
+          <p className="text-muted-foreground">Carregando posts do Instagram com preços...</p>
         </div>
       </div>
     );
@@ -238,9 +185,12 @@ export const ProductPricing = () => {
       <Card>
         <CardContent className="py-12">
           <div className="text-center text-muted-foreground">
-            <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">Nenhum preço encontrado</p>
-            <p className="text-sm">Execute uma análise para coletar preços das redes sociais</p>
+            <Instagram className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium mb-2">Nenhum preço encontrado no Instagram</p>
+            <p className="text-sm">Execute uma análise para coletar preços dos posts do Instagram</p>
+            <p className="text-xs mt-2 text-amber-600">
+              ⚠️ Nota: Esta aba mostra apenas dados do Instagram
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -250,9 +200,9 @@ export const ProductPricing = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold">Preços nos Posts das Redes Sociais</h2>
+        <h2 className="text-3xl font-bold">Preços nos Posts do Instagram</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          {posts.length} post(s) com preços detectados | Dados reais coletados via scraping
+          {posts.length} post(s) com preços detectados | Dados reais do Instagram via scraping
         </p>
       </div>
 
@@ -262,11 +212,7 @@ export const ProductPricing = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between mb-2">
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  {post.platform === 'Instagram' ? (
-                    <><Instagram className="w-3 h-3" /> Instagram</>
-                  ) : (
-                    <><Music className="w-3 h-3" /> TikTok</>
-                  )}
+                  <Instagram className="w-3 h-3" /> Instagram
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {new Date(post.posted_at).toLocaleDateString('pt-BR')}

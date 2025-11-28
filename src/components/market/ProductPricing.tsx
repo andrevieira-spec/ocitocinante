@@ -126,52 +126,69 @@ export const ProductPricing = () => {
               }
             });
           }
+        });
+      }
+      
+      // ===== PRIORIDADE 2: GOOGLE TRENDS (FALLBACK #1 - DESTINOS EM ALTA) =====
+      // Se Instagram falhou, usar dados do Google Trends para gerar "posts" sintéticos
+      const hasInstagramData = extractedPosts.some(p => p.id.startsWith('ig-'));
+      
+      console.log('[ProductPricing] 🔍 Verificando necessidade de fallback:', {
+        hasInstagramData,
+        hasTrendsData: !!trendsData,
+        hasHotDestinations: !!trendsData?.data?.hot_destinations
+      });
+      
+      if (!hasInstagramData && trendsData && trendsData.data?.hot_destinations) {
+        console.log('[ProductPricing] 🔍 Instagram falhou - usando Google Trends como fallback');
+        const destinations = Array.isArray(trendsData.data.hot_destinations) 
+          ? trendsData.data.hot_destinations 
+          : [];
+        
+        console.log('[ProductPricing] 🔍 Destinos disponíveis:', destinations.length);
+        
+        destinations.slice(0, 8).forEach((dest: any, idx: number) => {
+          // Estimar preços baseado no interesse (quanto maior o interesse, maior o preço médio)
+          const basePrice = 1500; // Base de R$1500
+          const interestFactor = (dest.interest_score || 50) / 100;
+          const estimatedPrice = Math.round(basePrice + (basePrice * interestFactor));
+          const priceRange = [
+            Math.round(estimatedPrice * 0.7),  // Pacote econômico
+            estimatedPrice,                     // Pacote padrão
+            Math.round(estimatedPrice * 1.5)   // Pacote premium
+          ];
           
-          // ===== PRIORIDADE 2: GOOGLE TRENDS (FALLBACK #1 - DESTINOS EM ALTA) =====
-          // Se Instagram falhou, usar dados do Google Trends para gerar "posts" sintéticos
-          const hasInstagramData = extractedPosts.some(p => p.id.startsWith('ig-'));
+          extractedPosts.push({
+            id: `google-${idx}`,
+            platform: 'Instagram',
+            competitor_name: 'Tendências Google',
+            caption: `🔥 Destino em alta: ${dest.name}\n\n` +
+                    `📊 Interesse atual: ${dest.interest_score}/100\n` +
+                    `🔎 Buscas estimadas: ${dest.estimated_searches || 'N/A'}\n\n` +
+                    `💡 Faixa de preço baseada na demanda do mercado`,
+            prices: priceRange,
+            post_url: `https://www.google.com/search?q=pacote+turismo+${encodeURIComponent(dest.name)}`,
+            likes: Math.round((dest.interest_score || 50) * 10),
+            comments: Math.round((dest.interest_score || 50) * 2),
+            engagement: Math.round((dest.interest_score || 50) * 12),
+            posted_at: trendsData.analyzed_at,
+            scraped_at: trendsData.analyzed_at
+          });
+        });
+        
+        console.log('[ProductPricing] 🔍 Criados', destinations.slice(0, 8).length, 'cards baseados em Google Trends');
+      }
+      
+      // ===== PRIORIDADE 3: YOUTUBE (FALLBACK #2 - VÍDEOS COM PREÇOS) =====
+      // Processar YouTube de todas as análises
+      if (analyses && analyses.length > 0) {
+        analyses.forEach((analysis) => {
+          const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
+          const competitorMap = new Map(competitors?.map(c => [c.id, c.name]) || []);
+          const competitorName = competitorMap.get(analysis.competitor_id) || 'Concorrente';
           
-          if (!hasInstagramData && trendsData && trendsData.data?.hot_destinations) {
-            console.log('[ProductPricing] 🔍 Instagram falhou - usando Google Trends como fallback');
-            const destinations = Array.isArray(trendsData.data.hot_destinations) 
-              ? trendsData.data.hot_destinations 
-              : [];
-            
-            destinations.slice(0, 8).forEach((dest: any, idx: number) => {
-              // Estimar preços baseado no interesse (quanto maior o interesse, maior o preço médio)
-              const basePrice = 1500; // Base de R$1500
-              const interestFactor = (dest.interest_score || 50) / 100;
-              const estimatedPrice = Math.round(basePrice + (basePrice * interestFactor));
-              const priceRange = [
-                Math.round(estimatedPrice * 0.7),  // Pacote econômico
-                estimatedPrice,                     // Pacote padrão
-                Math.round(estimatedPrice * 1.5)   // Pacote premium
-              ];
-              
-              extractedPosts.push({
-                id: `google-${idx}`,
-                platform: 'Instagram',
-                competitor_name: 'Tendências Google',
-                caption: `🔥 Destino em alta: ${dest.name}\n\n` +
-                        `📊 Interesse atual: ${dest.interest_score}/100\n` +
-                        `🔎 Buscas estimadas: ${dest.estimated_searches || 'N/A'}\n\n` +
-                        `💡 Faixa de preço baseada na demanda do mercado`,
-                prices: priceRange,
-                post_url: `https://www.google.com/search?q=pacote+turismo+${encodeURIComponent(dest.name)}`,
-                likes: Math.round((dest.interest_score || 50) * 10),
-                comments: Math.round((dest.interest_score || 50) * 2),
-                engagement: Math.round((dest.interest_score || 50) * 12),
-                posted_at: trendsData.analyzed_at,
-                scraped_at: trendsData.analyzed_at
-              });
-            });
-            
-            console.log('[ProductPricing] 🔍 Criados', destinations.slice(0, 8).length, 'cards baseados em Google Trends');
-          }
-          
-          // ===== PRIORIDADE 3: YOUTUBE (FALLBACK #2 - VÍDEOS COM PREÇOS) =====
           if (dataObj.youtube?.videos && Array.isArray(dataObj.youtube.videos)) {
-            console.log('[ProductPricing] 📺 Processando', dataObj.youtube.videos.length, 'vídeos do YouTube como fallback');
+            console.log('[ProductPricing] 📺 Processando', dataObj.youtube.videos.length, 'vídeos do YouTube');
             
             dataObj.youtube.videos.forEach((video: any, videoIdx: number) => {
               const description = video.description || '';
@@ -196,7 +213,7 @@ export const ProductPricing = () => {
                 console.log(`[ProductPricing] 📺 Vídeo ${videoIdx + 1} COM preços:`, prices);
                 extractedPosts.push({
                   id: `yt-${video.id}`,
-                  platform: 'Instagram',  // Manter como Instagram na UI
+                  platform: 'Instagram',
                   competitor_name: competitorName,
                   caption: `📺 ${title}\n${description.substring(0, 200)}...`,
                   prices: prices,
@@ -210,9 +227,17 @@ export const ProductPricing = () => {
               }
             });
           }
+        });
+      }
+      
+      // ===== 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA =====
+      // Extrair sample_posts do instagram_metrics (estrutura antiga)
+      if (analyses && analyses.length > 0) {
+        analyses.forEach((analysis) => {
+          const dataObj = typeof analysis.data === 'object' ? (analysis.data as any) : {};
+          const competitorMap = new Map(competitors?.map(c => [c.id, c.name]) || []);
+          const competitorName = competitorMap.get(analysis.competitor_id) || 'Concorrente';
           
-          // ===== 🔧 COMPATIBILIDADE RETROATIVA - ESTRUTURA ANTIGA =====
-          // Extrair sample_posts do instagram_metrics (estrutura antiga)
           if (dataObj.instagram_metrics?.sample_posts && Array.isArray(dataObj.instagram_metrics.sample_posts)) {
             console.log('[ProductPricing] 📸 Processando estrutura antiga:', dataObj.instagram_metrics.sample_posts.length, 'posts');
             dataObj.instagram_metrics.sample_posts.forEach((post: any, idx: number) => {

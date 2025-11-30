@@ -63,12 +63,15 @@ export const ProductPricing = () => {
       
       if (analyses.length > 0) {
         console.log('[ProductPricing] 📅 Data da análise:', new Date(analyses[0].analyzed_at || analyses[0].created_at).toLocaleString('pt-BR'));
-        console.log('[ProductPricing] 📸 Dados Instagram:', JSON.stringify(analyses[0].data?.instagram, null, 2).substring(0, 300));
-        console.log('[ProductPricing] 📺 Dados YouTube:', JSON.stringify(analyses[0].data?.youtube, null, 2).substring(0, 300));
+        const igData = JSON.stringify(analyses[0].data?.instagram, null, 2);
+        console.log('[ProductPricing] 📸 Dados Instagram:', igData ? igData.substring(0, 300) : 'null');
+        const ytData = JSON.stringify(analyses[0].data?.youtube, null, 2);
+        console.log('[ProductPricing] 📺 Dados YouTube:', ytData ? ytData.substring(0, 300) : 'null');
       }
       
       if (trendsData) {
-        console.log('[ProductPricing] 🔍 Dados Google Trends:', JSON.stringify(trendsData.data?.hot_destinations, null, 2).substring(0, 300));
+        const trendsJson = JSON.stringify(trendsData.data?.hot_destinations, null, 2);
+        console.log('[ProductPricing] 🔍 Dados Google Trends:', trendsJson ? trendsJson.substring(0, 300) : 'null');
       }
 
       const extractedPosts: PostWithPrice[] = [];

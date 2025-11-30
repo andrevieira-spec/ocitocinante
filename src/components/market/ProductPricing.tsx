@@ -104,11 +104,12 @@ export const ProductPricing = () => {
             console.log('[ProductPricing] 📸 Processando', dataObj.instagram.media.length, 'posts do Instagram');
             
             dataObj.instagram.media.forEach((post: any, postIdx: number) => {
+              const captionPreview = post.caption ? String(post.caption).substring(0, 50) : 'sem legenda';
               console.log(`[ProductPricing] 📸 Post ${postIdx + 1}/${dataObj.instagram.media.length}:`, {
                 id: post.id,
                 hasPrices: !!post.prices,
                 pricesCount: post.prices?.length || 0,
-                caption: post.caption?.substring(0, 50) || 'sem legenda'
+                caption: captionPreview
               });
               
               if (post.prices && post.prices.length > 0) {

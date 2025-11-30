@@ -70,11 +70,15 @@ export const ProductPricing = () => {
       }
       
       if (trendsData) {
-        console.log('[ProductPricing] 🔍 ESTRUTURA COMPLETA DO GOOGLE TRENDS:', {
-          hasData: !!trendsData.data,
-          dataKeys: trendsData.data ? Object.keys(trendsData.data) : [],
-          fullData: JSON.stringify(trendsData.data, null, 2).substring(0, 500)
-        });
+        const dataKeysArray = trendsData.data ? Object.keys(trendsData.data) : [];
+        const fullDataStr = JSON.stringify(trendsData.data, null, 2);
+        
+        console.log('[ProductPricing] 🔍 ESTRUTURA COMPLETA DO GOOGLE TRENDS:');
+        console.log('  - hasData:', !!trendsData.data);
+        console.log('  - dataKeys:', dataKeysArray);
+        console.log('  - fullData (500 chars):', fullDataStr ? fullDataStr.substring(0, 500) : 'null');
+        console.log('  - hot_destinations existe?', !!trendsData.data?.hot_destinations);
+        
         const trendsJson = JSON.stringify(trendsData.data?.hot_destinations, null, 2);
         console.log('[ProductPricing] 🔍 Dados hot_destinations:', trendsJson ? trendsJson.substring(0, 300) : 'null');
       }

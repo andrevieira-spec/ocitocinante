@@ -47,12 +47,28 @@ export const ProductPricing = () => {
         .limit(1);
 
       // Buscar Google Trends que tenha hot_destinations (pular análises sem estrutura correta)
-      const { data: allTrends } = await supabase
+      const { data: allTrends, error: trendsError } = await supabase
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'trends')
         .order('analyzed_at', { ascending: false })
         .limit(10); // Pegar últimas 10 para encontrar uma com hot_destinations
+      
+      console.log('[ProductPricing] 🔍 DEBUGANDO GOOGLE TRENDS:');
+      console.log('  - allTrends array length:', allTrends?.length || 0);
+      console.log('  - trendsError:', trendsError);
+      
+      if (allTrends && allTrends.length > 0) {
+        allTrends.forEach((trend, idx) => {
+          const dataKeys = trend.data ? Object.keys(trend.data) : [];
+          console.log(`  - Trend ${idx + 1}:`, {
+            date: new Date(trend.analyzed_at).toLocaleString('pt-BR'),
+            hasData: !!trend.data,
+            dataKeys: dataKeys,
+            hasHotDestinations: !!trend.data?.hot_destinations
+          });
+        });
+      }
       
       // Encontrar primeira análise com hot_destinations
       const trendsData = allTrends?.find(t => t.data?.hot_destinations) || null;
@@ -215,6 +231,10 @@ export const ProductPricing = () => {
               const description = video.description || '';
               const title = video.title || '';
               const fullText = `${title} ${description}`;
+              
+              console.log(`[ProductPricing] 📺 Vídeo ${videoIdx + 1}:`, title);
+              console.log(`[ProductPricing] 📺 Description completa:`, description);
+              console.log(`[ProductPricing] 📺 Full text length:`, fullText.length);
               
               // Extrair preços manualmente do texto
               const priceMatches = fullText.match(/R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/gi);

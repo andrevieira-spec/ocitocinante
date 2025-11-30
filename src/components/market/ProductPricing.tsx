@@ -70,8 +70,13 @@ export const ProductPricing = () => {
       }
       
       if (trendsData) {
+        console.log('[ProductPricing] 🔍 ESTRUTURA COMPLETA DO GOOGLE TRENDS:', {
+          hasData: !!trendsData.data,
+          dataKeys: trendsData.data ? Object.keys(trendsData.data) : [],
+          fullData: JSON.stringify(trendsData.data, null, 2).substring(0, 500)
+        });
         const trendsJson = JSON.stringify(trendsData.data?.hot_destinations, null, 2);
-        console.log('[ProductPricing] 🔍 Dados Google Trends:', trendsJson ? trendsJson.substring(0, 300) : 'null');
+        console.log('[ProductPricing] 🔍 Dados hot_destinations:', trendsJson ? trendsJson.substring(0, 300) : 'null');
       }
 
       const extractedPosts: PostWithPrice[] = [];

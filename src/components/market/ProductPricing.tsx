@@ -46,20 +46,28 @@ export const ProductPricing = () => {
         .order('analyzed_at', { ascending: false })
         .limit(1);
 
-      const { data: latestTrends, error: trendsError } = await supabase
+      // Buscar Google Trends que tenha hot_destinations (pular análises sem estrutura correta)
+      const { data: allTrends } = await supabase
         .from('market_analysis')
         .select('*')
         .eq('analysis_type', 'trends')
         .order('analyzed_at', { ascending: false })
-        .limit(1);
+        .limit(10); // Pegar últimas 10 para encontrar uma com hot_destinations
+      
+      // Encontrar primeira análise com hot_destinations
+      const trendsData = allTrends?.find(t => t.data?.hot_destinations) || null;
 
       if (socialError) throw socialError;
       
       const analyses = latestSocial || [];
-      const trendsData = latestTrends && latestTrends.length > 0 ? latestTrends[0] : null;
       
       console.log(`[ProductPricing] 📸 Carregadas ${analyses.length} análises sociais`);
       console.log(`[ProductPricing] 🔍 Google Trends disponível:`, !!trendsData);
+      
+      if (trendsData) {
+        console.log(`[ProductPricing] 📅 Google Trends data:`, new Date(trendsData.analyzed_at).toLocaleString('pt-BR'));
+        console.log(`[ProductPricing] ✅ hot_destinations encontrado:`, !!trendsData.data?.hot_destinations);
+      }
       
       if (analyses.length > 0) {
         console.log('[ProductPricing] 📅 Data da análise:', new Date(analyses[0].analyzed_at || analyses[0].created_at).toLocaleString('pt-BR'));

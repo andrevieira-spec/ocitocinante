@@ -38,7 +38,7 @@ export const ProductPricing = () => {
     try {
       console.log('[ProductPricing] ===== BUSCANDO POSTS COM PREÇOS =====');
       
-      // 🔥 BUSCAR ÚLTIMA ANÁLISE SOCIAL + GOOGLE TRENDS (PARA FALLBACK)
+      // 🔥 BUSCAR ÚLTIMA ANÁLISE SOCIAL
       const { data: latestSocial, error: socialError } = await supabase
         .from('market_analysis')
         .select('*')
@@ -46,44 +46,11 @@ export const ProductPricing = () => {
         .order('analyzed_at', { ascending: false })
         .limit(1);
 
-      // Buscar Google Trends que tenha hot_destinations (pular análises sem estrutura correta)
-      const { data: allTrends, error: trendsError } = await supabase
-        .from('market_analysis')
-        .select('*')
-        .eq('analysis_type', 'trends')
-        .order('analyzed_at', { ascending: false })
-        .limit(10); // Pegar últimas 10 para encontrar uma com hot_destinations
-      
-      console.log('[ProductPricing] 🔍 DEBUGANDO GOOGLE TRENDS:');
-      console.log('  - allTrends array length:', allTrends?.length || 0);
-      console.log('  - trendsError:', trendsError);
-      
-      if (allTrends && allTrends.length > 0) {
-        allTrends.forEach((trend, idx) => {
-          const dataKeys = trend.data ? Object.keys(trend.data) : [];
-          console.log(`  - Trend ${idx + 1}:`, {
-            date: new Date(trend.analyzed_at).toLocaleString('pt-BR'),
-            hasData: !!trend.data,
-            dataKeys: dataKeys,
-            hasHotDestinations: !!trend.data?.hot_destinations
-          });
-        });
-      }
-      
-      // Encontrar primeira análise com hot_destinations
-      const trendsData = allTrends?.find(t => t.data?.hot_destinations) || null;
-
       if (socialError) throw socialError;
       
       const analyses = latestSocial || [];
       
       console.log(`[ProductPricing] 📸 Carregadas ${analyses.length} análises sociais`);
-      console.log(`[ProductPricing] 🔍 Google Trends disponível:`, !!trendsData);
-      
-      if (trendsData) {
-        console.log(`[ProductPricing] 📅 Google Trends data:`, new Date(trendsData.analyzed_at).toLocaleString('pt-BR'));
-        console.log(`[ProductPricing] ✅ hot_destinations encontrado:`, !!trendsData.data?.hot_destinations);
-      }
       
       if (analyses.length > 0) {
         console.log('[ProductPricing] 📅 Data da análise:', new Date(analyses[0].analyzed_at || analyses[0].created_at).toLocaleString('pt-BR'));
@@ -91,20 +58,6 @@ export const ProductPricing = () => {
         console.log('[ProductPricing] 📸 Dados Instagram:', igData ? igData.substring(0, 300) : 'null');
         const ytData = JSON.stringify(analyses[0].data?.youtube, null, 2);
         console.log('[ProductPricing] 📺 Dados YouTube:', ytData ? ytData.substring(0, 300) : 'null');
-      }
-      
-      if (trendsData) {
-        const dataKeysArray = trendsData.data ? Object.keys(trendsData.data) : [];
-        const fullDataStr = JSON.stringify(trendsData.data, null, 2);
-        
-        console.log('[ProductPricing] 🔍 ESTRUTURA COMPLETA DO GOOGLE TRENDS:');
-        console.log('  - hasData:', !!trendsData.data);
-        console.log('  - dataKeys:', dataKeysArray);
-        console.log('  - fullData (500 chars):', fullDataStr ? fullDataStr.substring(0, 500) : 'null');
-        console.log('  - hot_destinations existe?', !!trendsData.data?.hot_destinations);
-        
-        const trendsJson = JSON.stringify(trendsData.data?.hot_destinations, null, 2);
-        console.log('[ProductPricing] 🔍 Dados hot_destinations:', trendsJson ? trendsJson.substring(0, 300) : 'null');
       }
 
       const extractedPosts: PostWithPrice[] = [];
@@ -166,54 +119,37 @@ export const ProductPricing = () => {
         });
       }
       
-      // ===== PRIORIDADE 2: GOOGLE TRENDS (FALLBACK #1 - DESTINOS EM ALTA) =====
-      // Se Instagram falhou, usar dados do Google Trends para gerar "posts" sintéticos
-      const hasInstagramData = extractedPosts.some(p => p.id.startsWith('ig-'));
-      
-      console.log('[ProductPricing] 🔍 Verificando necessidade de fallback:', {
-        hasInstagramData,
-        hasTrendsData: !!trendsData,
-        hasHotDestinations: !!trendsData?.data?.hot_destinations
-      });
-      
-      if (!hasInstagramData && trendsData && trendsData.data?.hot_destinations) {
-        console.log('[ProductPricing] 🔍 Instagram falhou - usando Google Trends como fallback');
-        const destinations = Array.isArray(trendsData.data.hot_destinations) 
-          ? trendsData.data.hot_destinations 
-          : [];
+      // ===== PRIORIDADE 2: GOOGLE SEARCH API (FALLBACK #1 - BUSCA DE PREÇOS NA WEB) =====
+      // Buscar preços de pacotes de viagens nas páginas dos concorrentes
+      try {
+        console.log('[ProductPricing] 🔍 Buscando preços via Google Search API...');
+        const { data: searchResults, error: searchError } = await supabase.functions.invoke('search-travel-prices');
         
-        console.log('[ProductPricing] 🔍 Destinos disponíveis:', destinations.length);
-        
-        destinations.slice(0, 8).forEach((dest: any, idx: number) => {
-          // Estimar preços baseado no interesse (quanto maior o interesse, maior o preço médio)
-          const basePrice = 1500; // Base de R$1500
-          const interestFactor = (dest.interest_score || 50) / 100;
-          const estimatedPrice = Math.round(basePrice + (basePrice * interestFactor));
-          const priceRange = [
-            Math.round(estimatedPrice * 0.7),  // Pacote econômico
-            estimatedPrice,                     // Pacote padrão
-            Math.round(estimatedPrice * 1.5)   // Pacote premium
-          ];
+        if (!searchError && searchResults?.results) {
+          console.log(`[ProductPricing] 🔍 Google Search retornou ${searchResults.results.length} resultados com preços`);
           
-          extractedPosts.push({
-            id: `google-${idx}`,
-            platform: 'Instagram',
-            competitor_name: 'Tendências Google',
-            caption: `🔥 Destino em alta: ${dest.name}\n\n` +
-                    `📊 Interesse atual: ${dest.interest_score}/100\n` +
-                    `🔎 Buscas estimadas: ${dest.estimated_searches || 'N/A'}\n\n` +
-                    `💡 Faixa de preço baseada na demanda do mercado`,
-            prices: priceRange,
-            post_url: `https://www.google.com/search?q=pacote+turismo+${encodeURIComponent(dest.name)}`,
-            likes: Math.round((dest.interest_score || 50) * 10),
-            comments: Math.round((dest.interest_score || 50) * 2),
-            engagement: Math.round((dest.interest_score || 50) * 12),
-            posted_at: trendsData.analyzed_at,
-            scraped_at: trendsData.analyzed_at
+          searchResults.results.forEach((result: any, idx: number) => {
+            extractedPosts.push({
+              id: `google-search-${idx}`,
+              platform: 'Instagram',
+              competitor_name: result.competitor_name,
+              caption: `🌐 ${result.title}\n\n${result.snippet}`,
+              prices: result.prices,
+              post_url: result.url,
+              likes: 0,
+              comments: 0,
+              engagement: 0,
+              posted_at: result.found_at,
+              scraped_at: result.found_at
+            });
           });
-        });
-        
-        console.log('[ProductPricing] 🔍 Criados', destinations.slice(0, 8).length, 'cards baseados em Google Trends');
+          
+          console.log('[ProductPricing] ✅ Adicionados', searchResults.results.length, 'resultados do Google Search');
+        } else if (searchError) {
+          console.error('[ProductPricing] ❌ Erro ao buscar preços via Google Search:', searchError);
+        }
+      } catch (error) {
+        console.error('[ProductPricing] ❌ Erro ao invocar search-travel-prices:', error);
       }
       
       // ===== PRIORIDADE 3: YOUTUBE (FALLBACK #2 - VÍDEOS COM PREÇOS) =====

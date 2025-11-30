@@ -59,3 +59,6 @@ verify_jwt = true
 
 [functions.bootstrap-admin]
 verify_jwt = true
+
+[functions.search-travel-prices]
+verify_jwt = true

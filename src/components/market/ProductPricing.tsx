@@ -211,11 +211,12 @@ export const ProductPricing = () => {
               
               if (prices.length > 0) {
                 console.log(`[ProductPricing] 📺 Vídeo ${videoIdx + 1} COM preços:`, prices);
+                const descriptionPreview = description ? description.substring(0, 200) : 'Sem descrição';
                 extractedPosts.push({
                   id: `yt-${video.id}`,
                   platform: 'Instagram',
-                  competitor_name: competitorName,
-                  caption: `📺 ${title}\n${description.substring(0, 200)}...`,
+                  competitor_name: competitorName || 'Concorrente',
+                  caption: `📺 ${title}\n${descriptionPreview}...`,
                   prices: prices,
                   post_url: `https://www.youtube.com/watch?v=${video.id}`,
                   likes: video.likes || 0,

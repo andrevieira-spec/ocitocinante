@@ -125,7 +125,9 @@ export const ProductPricing = () => {
         console.log('[ProductPricing] 🔍 Buscando preços via Google Search API...');
         const { data: searchResults, error: searchError } = await supabase.functions.invoke('search-travel-prices');
         
-        if (!searchError && searchResults?.results) {
+        if (searchError) {
+          console.error('[ProductPricing] ❌ Erro ao buscar preços via Google Search:', searchError);
+        } else if (searchResults?.results) {
           console.log(`[ProductPricing] 🔍 Google Search retornou ${searchResults.results.length} resultados com preços`);
           
           searchResults.results.forEach((result: any, idx: number) => {
@@ -145,8 +147,8 @@ export const ProductPricing = () => {
           });
           
           console.log('[ProductPricing] ✅ Adicionados', searchResults.results.length, 'resultados do Google Search');
-        } else if (searchError) {
-          console.error('[ProductPricing] ❌ Erro ao buscar preços via Google Search:', searchError);
+        } else {
+          console.log('[ProductPricing] ⚠️ Google Search API não retornou resultados');
         }
       } catch (error) {
         console.error('[ProductPricing] ❌ Erro ao invocar search-travel-prices:', error);

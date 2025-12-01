@@ -13,12 +13,12 @@ serve(async (req) => {
 
   try {
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
-    const GOOGLE_CX = Deno.env.get('GOOGLE_SEARCH_CX'); // Custom Search Engine ID
+    const GOOGLE_CX = Deno.env.get('GOOGLE_SEARCH_CX') || '017576662512468239146:omuauf_lfve'; // Default CSE ID
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!GOOGLE_API_KEY || !GOOGLE_CX) {
-      throw new Error('Google API credentials not configured');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY not configured');
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

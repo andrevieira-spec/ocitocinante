@@ -38,10 +38,8 @@ serve(async (req) => {
     // Para cada concorrente, fazer busca no Google
     for (const competitor of competitors || []) {
       const queries = [
-        `${competitor.name} pacotes viagem preço`,
-        `${competitor.name} promoção passagens`,
         `site:${competitor.website} preço pacote`,
-      ].filter(q => q);
+      ].filter(q => q && competitor.website);
 
       for (const query of queries) {
         try {
@@ -49,7 +47,7 @@ serve(async (req) => {
           searchUrl.searchParams.set('key', GOOGLE_API_KEY);
           searchUrl.searchParams.set('cx', GOOGLE_CX);
           searchUrl.searchParams.set('q', query);
-          searchUrl.searchParams.set('num', '5'); // 5 resultados por query
+          searchUrl.searchParams.set('num', '3'); // Reduzido para 3 resultados
 
           console.log(`[search-travel-prices] 🔍 Buscando: ${query}`);
 
